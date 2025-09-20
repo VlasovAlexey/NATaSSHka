@@ -1,0 +1,34 @@
+{
+  "port": 3000,
+  "password": "pass",
+  "stunServers": [
+    {"urls": "stun:stun.l.google.com:19302"},
+    {"urls": "stun:stun1.l.google.com:19302"}
+  ],
+  "killCode": "kill",
+  "killAllCode": "killall",
+  "maxFileSize": 52428800,
+  "audio": {
+    "sampleRate": 44100,
+    "sampleSize": 16,
+    "mimeType": "audio/webm"
+  },
+  "rtc_video": {
+    "width": 640,
+    "height": 480,
+    "frameRate": 30
+  },
+  "rtc_audio": {
+    "channelCount": 1,
+    "sampleRate": 44100,
+    "sampleSize": 16,
+    "echoCancellation": true,
+    "noiseSuppression": true
+  },
+  "videoRec_width": 640,
+  "videoRec_height": 480,
+  "videoRec_frameRate": 30,
+  "videoRec_bitrate": 2500000,
+  "videoRec_mimeType": "video/webm;codecs=vp9",
+  "encryptionDebounceDelay": 500
+}

@@ -1,0 +1,174 @@
+﻿.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 10px;
+    width: 400px;
+    max-width: 90%;
+    text-align: center;
+}
+
+.modal-content h2 {
+    margin-bottom: 20px;
+    color: #2d3e50;
+}
+
+.modal-content input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.modal-content input[type="password"] {
+    margin-bottom: 5px;
+}
+
+.modal-content button {
+    padding: 12px 25px;
+    background-color: #2d3e50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.modal-content button:hover {
+    background-color: #3c5065;
+}
+
+/* Стили для превью камеры */
+.camera-preview {
+    width: 50vw;
+    height: 50vh;
+    max-width: 640px;
+    max-height: 480px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#cameraPreview {
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+    border-radius: 10px;
+    object-fit: cover;
+}
+
+.recording-timer {
+    margin-top: 10px;
+    font-size: 1.2rem;
+    color: #f44336;
+    font-weight: bold;
+}
+
+/* Стили для интерфейса звонка */
+.call-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1002;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.video-container {
+    display: flex;
+    width: 90%;
+    height: 80%;
+    gap: 20px;
+}
+
+.video-container video {
+    width: 50%;
+    height: 100%;
+    background-color: #000;
+    border-radius: 10px;
+    object-fit: cover;
+}
+
+#localVideo {
+    transform: scaleX(-1);
+}
+
+.call-controls {
+    margin-top: 20px;
+}
+
+/* Стили для списка пользователей */
+#availableUsersList {
+    margin: 20px 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.user-call-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #f0f2f5;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.user-call-btn:hover {
+    background-color: #e0e0e0;
+}
+
+/* Приоритеты z-index для модальных окон */
+#preparingModal {
+    z-index: 1003;
+}
+
+#cameraPreviewModal {
+    z-index: 1004;
+}
+
+/* Стили для модального окна сообщений */
+.modal-ok-btn {
+    padding: 10px 20px;
+    background-color: #2d3e50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-top: 15px;
+}
+
+.modal-ok-btn:hover {
+    background-color: #3c5065;
+}
+
+#messageModal .modal-content {
+    text-align: center;
+}
+
+#messageModalText {
+    margin: 15px 0;
+    line-height: 1.5;
+}

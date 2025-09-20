@@ -1,0 +1,111 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NATaSSHka</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/chat.css">
+    <link rel="stylesheet" href="css/modal.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Сайдбар -->
+<div class="sidebar">
+    <div class="sidebar-header">
+        <div style="position: relative;">
+            <input type="password" id="encryptionKeyInput" placeholder="Ключ шифрования" class="encryption-input">
+            <button id="clearEncryptionKey" class="clear-key-btn">×</button>
+        </div>
+        <div class="user-info" id="userInfo"></div>
+        <div class="room-info" id="roomInfo"></div>
+    </div>
+    <div class="users-list" id="usersList"></div>
+</div>
+        
+        <!-- Основной чат -->
+        <div class="chat-container">
+            <div class="chat-header">
+                <h3 id="chatTitle">Чат комнаты</h3>
+            </div>
+            <div class="messages-container" id="messagesContainer"></div>
+            <div class="message-input-container">
+                <input type="text" id="messageInput" placeholder="Введите сообщение...">
+                <button id="recordButton" class="record-btn">🎤</button>
+                <button id="recordVideoBtn" class="record-btn">🎥</button>
+                <label for="fileInput" class="file-input-label">📎</label>
+                <input type="file" id="fileInput" hidden>
+                <button id="sendMessageBtn">Отправить</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно входа -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <h2>Вход в чат</h2>
+            <input type="text" id="usernameInput" placeholder="Имя пользователя">
+            <input type="text" id="roomInput" placeholder="Название комнаты" value="Room_01">
+            <input type="password" id="passwordInput" placeholder="Пароль">
+            <button id="joinChatBtn">Войти</button>
+            <div class="error-message" id="loginError"></div>
+        </div>
+    </div>
+    
+    <!-- Индикатор записи аудио -->
+    <div class="recording-indicator hidden" id="recordingIndicator">
+        <div class="recording-dot"></div>
+        Запись аудио...
+    </div>
+    
+    <!-- Индикатор записи видео -->
+    <div class="recording-indicator hidden" id="videoRecordingIndicator">
+        <div class="recording-dot"></div>
+        Запись видео...
+    </div>
+    
+    <!-- Модальное окно предпросмотра камеры -->
+    <div class="modal hidden" id="cameraPreviewModal">
+        <div class="modal-content camera-preview">
+            <video id="cameraPreview" autoplay muted></video>
+            <div class="recording-timer">0.0 сек</div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно подготовки устройства -->
+    <div class="modal hidden" id="preparingModal">
+        <div class="modal-content">
+            <h2>Подготовка устройства для записи. Ждите...</h2>
+        </div>
+    </div>
+    
+    <!-- Модальное окно сообщений -->
+    <div class="modal hidden" id="messageModal">
+        <div class="modal-content">
+            <h2 id="messageModalTitle">Сообщение</h2>
+            <p id="messageModalText"></p>
+            <button id="messageModalOkBtn" class="modal-ok-btn">OK</button>
+        </div>
+    </div>
+    
+    <!-- Полноэкранное изображение -->
+    <div class="fullscreen-image" id="fullscreenImage">
+        <span class="close-fullscreen">&times;</span>
+        <div id="expandedImage"></div>
+    </div>
+    
+    <!-- Скрипты -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="js/crypto.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/cookie.js"></script>
+    <script src="js/mediaDevices.js"></script>
+    <script src="js/audioRecorder.js"></script>
+    <script src="js/videoRecorder.js"></script>
+    <script src="js/webrtc.js"></script>
+    <script src="js/client.js"></script>
+</body>
+</html>

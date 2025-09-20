@@ -1,0 +1,206 @@
+﻿.message {
+    margin-bottom: 15px;
+    max-width: 70%;
+    padding: 10px 15px;
+    border-radius: 7.5px;
+    position: relative;
+    word-wrap: break-word;
+}
+
+.message.my-message {
+    background-color: #DCF8C6;
+    margin-left: auto;
+    border-top-right-radius: 0;
+}
+
+.message.other-message {
+    background-color: white;
+    margin-right: auto;
+    border-top-left-radius: 0;
+}
+
+.message-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.message-sender {
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.message-time {
+    color: #999;
+}
+
+.message-text {
+    line-height: 1.4;
+}
+
+.message-file {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 5px;
+    margin-top: 5px;
+    cursor: pointer;
+}
+
+.message-file img,
+.message-file video {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 5px;
+    cursor: pointer;
+    object-fit: contain;
+}
+
+.message-file a {
+    color: #2d3e50;
+    text-decoration: none;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.message-file a:hover {
+    text-decoration: underline;
+}
+
+.file-size {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 5px;
+}
+
+.message-audio {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 20px;
+    margin-top: 5px;
+    flex-direction: column;
+}
+
+.audio-play-btn {
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+}
+
+.audio-play-btn:hover {
+    background-color: #45a049;
+}
+
+.audio-play-btn.playing {
+    background-color: #ff9800;
+}
+
+.audio-duration {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 5px;
+}
+
+.system-message {
+    background-color: #e6e6e6 !important;
+    margin: 10px auto;
+    max-width: 80%;
+    text-align: center;
+    font-style: italic;
+    border-radius: 10px;
+}
+
+.killall-message {
+    background-color: #ff0000 !important;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2rem;
+    text-align: center;
+    margin: 10px auto;
+    max-width: 80%;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+/* Стили для цитирования */
+.message.quoted {
+    border: 2px solid #4CAF50;
+    border-radius: 7.5px;
+}
+
+.quote-block {
+    display: flex;
+    align-items: flex-start;
+    background-color: #f0f2f5;
+    border-left: 4px solid #4CAF50;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.quote-content {
+    flex-grow: 1;
+    margin-right: 10px;
+}
+
+.quote-username {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #4CAF50;
+    margin-bottom: 5px;
+}
+
+.quote-text {
+    font-size: 0.9rem;
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cancel-quote {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+}
+
+.message-quote {
+    background-color: #f0f2f5;
+    border-left: 4px solid #4CAF50;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+}
+
+.message-quote .quote-username {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #4CAF50;
+    margin-bottom: 4px;
+}
+
+.message-quote .quote-text {
+    font-size: 0.9rem;
+    color: #666;
+}
