@@ -1,6 +1,6 @@
 @echo off
 set CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe"
-set IP_ADDRESS=217.25.238.69
+set IP_ADDRESS=211.21.232.69
 set PORT=3000
 
 %CHROME_PATH% ^
