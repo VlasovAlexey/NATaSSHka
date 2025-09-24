@@ -13,9 +13,7 @@ html, body {
 body {
     background-color: #f0f2f5;
     height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    /* Убрано display: flex */
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }

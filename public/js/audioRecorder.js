@@ -372,6 +372,21 @@ class AudioRecorder {
             alert(message);
         }
     }
+    // Показать индикатор записи
+showRecordingIndicator() {
+    if (this.recordingIndicator) {
+        this.recordingIndicator.classList.remove('hidden');
+        // Устанавливаем текст
+        this.recordingIndicator.innerHTML = '<div class="recording-dot"></div>Запись аудио...';
+    }
+}
+
+// Скрыть индикатор записи
+hideRecordingIndicator() {
+    if (this.recordingIndicator) {
+        this.recordingIndicator.classList.add('hidden');
+    }
+}
 }
 
 // Инициализация при загрузке страницы

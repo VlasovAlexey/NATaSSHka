@@ -1,267 +1,308 @@
-﻿/* Кнопки */
+﻿/* Новые стили для анимированного контейнера ввода сообщений */
+.message-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.23s ease-in-out;
+}
+
+#messageInput {
+    flex-grow: 1;
+    padding: 12px 15px;
+    border: none;
+    border-radius: 20px;
+    outline: none;
+    font-size: 1rem;
+    transition: all 0.23s ease-in-out;
+    min-width: 50px;
+    background-color: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    caret-color: #2d3e50;
+}
+
+/* Мигающая каретка даже когда поле не в фокусе */
+#messageInput::after {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 20px;
+    background-color: #2d3e50;
+    animation: blink 1s infinite;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Показываем каретку когда поле пустое */
+.message-input-container:not(.has-text) #messageInput::after {
+    opacity: 1;
+}
+
+/* Скрываем каретку когда поле в фокусе или есть текст */
+.message-input-container.has-text #messageInput::after,
+#messageInput:focus::after {
+    opacity: 0;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* Убираем стандартный placeholder когда показываем каретку */
+.message-input-container:not(.has-text) #messageInput::placeholder {
+    color: transparent;
+}
+
+/* Контейнер для кнопок записи */
+.record-buttons-container {
+    display: flex;
+    gap: 5px;
+    transition: opacity 0.23s ease-in-out;
+    opacity: 1;
+    position: relative;
+    z-index: 1;
+}
+
+/* Контейнер для кнопки файла и отправки */
+.send-file-container {
+    position: relative;
+    width: 45px;
+    height: 45px;
+    z-index: 2;
+}
+
+/* Базовые стили для всех кнопок 
+.record-btn, .file-input-label, #sendMessageBtn, 
+.call-btn, .modal-content button, .user-call-btn,
+.audio-play-btn, .cancel-quote, .modal-ok-btn,
+.sidebar-toggle-btn {
+    outline: none !important;
+    border: none !important;
+    min-height: 45px;
+}
+*/
+/* Делаем кнопки круглыми если они еще не имеют большого скругления
+.record-btn, .file-input-label, #sendMessageBtn, 
+.audio-play-btn, .cancel-quote, .sidebar-toggle-btn {
+    border-radius: 50% !important;
+}
+ */
+/* Для больших кнопок оставляем существующее скругление
+.modal-content button, .user-call-btn, .modal-ok-btn,
+.call-btn {
+    border-radius: 22.5px !important;
+}
+ */
+/* Стили для кнопок записи */
 .record-btn {
-    padding: 12px;
+    width: 45px;
+    height: 45px;
+    padding: 0;
     background-color: #f44336;
     color: white;
     border: none;
     border-radius: 50%;
     cursor: pointer;
     font-size: 1.2rem;
-    margin: 0 5px;
-    width: 45px;
-    height: 45px;
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.record-btn:hover {
-    background-color: #d32f2f;
-}
-
-.record-btn:active {
-    background-color: #b71c1c;
-    transform: scale(0.95);
+    z-index: 1;
 }
 
 #recordVideoBtn {
     background-color: #2196F3;
 }
 
-#recordVideoBtn:hover {
-    background-color: #0b7dda;
+.record-btn:hover {
+    transform: scale(1.05);
+    transition: transform 0.23s ease-in-out;
 }
 
-#recordVideoBtn:active {
-    background-color: #0d47a1;
+.record-btn:active {
+    transform: scale(0.95);
 }
 
-.file-input-label {
-    font-size: 1.5rem;
-    margin: 0 10px;
-    cursor: pointer;
-    padding: 5px 10px;
+/* Состояние когда есть текст */
+.message-input-container.has-text .record-buttons-container {
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    overflow: hidden;
 }
 
+.message-input-container.has-text .file-input-label {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.message-input-container.has-text #sendMessageBtn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Состояние когда нет текста */
+.message-input-container:not(.has-text) #sendMessageBtn {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.message-input-container:not(.has-text) .record-buttons-container,
+.message-input-container:not(.has-text) .file-input-label {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Специфичные стили для кнопки отправки */
 #sendMessageBtn {
-    padding: 12px 20px;
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 45px;
+    height: 45px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    z-index: 3;
     background-color: #2d3e50;
     color: white;
     border: none;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 1rem;
-}
-
-#sendMessageBtn:hover {
-    background-color: #3c5065;
-}
-
-/* Поле ввода */
-#messageInput {
-    flex-grow: 1;
-    padding: 12px 15px;
-    border: 1px solid #e0e0e0;
-    border-radius: 20px;
-    outline: none;
-    font-size: 1rem;
-    min-width: 30px; /* Добавляем минимальную ширину */
-}
-
-#messageInput:focus {
-    border-color: #2d3e50;
-}
-
-/* Элементы пользователей */
-.user-item {
-    padding: 10px;
-    margin-bottom: 5px;
-    background-color: #3c5065;
-    border-radius: 5px;
     cursor: pointer;
 }
 
-.user-item:hover {
-    background-color: #4a6178;
+#sendMessageBtn:hover:not(:disabled) {
+    background-color: #3c5065;
+    transform: scale(1.05);
+    transition: all 0.23s ease-in-out;
 }
 
-/* Кнопки звонков */
-.call-buttons {
+#sendMessageBtn:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+#sendMessageBtn:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Стили для лейбла файла */
+.file-input-label {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 45px;
+    height: 45px;
     display: flex;
-    gap: 10px;
-    margin-left: auto;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    z-index: 2;
+    background-color: #2d3e50;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    transition: all 0.23s ease-in-out;
 }
 
+.file-input-label:hover {
+    background-color: #3c5065;
+    transform: scale(1.05);
+}
+
+.file-input-label:active {
+    transform: scale(0.95);
+}
+
+/* Стили для кнопок звонков */
 .call-btn {
-    padding: 8px 15px;
-    background-color: #4CAF50;
+    width: 45px;
+    height: 45px;
+    padding: 0;
+    background-color: #bbbbbb;
     color: white;
     border: none;
-    border-radius: 5px;
+    border-radius: 50%;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.23s ease-in-out;
 }
 
 .call-btn:hover {
-    background-color: #45a049;
+    background-color: #999999;
+    transform: scale(1.05);
 }
 
-.call-end-btn {
-    padding: 15px 30px;
-    background-color: #f44336;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    font-size: 1.2rem;
-    cursor: pointer;
+.call-btn:active {
+    transform: scale(0.95);
 }
 
-.call-end-btn:hover {
-    background-color: #d32f2f;
-}
-
-/* Индикаторы записи */
-.recording-indicator {
-    position: fixed;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: rgba(244, 67, 54, 0.9);
-    color: white;
-    padding: 10px 15px;
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    z-index: 100;
-}
-
-.recording-dot {
-    width: 12px;
-    height: 12px;
-    background-color: white;
-    border-radius: 50%;
-    margin-right: 8px;
-    animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.4; }
-    100% { opacity: 1; }
-}
-
-/* Полноэкранное изображение */
-.fullscreen-image {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.9);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1001;
-    display: none;
-}
-
-.close-fullscreen {
-    position: absolute;
-    top: 20px;
-    right: 30px;
-    color: white;
-    font-size: 40px;
-    cursor: pointer;
-    z-index: 1002;
-}
-
-#expandedImage {
-    max-width: 90%;
-    max-height: 90%;
-    object-fit: contain;
-}
-
-.fullscreen-image img,
-.fullscreen-image video {
-    max-width: 90%;
-    max-height: 90%;
-    object-fit: contain;
-}
-
-/* Сообщения об ошибках */
-.error-message {
-    color: #f44336;
-    margin-top: 10px;
-    display: none;
-}
-.encryption-input {
-    width: 100%;
-    padding: 8px;
-    margin-bottom: 10px;
-    border: 1px solid #3c5065;
-    border-radius: 5px;
-    background-color: #3c5065;
-    color: white;
-}
-
-.encryption-input::placeholder {
-    color: #a0aec0;
-}
-
-.encrypted-file-btn {
-    padding: 10px 15px;
-    background-color: #6c757d;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    text-align: center;
-    width: 100%;
-    margin-bottom: 5px;
-}
-
-.encrypted-file-btn:hover {
-    background-color: #5a6268;
-}
-
+/* Стили для информации о файле */
 .file-info {
-    font-size: 0.8rem;
-    color: #666;
-    text-align: center;
+    font-size: 0.9rem;
+    color: #bbbbbb;
     margin-top: 5px;
-}
-.encrypted-file-btn.error {
-    background-color: #dc3545;
-    color: white;
-    cursor: not-allowed;
+    line-height: 1.4;
 }
 
-.encrypted-file-btn.error:hover {
-    background-color: #c82333;
+/* Улучшенные стили для кнопок в модальных окнах */
+.modal-content button {
+    border-radius: 25px !important;
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    transition: all 0.23s ease-in-out;
+    outline: none !important;
+    border: none !important;
 }
-.clear-key-btn {
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
+
+/* Стили для кнопки отмены цитирования */
+.cancel-quote {
     background: none;
     border: none;
-    color: #a0aec0;
-    cursor: pointer;
     font-size: 1.2rem;
+    cursor: pointer;
+    color: #999;
     padding: 0;
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: all 0.23s ease-in-out;
 }
 
-.clear-key-btn:hover {
-    color: #fff;
+.cancel-quote:hover {
+    background-color: #f0f0f0;
+    color: #666;
 }
 
-.encryption-input {
-    padding-right: 30px; /* Чтобы текст не заезжал под крестик */
+/* Убираем обводки у всех кнопок файлов */
+.message-file button,
+.message-file a {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+}
+
+/* Убираем обводки у аудио кнопок */
+.audio-play-btn {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
 }

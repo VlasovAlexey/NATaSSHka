@@ -89,12 +89,14 @@ class WebRTCManager {
         modal.id = 'userSelectionModal';
         modal.className = 'modal hidden';
         modal.innerHTML = `
-            <div class="modal-content">
-                <h2>Выберите пользователя для звонка</h2>
-                <div id="availableUsersList"></div>
-                <button id="cancelCallBtn" class="call-btn">Отмена</button>
-            </div>
-        `;
+    <div class="modal-content">
+        <h2>Выберите пользователя для звонка</h2>
+        <div id="availableUsersList"></div>
+        <div class="modal-buttons-container">
+            <button id="cancelCallBtn" class="modal-call-btn">Отмена</button>
+        </div>
+    </div>
+`;
         document.body.appendChild(modal);
         
         document.getElementById('cancelCallBtn').addEventListener('click', () => {
@@ -107,15 +109,15 @@ class WebRTCManager {
         modal.id = 'incomingCallModal';
         modal.className = 'modal hidden';
         modal.innerHTML = `
-            <div class="modal-content">
-                <h2>Входящий звонок</h2>
-                <p id="incomingCallInfo"></p>
-                <div class="call-buttons">
-                    <button id="acceptCallBtn" class="call-btn">Принять</button>
-                    <button id="rejectCallBtn" class="call-btn">Отклонить</button>
-                </div>
-            </div>
-        `;
+    <div class="modal-content">
+        <h2>Входящий звонок</h2>
+        <p id="incomingCallInfo"></p>
+        <div class="call-buttons">
+            <button id="acceptCallBtn" class="modal-call-btn">Принять</button>
+            <button id="rejectCallBtn" class="modal-call-btn">Отклонить</button>
+        </div>
+    </div>
+`;
         document.body.appendChild(modal);
         
         document.getElementById('acceptCallBtn').addEventListener('click', () => {
@@ -132,14 +134,14 @@ class WebRTCManager {
         callInterface.id = 'callInterface';
         callInterface.className = 'call-container hidden';
         callInterface.innerHTML = `
-            <div class="video-container">
-                <video id="localVideo" autoplay muted></video>
-                <video id="remoteVideo" autoplay></video>
-            </div>
-            <div class="call-controls">
-                <button id="endCallBtn" class="call-end-btn">Завершить звонок</button>
-            </div>
-        `;
+    <div class="video-container">
+        <video id="localVideo" autoplay muted></video>
+        <video id="remoteVideo" autoplay></video>
+    </div>
+    <div class="call-controls">
+        <button id="endCallBtn" class="call-end-btn">Завершить звонок</button>
+    </div>
+`;
         document.body.appendChild(callInterface);
         
         document.getElementById('endCallBtn').addEventListener('click', () => {
@@ -148,37 +150,45 @@ class WebRTCManager {
     }
     
     showUserSelectionModal(type) {
-        this.callType = type;
-        const modal = document.getElementById('userSelectionModal');
-        const usersList = document.getElementById('availableUsersList');
-        
-        // Получаем список пользователей в комнате (кроме себя)
-        const roomUsers = Array.from(document.querySelectorAll('.user-item'))
-            .map(userEl => userEl.textContent)
-            .filter(username => username !== document.getElementById('userInfo').textContent);
-        
-        if (roomUsers.length === 0) {
-            if (window.showMessage) {
-                window.showMessage('Информация', 'В комнате нет других пользователей');
-            } else {
-                alert('В комнате нет других пользователей');
-            }
-            return;
-        }
-        
-        usersList.innerHTML = '';
-        roomUsers.forEach(username => {
-            const userBtn = document.createElement('button');
-            userBtn.className = 'user-call-btn';
-            userBtn.textContent = username;
-            userBtn.addEventListener('click', () => {
-                this.startCall(username);
-            });
-            usersList.appendChild(userBtn);
-        });
-        
-        modal.classList.remove('hidden');
+    this.callType = type;
+    const modal = document.getElementById('userSelectionModal');
+    const usersList = document.getElementById('availableUsersList');
+    
+    // Получаем текущего пользователя
+    const currentUserElement = document.getElementById('userInfo');
+    let currentUsername = '';
+    if (currentUserElement) {
+        // Удаляем символ ✪ из имени пользователя
+        currentUsername = currentUserElement.textContent.replace('✪ ', '');
     }
+    
+    // Получаем список пользователей в комнате (кроме текущего пользователя)
+    const roomUsers = Array.from(document.querySelectorAll('.user-item'))
+        .map(userEl => userEl.textContent)
+        .filter(username => username !== currentUsername);
+    
+    if (roomUsers.length === 0) {
+        if (window.showMessage) {
+            window.showMessage('Информация', 'В комнате нет других пользователей');
+        } else {
+            alert('В комнате нет других пользователей');
+        }
+        return;
+    }
+    
+    usersList.innerHTML = '';
+    roomUsers.forEach(username => {
+        const userBtn = document.createElement('button');
+        userBtn.className = 'user-call-btn';
+        userBtn.textContent = username;
+        userBtn.addEventListener('click', () => {
+            this.startCall(username);
+        });
+        usersList.appendChild(userBtn);
+    });
+    
+    modal.classList.remove('hidden');
+}
     
     hideUserSelectionModal() {
         document.getElementById('userSelectionModal').classList.add('hidden');

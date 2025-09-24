@@ -262,19 +262,21 @@ class VideoRecorder {
         this.cameraPreview.srcObject = null;
     }
     
-    // Показать индикатор записи
-    showRecordingIndicator() {
-        if (this.recordingIndicator) {
-            this.recordingIndicator.classList.remove('hidden');
-        }
+   // Показать индикатор записи
+showRecordingIndicator() {
+    if (this.recordingIndicator) {
+        this.recordingIndicator.classList.remove('hidden');
+        this.recordingIndicator.style.display = 'flex'; // Явно показываем
     }
-    
-    // Скрыть индикатор записи
-    hideRecordingIndicator() {
-        if (this.recordingIndicator) {
-            this.recordingIndicator.classList.add('hidden');
-        }
+}
+
+// Скрыть индикатор записи
+hideRecordingIndicator() {
+    if (this.recordingIndicator) {
+        this.recordingIndicator.classList.add('hidden');
+        this.recordingIndicator.style.display = 'none'; // Явно скрываем
     }
+}
     
     // Запустить таймер записи
     startRecordingTimer() {

@@ -1,7 +1,7 @@
 ﻿.app-container {
     display: flex;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     background-color: #fff;
     overflow: hidden;
 }
@@ -14,16 +14,89 @@
     display: flex;
     flex-direction: column;
     min-width: 250px;
+    transition: all 0.3s ease-in-out;
+    overflow: hidden;
+    position: relative;
+    z-index: 100;
+}
+
+/* Когда ширина больше высоты (ландшафтный режим) */
+@media (min-aspect-ratio: 1/1) {
+    .sidebar {
+        transform: translateX(0);
+        opacity: 1;
+        width: 30%;
+    }
+    
+    .chat-container {
+        width: 70%;
+    }
+    
+    .sidebar-toggle-btn {
+        display: none !important;
+    }
+}
+
+/* Когда высота больше ширины (портретный режим) */
+@media (max-aspect-ratio: 1/1) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100%;
+        transform: translateX(-100%);
+        opacity: 0;
+        width: 80%;
+        max-width: 300px;
+        z-index: 1000;
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
+        opacity: 1;
+        z-index: 1001;
+    }
+    
+    .chat-container {
+        width: 100%;
+    }
+    
+    /* Затемнение фона когда sidebar открыт */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: none;
+    }
+    
+    .sidebar-overlay.active {
+        display: block;
+    }
+    
+    /* Кнопка показа sidebar должна быть видна */
+    #showSidebarBtn {
+        display: flex !important;
+        z-index: 10;
+    }
 }
 
 .sidebar-header {
     padding: 20px;
     border-bottom: 1px solid #3c5065;
+    display: flex;
+    flex-direction: column;
 }
 
-.sidebar-header h2 {
+/* room-info переносим вверх */
+.room-info {
+    font-size: 1rem;
+    color: #a0aec0;
     margin-bottom: 10px;
-    font-size: 1.5rem;
+    font-weight: bold;
 }
 
 .user-info {
@@ -31,16 +104,17 @@
     color: #a0aec0;
 }
 
-.room-info {
-    font-size: 0.9rem;
-    color: #a0aec0;
-    margin-top: 5px;
-}
-
+/* Стиль для списка пользователей с символом */
 .users-list {
     padding: 10px;
     overflow-y: auto;
     flex-grow: 1;
+}
+
+.user-item::before {
+    content: "✪ ";
+    margin-right: 5px;
+    color: #ffd700;
 }
 
 /* Основной чат */
@@ -48,32 +122,198 @@
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: 100vh;
+    transition: all 0.3s ease-in-out;
 }
 
 .chat-header {
-    padding: 15px 20px;
+    padding: 5px 10px;
     background-color: #f8f9fa;
     border-bottom: 1px solid #e0e0e0;
     display: flex;
-    justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
+    min-height: 60px;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+    min-width: 0;
+}
+
+.encryption-input-wrapper {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 150px;
+    max-width: 500px;
+}
+
+.call-buttons-container {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.encryption-input-header {
+    width: 100%;
+    padding: 12px 15px;
+    border: none;
+    border-radius: 20px;
+    outline: none;
+    font-size: 1rem;
+    transition: all 0.23s ease-in-out;
+    background-color: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    resize: horizontal;
+    max-width: 100%;
 }
 
 .messages-container {
     flex-grow: 1;
     padding: 20px;
     overflow-y: auto;
-    background-color: #e5ddd5;
-    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%239C92AC' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E");
+    background: linear-gradient(to bottom, #d0d58c, #76aa89);
+    
+    /* Плавная прокрутка с инерцией для мобильных устройств */
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+}
+
+/* Стилизация scrollbar без кнопок */
+.messages-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+/* Скрываем кнопки прокрутки (стрелки) */
+.messages-container::-webkit-scrollbar-button {
+    display: none;
+}
+
+/* Для Firefox */
+.messages-container {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.3) rgba(0, 0, 0, 0.1);
 }
 
 .message-input-container {
     display: flex;
-    padding: 15px;
+    padding: 5px 10px;
     background-color: #f8f9fa;
     border-top: 1px solid #e0e0e0;
     align-items: center;
     flex-shrink: 0;
+}
+
+/* Стили для кнопок переключения sidebar */
+.sidebar-toggle-btn {
+    width: 45px;
+    height: 45px;
+    padding: 0;
+    background-color: #bbbbbb;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.23s ease-in-out;
+    z-index: 10;
+}
+
+.sidebar-toggle-btn:hover {
+    background-color: #999999;
+    transform: scale(1.05);
+}
+
+.sidebar-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+/* Кнопка показа sidebar в заголовке чата */
+#showSidebarBtn {
+    margin-right: 10px;
+}
+
+/* Кнопка скрытия sidebar в sidebar */
+#hideSidebarBtn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 11;
+}
+
+/* Модальные окна должны быть выше всего */
+.modal {
+    z-index: 1100 !important;
+}
+
+.modal-content {
+    z-index: 1101 !important;
+}
+
+.clear-key-btn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: auto;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.clear-key-btn:hover {
+    background-color: #f0f0f0 !important;
+    color: #666;
+}
+
+/* Убедимся, что поле ввода имеет правильные отступы */
+.encryption-input-header {
+    padding-right: 40px !important; /* Место для крестика */
+}
+
+/* For all scrollbars */
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Дополнительное центрирование */
+.message-file {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
 }

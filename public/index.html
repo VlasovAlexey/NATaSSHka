@@ -9,36 +9,48 @@
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/chat.css">
     <link rel="stylesheet" href="css/modal.css">
-    <link rel="stylesheet" href="css/responsive.css">
 </head>
 <body>
     <div class="app-container">
         <!-- Сайдбар -->
-<div class="sidebar">
-    <div class="sidebar-header">
-        <div style="position: relative;">
-            <input type="password" id="encryptionKeyInput" placeholder="Ключ шифрования" class="encryption-input">
-            <button id="clearEncryptionKey" class="clear-key-btn">×</button>
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <button id="hideSidebarBtn" class="sidebar-toggle-btn hidden">←</button>
+                <div class="room-info" id="roomInfo"></div>
+                <div class="user-info" id="userInfo"></div>
+            </div>
+            <div class="users-list" id="usersList"></div>
         </div>
-        <div class="user-info" id="userInfo"></div>
-        <div class="room-info" id="roomInfo"></div>
-    </div>
-    <div class="users-list" id="usersList"></div>
-</div>
         
         <!-- Основной чат -->
         <div class="chat-container">
             <div class="chat-header">
-                <h3 id="chatTitle">Чат комнаты</h3>
+                <div class="header-content">
+                    <button id="showSidebarBtn" class="sidebar-toggle-btn hidden">→</button>
+                    
+                    <div class="encryption-input-wrapper">
+                        <input type="password" id="encryptionKeyInput" placeholder="Ключ шифрования" class="encryption-input-header">
+                        <button id="clearEncryptionKey" class="clear-key-btn">×</button>
+                    </div>
+                    
+                    <div class="call-buttons-container">
+                        <button id="audioCallBtn" class="call-btn">📞</button>
+                        <button id="videoCallBtn" class="call-btn">📹</button>
+                    </div>
+                </div>
             </div>
             <div class="messages-container" id="messagesContainer"></div>
             <div class="message-input-container">
                 <input type="text" id="messageInput" placeholder="Введите сообщение...">
-                <button id="recordButton" class="record-btn">🎤</button>
-                <button id="recordVideoBtn" class="record-btn">🎥</button>
-                <label for="fileInput" class="file-input-label">📎</label>
+                <div class="record-buttons-container">
+                    <button id="recordButton" class="record-btn">🎤</button>
+                    <button id="recordVideoBtn" class="record-btn">🎥</button>
+                </div>
+                <div class="send-file-container">
+                    <label for="fileInput" class="file-input-label">📎</label>
+                    <button id="sendMessageBtn">↵</button>
+                </div>
                 <input type="file" id="fileInput" hidden>
-                <button id="sendMessageBtn">Отправить</button>
             </div>
         </div>
     </div>
@@ -91,14 +103,27 @@
         </div>
     </div>
     
-    <!-- Полноэкранное изображение -->
-    <div class="fullscreen-image" id="fullscreenImage">
-        <span class="close-fullscreen">&times;</span>
-        <div id="expandedImage"></div>
+   <!-- Модальное окно для изображений -->
+<div class="image-modal" id="imageModal">
+    <div class="image-modal-overlay"></div>
+    <div class="image-modal-content">
+        <button class="image-close-btn">×</button>
+        <img id="modalImage" src="" alt="Увеличенное изображение">
     </div>
+</div>
     
+ <!-- Модальное окно для видео -->
+<div class="video-modal" id="videoModal">
+    <div class="video-modal-overlay"></div>
+    <div class="video-modal-content">
+        <button class="video-close-btn">×</button>
+        <video id="modalVideo" controls>
+            Ваш браузер не поддерживает видео.
+        </video>
+    </div>
+</div>
     <!-- Скрипты -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
     <script src="js/crypto.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/cookie.js"></script>
@@ -107,5 +132,6 @@
     <script src="js/videoRecorder.js"></script>
     <script src="js/webrtc.js"></script>
     <script src="js/client.js"></script>
+    <script src="js/messageInputAnimations.js"></script>
 </body>
 </html>

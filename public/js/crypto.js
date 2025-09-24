@@ -29,23 +29,23 @@ class EncryptionManager {
     }
 
     decryptMessage(encryptedMessage) {
-        if (!this.encryptionKey || !encryptedMessage) return encryptedMessage;
+    if (!this.encryptionKey || !encryptedMessage) return encryptedMessage;
+    
+    try {
+        console.log('Дешифрование текстового сообщения');
+        const bytes = CryptoJS.AES.decrypt(encryptedMessage, this.encryptionKey);
+        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
         
-        try {
-            console.log('Дешифрование текстового сообщения');
-            const bytes = CryptoJS.AES.decrypt(encryptedMessage, this.encryptionKey);
-            const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-            
-            if (!decrypted && encryptedMessage.length > 0) {
-                throw new Error('Неверный ключ шифрования');
-            }
-            
-            return decrypted || encryptedMessage;
-        } catch (error) {
-            console.error('Ошибка дешифрования:', error);
-            throw error;
+        if (!decrypted && encryptedMessage.length > 0) {
+            return "🔒 Неверный ключ шифрования";
         }
+        
+        return decrypted || encryptedMessage;
+    } catch (error) {
+        console.error('Ошибка дешифрования:', error);
+        return "🔒 Ошибка дешифрования";
     }
+}
 
     encryptFile(base64Data) {
         if (!this.encryptionKey || !base64Data) {

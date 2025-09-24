@@ -5,6 +5,21 @@
     border-radius: 7.5px;
     position: relative;
     word-wrap: break-word;
+    
+    /* Анимация появления */
+    animation: messageAppear 0.3s ease-out;
+    transform-origin: center top;
+}
+
+@keyframes messageAppear {
+    0% {
+        opacity: 0;
+        transform: translateY(10px) scale(0.95);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .message.my-message {
@@ -58,6 +73,11 @@
     border-radius: 5px;
     cursor: pointer;
     object-fit: contain;
+    transition: transform 0.2s ease-in-out;
+}
+
+.message-file img:hover {
+    transform: scale(1.05);
 }
 
 .message-file a {
@@ -73,8 +93,9 @@
 
 .file-size {
     font-size: 0.8rem;
-    color: #666;
+    color: #bbbbbb;
     margin-top: 5px;
+    text-align: center;
 }
 
 .message-audio {
@@ -150,8 +171,6 @@
     background-color: #f0f2f5;
     border-left: 4px solid #4CAF50;
     padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 4px;
 }
 
 .quote-content {
@@ -203,4 +222,161 @@
 .message-quote .quote-text {
     font-size: 0.9rem;
     color: #666;
+}
+
+.message-file video {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 5px;
+    cursor: pointer;
+    object-fit: contain;
+    transition: transform 0.2s ease-in-out;
+}
+
+.message-file video:hover {
+    transform: scale(1.05);
+}
+
+/* Стили для кнопки зашифрованного файла */
+.encrypted-file-btn {
+    background-color: #5fbe67;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    padding: 12px 20px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.23s ease-in-out;
+    display: block;
+    margin: 4px auto;
+    font-size: 1rem;
+    min-width: 200px;
+    max-width: 100%;
+    word-wrap: break-word;
+    white-space: normal;
+    outline: none;
+    box-shadow: none;
+}
+
+.encrypted-file-btn:hover {
+    background-color: #4caa55;
+    transform: scale(1.05);
+}
+
+.encrypted-file-btn:active {
+    transform: scale(0.95);
+}
+
+.encrypted-file-btn.error {
+    background-color: #cd5047;
+}
+
+.encrypted-file-btn.error:hover {
+    background-color: #b8463f;
+}
+
+/* Убираем обводки у файлов */
+.message-file, 
+.message-audio,
+.message-file img,
+.message-file video,
+.message-file a {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.message-file {
+    background-color: transparent !important;
+    padding: 0 !important;
+    margin-top: 5px;
+}
+
+/* Центрирование кнопки в сообщении */
+.message-file {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+/* Центрирование аудио кнопки при успешной дешифрации */
+.message-audio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 20px;
+    margin-top: 5px;
+}
+
+.audio-play-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    width: 40px;
+    height: 40px;
+    transition: all 0.23s ease-in-out;
+}
+
+.audio-play-btn:hover {
+    background-color: #45a049;
+    transform: scale(1.05);
+}
+
+.audio-play-btn:active {
+    transform: scale(0.95);
+}
+
+.audio-play-btn.playing {
+    background-color: #ff9800;
+}
+
+.audio-duration {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 5px;
+    text-align: center;
+    width: 100%;
+}
+
+/* Убираем обводки у аудио элементов */
+.message-audio,
+.audio-play-btn {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Убираем обводки у всех файловых сообщений */
+.message-file,
+.message-file img,
+.message-file video,
+.message-file a {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+}
+
+.message-file {
+    background-color: transparent !important;
+    padding: 0 !important;
+    margin-top: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
 }
