@@ -11,6 +11,7 @@
     transform-origin: center top;
 }
 
+
 @keyframes messageAppear {
     0% {
         opacity: 0;
@@ -248,9 +249,9 @@
     text-align: center;
     transition: all 0.23s ease-in-out;
     display: block;
-    margin: 4px auto;
+    margin: 5%;
     font-size: 1rem;
-    min-width: 200px;
+    min-width: 100px;
     max-width: 100%;
     word-wrap: break-word;
     white-space: normal;
@@ -379,4 +380,86 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
+}
+
+/* Стили для сообщений с изображениями */
+.message.has-image {
+    max-width: 40% !important;
+    width: auto !important;
+    padding: 10px 0 0 0 !important; /* Убираем нижний отступ */
+    margin-bottom: 15px; /* Сохраняем отступ между сообщениями */
+    /* Скругления только сверху */
+    border-radius: 7.5px 7.5px 0 0 !important;
+    overflow: hidden; /* Обрезаем содержимое по границам */
+}
+
+/* Контейнер для файлов изображений */
+.message.has-image .message-file {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    border-radius: 7.5px !important;
+}
+
+/* Стили для изображений в чате */
+.message.has-image .message-file img {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 0 !important; /* Убираем скругления */
+    cursor: pointer;
+    object-fit: contain;
+    /* Убираем трансформацию при наведении */
+    transition: none !important;
+}
+
+/* Убираем эффект zoom наведения */
+.message.has-image .message-file img:hover {
+    transform: none !important;
+}
+
+/* Сохраняем пропорции изображения */
+.message.has-image .message-file {
+    display: block;
+    line-height: 0; /* Убираем лишние отступы */
+}
+
+/* Стили для информации о сообщении с изображением */
+.message.has-image .message-info {
+    padding: 0 10px 5px 10px; /* Добавляем отступы только для info */
+    margin-bottom: 5px;
+}
+
+/* Специфичные стили для своих сообщений с изображениями */
+.message.my-message.has-image {
+    margin-left: auto;
+    margin-right: 0;
+    /* Скругления для своих сообщений */
+    border-radius: 7.5px 0 7.5px 7.5px !important;
+}
+
+/* Специфичные стили для чужих сообщений с изображениями */
+.message.other-message.has-image {
+    margin-right: auto;
+    margin-left: 0;
+    /* Скругления для чужих сообщений */
+    border-radius: 0 7.5px 7.5px 7.5px !important;
+}
+
+/* Убираем стандартные ограничения ширины для изображений */
+.message-file img {
+    max-width: 100% !important;
+    max-height: none !important;
+}
+
+/* Отключаем стандартные hover эффекты для изображений */
+.message-file img:hover {
+    transform: none !important;
+}
+
+/* Медиа-запрос для мобильных устройств (ширина меньше высоты) */
+@media (max-aspect-ratio: 1/1) {
+    .message.has-image {
+        max-width: 80% !important;
+    }
 }

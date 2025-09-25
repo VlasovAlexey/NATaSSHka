@@ -161,7 +161,6 @@
             <button class="encrypted-file-btn error">
                 🔒 Ключ дешифрации не верный.
             </button>
-            <div class="file-info">${fileName}</div>
         `;
     }
 
@@ -185,14 +184,20 @@
     };
 
     function displayDecryptedFile(blob, fileType, fileName, element) {
-        const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
 
-        if (fileType.startsWith('image/')) {
-            element.innerHTML = `
-                <img src="${url}" alt="${fileName}" 
-                     onclick="console.log('🖼️ Клик по расшифрованному изображению:', '${url}'); window.expandImage('${url}', '${fileType}')">
-                <div class="file-size">${(blob.size / 1024).toFixed(2)} KB</div>
-            `;
+    if (fileType.startsWith('image/')) {
+        // Находим родительское сообщение и добавляем класс has-image
+        const messageElement = element.closest('.message');
+        if (messageElement) {
+            messageElement.classList.add('has-image');
+        }
+        
+        element.innerHTML = `
+            <img src="${url}" alt="${fileName}" 
+                 onclick="console.log('🖼️ Клик по расшифрованному изображению:', '${url}'); window.expandImage('${url}', '${fileType}')">
+            
+        `;
         } else if (fileType.startsWith('video/')) {
             element.innerHTML = `
                 <video src="${url}" controls muted 
@@ -452,6 +457,10 @@
             messageElement.dataset.hasFile = 'true';
         }
 
+        if (message.isFile && message.fileType.startsWith('image/')) {
+            messageElement.classList.add('has-image');
+        }
+
         // Определяем, наше ли это сообщение
         const isMyMessage = message.userId === socket.id;
         if (!message.isSystem && !message.isKillAll) {
@@ -511,24 +520,24 @@
         }
 
         if (message.isFile) {
-            console.log('Отображение файла в чате:', message.fileName, 'Зашифрован:', message.isEncrypted);
+    console.log('Отображение файла в чате:', message.fileName, 'Зашифрован:', message.isEncrypted);
 
-            if (message.isEncrypted) {
-                // Для зашифрованных файлов показываем placeholder
-                messageContent += `
-                <div class="message-file">
-                    <button class="encrypted-file-btn" 
-                            onclick="decryptAndDisplayFile('${message.fileUrl}', '${message.fileType}', '${message.fileName}', '${message.id}', this)"
-                            data-file-url="${message.fileUrl}"
-                            data-file-type="${message.fileType}"
-                            data-file-name="${message.fileName}"
-                            data-message-id="${message.id}">
-                        🔒 Файл зашифрован. Нажмите для расшифровки.
-                    </button>
-                    <div class="file-info">${message.fileName} (${message.fileSize})</div>
-                </div>
-            `;
-            } else {
+    if (message.isEncrypted) {
+        // Для зашифрованных файлов показываем placeholder
+        messageContent += `
+        <div class="message-file">
+            <button class="encrypted-file-btn" 
+                    onclick="decryptAndDisplayFile('${message.fileUrl}', '${message.fileType}', '${message.fileName}', '${message.id}', this)"
+                    data-file-url="${message.fileUrl}"
+                    data-file-type="${message.fileType}"
+                    data-file-name="${message.fileName}"
+                    data-message-id="${message.id}">
+                🔒 Файл зашифрован. Нажмите для расшифровки.
+            </button>
+            
+        </div>
+    `;
+    } else {
                 // Для незашифрованных файлов стандартное отображение
                 if (message.isAudio) {
                     messageContent += `
@@ -540,13 +549,15 @@
                         </div>
                     `;
                 } else if (message.fileType.startsWith('image/')) {
-                    messageContent += `
-                        <div class="message-file">
-                            <img src="${message.fileUrl}" alt="${message.fileName}" 
-                                 onclick="console.log('🖼️ Клик по изображению в чате:', '${message.fileUrl}'); window.expandImage('${message.fileUrl}', '${message.fileType}')">
-                            <div class="file-size">${message.fileSize}</div>
-                        </div>
-                    `;
+            // ДОБАВЛЯЕМ КЛАСС has-image К СООБЩЕНИЮ
+            messageElement.classList.add('has-image');
+            
+            messageContent += `
+                <div class="message-file">
+                    <img src="${message.fileUrl}" alt="${message.fileName}" 
+                         onclick="console.log('🖼️ Клик по изображению в чате:', '${message.fileUrl}'); window.expandImage('${message.fileUrl}', '${message.fileType}')">
+                </div>
+            `;
                 } else if (message.fileType.startsWith('video/')) {
                     messageContent += `
         <div class="message-file">
@@ -1594,3 +1605,8 @@ document.addEventListener('focusout', () => {
     setTimeout(handleViewportResize, 300);
 });
 
+// Функция для проверки, является ли файл изображением
+function isImageFile(fileType) {
+    const imageTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml'];
+    return imageTypes.includes(fileType.toLowerCase());
+}
