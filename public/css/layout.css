@@ -2,8 +2,14 @@
     display: flex;
     width: 100vw;
     height: 100vh;
+    height: -webkit-fill-available; /* Для мобильных браузеров */
     background-color: #fff;
     overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
 }
 
 /* Сайдбар */
@@ -82,6 +88,15 @@
         display: flex !important;
         z-index: 10;
     }
+
+        .message-input-container {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom) + 10px);
+    }
+    
+    .messages-container {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
 }
 
 .sidebar-header {
@@ -122,7 +137,7 @@
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100%;
     transition: all 0.3s ease-in-out;
 }
 
@@ -316,4 +331,65 @@
     justify-content: center;
     align-items: center;
     flex-direction: column;
+}
+
+/* Сайдбар в портретном режиме */
+@media (max-aspect-ratio: 1/1) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100%;
+        transform: translateX(-100%);
+        opacity: 0;
+        width: 80%;
+        max-width: 300px;
+        z-index: 1002; /* Увеличиваем z-index сайдбара */
+        transition: all 0.3s ease-in-out;
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
+        opacity: 1;
+        z-index: 1002; /* Сохраняем тот же z-index когда активен */
+    }
+    
+    /* Затемнение фона когда sidebar открыт */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1001; /* Уменьшаем z-index overlay'а */
+        display: none;
+    }
+    
+    .sidebar-overlay.active {
+        display: block;
+    }
+    
+    /* Кнопка показа sidebar должна быть видна */
+    #showSidebarBtn {
+        display: flex !important;
+        z-index: 1000; /* Кнопка под сайдбаром но над контентом */
+    }
+    
+    /* Кнопка скрытия sidebar в sidebar */
+    #hideSidebarBtn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1003; /* Кнопка закрытия должна быть выше всего в сайдбаре */
+    }
+}
+
+/* Модальные окна должны быть выше всего */
+.modal {
+    z-index: 1100 !important;
+}
+
+.modal-content {
+    z-index: 1101 !important;
 }

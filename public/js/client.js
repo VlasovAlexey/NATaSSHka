@@ -1431,40 +1431,55 @@
         });
     }
 
-    // Функции для управления sidebar
-    function setupSidebarToggle() {
-        const showSidebarBtn = document.getElementById('showSidebarBtn');
-        const hideSidebarBtn = document.getElementById('hideSidebarBtn');
-        const sidebar = document.querySelector('.sidebar');
+// Функции для управления sidebar
+function setupSidebarToggle() {
+    const showSidebarBtn = document.getElementById('showSidebarBtn');
+    const hideSidebarBtn = document.getElementById('hideSidebarBtn');
+    const sidebar = document.querySelector('.sidebar');
 
-        // Создаем overlay для затемнения фона
-        const overlay = document.createElement('div');
-        overlay.className = 'sidebar-overlay';
-        document.body.appendChild(overlay);
+    // Создаем overlay для затемнения фона
+    const overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
 
-        // Показать sidebar
-        showSidebarBtn.addEventListener('click', () => {
-            sidebar.classList.add('active');
-            overlay.classList.add('active');
-        });
-
-        // Скрыть sidebar
-        hideSidebarBtn.addEventListener('click', () => {
-            sidebar.classList.remove('active');
-            overlay.classList.remove('active');
-        });
-
-        // Скрыть sidebar при клике на overlay
-        overlay.addEventListener('click', () => {
-            sidebar.classList.remove('active');
-            overlay.classList.remove('active');
-        });
-
-        // Обработка изменения ориентации экрана
-        window.addEventListener('resize', handleOrientationChange);
-        handleOrientationChange(); // Инициализация при загрузке
+    // Убедимся, что overlay находится ПОД sidebar в DOM
+    // Перемещаем overlay перед sidebar в иерархии
+    if (sidebar && sidebar.parentNode) {
+        sidebar.parentNode.insertBefore(overlay, sidebar);
     }
 
+    // Показать sidebar
+    showSidebarBtn.addEventListener('click', () => {
+        sidebar.classList.add('active');
+        overlay.classList.add('active');
+        
+        // Убедимся, что sidebar выше overlay
+        setTimeout(() => {
+            if (sidebar.style.zIndex !== '1002') {
+                sidebar.style.zIndex = '1002';
+            }
+            if (overlay.style.zIndex !== '1001') {
+                overlay.style.zIndex = '1001';
+            }
+        }, 10);
+    });
+
+    // Скрыть sidebar
+    hideSidebarBtn.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+    });
+
+    // Скрыть sidebar при клике на overlay
+    overlay.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+    });
+
+    // Обработка изменения ориентации экрана
+    window.addEventListener('resize', handleOrientationChange);
+    handleOrientationChange(); // Инициализация при загрузке
+}
     // Обработка изменения ориентации экрана
     function handleOrientationChange() {
         const sidebar = document.querySelector('.sidebar');
@@ -1532,3 +1547,50 @@
         updateButtonStates();
     }, 100);
 });
+
+
+// Обработчик изменения высоты viewport на мобильных устройствах
+function handleViewportResize() {
+    const appContainer = document.querySelector('.app-container');
+    const chatContainer = document.querySelector('.chat-container');
+    
+    if (!appContainer || !chatContainer) return;
+    
+    // Устанавливаем высоту с учетом безопасных зон
+    const visualViewport = window.visualViewport || window;
+    const height = visualViewport.height;
+    
+    appContainer.style.height = height + 'px';
+    chatContainer.style.height = height + 'px';
+    
+    // Прокручиваем к последнему сообщению
+    const messagesContainer = document.getElementById('messagesContainer');
+    if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+}
+
+// Обработчики событий
+window.addEventListener('resize', handleViewportResize);
+window.addEventListener('orientationchange', handleViewportResize);
+
+// iOS специфичные обработчики
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', handleViewportResize);
+}
+
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(handleViewportResize, 100);
+    setTimeout(handleViewportResize, 500); // Двойная проверка
+});
+
+// Также обновляем при показе/скрытии клавиатуры
+document.addEventListener('focusin', () => {
+    setTimeout(handleViewportResize, 300);
+});
+
+document.addEventListener('focusout', () => {
+    setTimeout(handleViewportResize, 300);
+});
+
