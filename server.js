@@ -13,6 +13,14 @@ let config = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' }
   ],
+  turnServers: [
+    {
+      urls: 'turn:your-turn-server.com:3478',
+      username: 'your-username',
+      credential: 'your-password'
+    }
+  ],
+  useTurnServers: false,
   killCode: 'kill',
   killAllCode: 'killall',
   maxFileSize: 50 * 1024 * 1024,
@@ -62,23 +70,317 @@ const io = socketIo(server, {
 // Папка для загружаемых файлов
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
+  fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', express.static(uploadsDir, {
+  index: false,
+  redirect: false
+}));
 
-// Хранилище для пользователей, сообщений и комнат
+// Хранилище для пользователей и комнат
 const users = new Map();
-const messages = new Map();
 const rooms = new Set(['Room_01']);
+
+// Функции для работы с файловой системой
+function ensureDirectoryExistence(dirPath) {
+  if (fs.existsSync(dirPath)) {
+    return true;
+  }
+  fs.mkdirSync(dirPath, { recursive: true });
+  return true;
+}
+
+function saveMessageToFile(room, username, message) {
+  try {
+    // Если это системное сообщение, используем специальную функцию
+    if (message.isSystem) {
+      return saveSystemMessageToFile(room, message);
+    }
+    
+    const roomDir = path.join(uploadsDir, room);
+    const userDir = path.join(roomDir, username);
+    
+    // Создаем директории если их нет
+    ensureDirectoryExistence(userDir);
+    
+    const messageFile = path.join(userDir, `${message.id}.xml`);
+    
+    let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xmlContent += '<message>\n';
+    xmlContent += `  <id>${message.id}</id>\n`;
+    xmlContent += `  <username>${escapeXml(message.username)}</username>\n`;
+    xmlContent += `  <userId>${message.userId}</userId>\n`;
+    xmlContent += `  <text>${escapeXml(message.text)}</text>\n`;
+    xmlContent += `  <timestamp>${message.timestamp.toISOString()}</timestamp>\n`;
+    xmlContent += `  <room>${escapeXml(message.room)}</room>\n`;
+    xmlContent += `  <isSystem>${message.isSystem || false}</isSystem>\n`;
+    xmlContent += `  <isEncrypted>${message.isEncrypted || false}</isEncrypted>\n`;
+    xmlContent += `  <isFile>${message.isFile || false}</isFile>\n`;
+    xmlContent += `  <isAudio>${message.isAudio || false}</isAudio>\n`;
+    
+    if (message.fileName) {
+      xmlContent += `  <fileName>${escapeXml(message.fileName)}</fileName>\n`;
+    }
+    if (message.fileType) {
+      xmlContent += `  <fileType>${escapeXml(message.fileType)}</fileType>\n`;
+    }
+    if (message.fileUrl) {
+      xmlContent += `  <fileUrl>${escapeXml(message.fileUrl)}</fileUrl>\n`;
+    }
+    if (message.fileSize) {
+      xmlContent += `  <fileSize>${escapeXml(message.fileSize)}</fileSize>\n`;
+    }
+    if (message.duration) {
+      xmlContent += `  <duration>${message.duration}</duration>\n`;
+    }
+    
+    if (message.quote) {
+      xmlContent += `  <quote>\n`;
+      xmlContent += `    <username>${escapeXml(message.quote.username)}</username>\n`;
+      xmlContent += `    <text>${escapeXml(message.quote.text)}</text>\n`;
+      xmlContent += `    <isEncrypted>${message.quote.isEncrypted || false}</isEncrypted>\n`;
+      xmlContent += `  </quote>\n`;
+    }
+    
+    xmlContent += '</message>';
+    
+    fs.writeFileSync(messageFile, xmlContent, 'utf8');
+    console.log(`Сообщение сохранено: ${messageFile}`);
+    return true;
+  } catch (error) {
+    console.error('Ошибка сохранения сообщения в файл:', error);
+    return false;
+  }
+}
+
+function escapeXml(unsafe) {
+  if (!unsafe) return '';
+  return unsafe.toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function loadMessagesFromRoom(room) {
+  const messages = [];
+  try {
+    const roomDir = path.join(uploadsDir, room);
+    if (!fs.existsSync(roomDir)) {
+      return messages;
+    }
+    
+    const users = fs.readdirSync(roomDir);
+    
+    users.forEach(user => {
+      const userDir = path.join(roomDir, user);
+      if (fs.statSync(userDir).isDirectory()) {
+        const messageFiles = fs.readdirSync(userDir).filter(file => file.endsWith('.xml'));
+        
+        messageFiles.forEach(messageFile => {
+          try {
+            const filePath = path.join(userDir, messageFile);
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+            
+            // Простой парсинг XML
+            const idMatch = fileContent.match(/<id>(.*?)<\/id>/);
+            const usernameMatch = fileContent.match(/<username>(.*?)<\/username>/);
+            const userIdMatch = fileContent.match(/<userId>(.*?)<\/userId>/);
+            const textMatch = fileContent.match(/<text>(.*?)<\/text>/);
+            const timestampMatch = fileContent.match(/<timestamp>(.*?)<\/timestamp>/);
+            const roomMatch = fileContent.match(/<room>(.*?)<\/room>/);
+            const isSystemMatch = fileContent.match(/<isSystem>(.*?)<\/isSystem>/);
+            const isEncryptedMatch = fileContent.match(/<isEncrypted>(.*?)<\/isEncrypted>/);
+            const isFileMatch = fileContent.match(/<isFile>(.*?)<\/isFile>/);
+            const isAudioMatch = fileContent.match(/<isAudio>(.*?)<\/isAudio>/);
+            const isWarningMatch = fileContent.match(/<isWarning>(.*?)<\/isWarning>/);
+            const isKillAllMatch = fileContent.match(/<isKillAll>(.*?)<\/isKillAll>/);
+            const fileNameMatch = fileContent.match(/<fileName>(.*?)<\/fileName>/);
+            const fileTypeMatch = fileContent.match(/<fileType>(.*?)<\/fileType>/);
+            const fileUrlMatch = fileContent.match(/<fileUrl>(.*?)<\/fileUrl>/);
+            const fileSizeMatch = fileContent.match(/<fileSize>(.*?)<\/fileSize>/);
+            const durationMatch = fileContent.match(/<duration>(.*?)<\/duration>/);
+            
+            const message = {
+              id: idMatch ? idMatch[1] : path.parse(messageFile).name,
+              username: usernameMatch ? unescapeXml(usernameMatch[1]) : user,
+              userId: userIdMatch ? userIdMatch[1] : '',
+              text: textMatch ? unescapeXml(textMatch[1]) : '',
+              timestamp: timestampMatch ? new Date(timestampMatch[1]) : new Date(),
+              room: roomMatch ? unescapeXml(roomMatch[1]) : room,
+              isSystem: isSystemMatch ? isSystemMatch[1] === 'true' : (user === 'system'),
+              isEncrypted: isEncryptedMatch ? isEncryptedMatch[1] === 'true' : false,
+              isFile: isFileMatch ? isFileMatch[1] === 'true' : false,
+              isAudio: isAudioMatch ? isAudioMatch[1] === 'true' : false,
+              isWarning: isWarningMatch ? isWarningMatch[1] === 'true' : false,
+              isKillAll: isKillAllMatch ? isKillAllMatch[1] === 'true' : false
+            };
+            
+            if (fileNameMatch) message.fileName = unescapeXml(fileNameMatch[1]);
+            if (fileTypeMatch) message.fileType = unescapeXml(fileTypeMatch[1]);
+            if (fileUrlMatch) message.fileUrl = unescapeXml(fileUrlMatch[1]);
+            if (fileSizeMatch) message.fileSize = unescapeXml(fileSizeMatch[1]);
+            if (durationMatch) message.duration = parseFloat(durationMatch[1]) || 0;
+            
+            // Парсинг цитаты
+            const quoteMatch = fileContent.match(/<quote>([\s\S]*?)<\/quote>/);
+            if (quoteMatch) {
+              const quoteContent = quoteMatch[1];
+              const quoteUsernameMatch = quoteContent.match(/<username>(.*?)<\/username>/);
+              const quoteTextMatch = quoteContent.match(/<text>(.*?)<\/text>/);
+              const quoteIsEncryptedMatch = quoteContent.match(/<isEncrypted>(.*?)<\/isEncrypted>/);
+              
+              if (quoteUsernameMatch && quoteTextMatch) {
+                message.quote = {
+                  username: unescapeXml(quoteUsernameMatch[1]),
+                  text: unescapeXml(quoteTextMatch[1]),
+                  isEncrypted: quoteIsEncryptedMatch ? quoteIsEncryptedMatch[1] === 'true' : false
+                };
+              }
+            }
+            
+            messages.push(message);
+          } catch (error) {
+            console.error('Ошибка чтения файла сообщения:', messageFile, error);
+          }
+        });
+      }
+    });
+    
+    // Сортируем сообщения по времени
+    messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    
+  } catch (error) {
+    console.error('Ошибка загрузки сообщений комнаты:', room, error);
+  }
+  
+  return messages;
+}
+
+function unescapeXml(safe) {
+  if (!safe) return '';
+  return safe.toString()
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function saveFileMetadata(room, username, fileName, fileData) {
+  try {
+    const roomDir = path.join(uploadsDir, room);
+    const userDir = path.join(roomDir, username);
+    
+    // Создаем директории если их нет
+    ensureDirectoryExistence(userDir);
+    
+    const metadataFile = path.join(userDir, `${fileName}.xml`);
+    
+    let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xmlContent += '<file>\n';
+    xmlContent += `  <originalName>${escapeXml(fileData.fileName)}</originalName>\n`;
+    xmlContent += `  <storedName>${escapeXml(fileName)}</storedName>\n`;
+    xmlContent += `  <type>${escapeXml(fileData.fileType)}</type>\n`;
+    xmlContent += `  <url>${escapeXml(fileData.fileUrl)}</url>\n`;
+    xmlContent += `  <size>${escapeXml(fileData.fileSize)}</size>\n`;
+    xmlContent += `  <duration>${fileData.duration || 0}</duration>\n`;
+    xmlContent += `  <timestamp>${new Date().toISOString()}</timestamp>\n`;
+    xmlContent += `  <isEncrypted>${fileData.isEncrypted || false}</isEncrypted>\n`;
+    xmlContent += `  <username>${escapeXml(username)}</username>\n`;
+    xmlContent += `  <room>${escapeXml(room)}</room>\n`;
+    xmlContent += '</file>';
+    
+    fs.writeFileSync(metadataFile, xmlContent, 'utf8');
+    console.log(`Метаданные файла сохранены: ${metadataFile}`);
+    return true;
+  } catch (error) {
+    console.error('Ошибка сохранения метаданных файла:', error);
+    return false;
+  }
+}
+
+// Функция для получения конфигурации ICE серверов
+function getIceServers() {
+  const iceServers = [...config.stunServers];
+  
+  if (config.useTurnServers && config.turnServers && config.turnServers.length > 0) {
+    console.log('='.repeat(60));
+    console.log('TURN СЕРВЕРЫ: АКТИВИРОВАНЫ');
+    console.log('='.repeat(60));
+    
+    config.turnServers.forEach((server, index) => {
+      console.log(`TURN сервер ${index + 1}:`);
+      console.log(`  URL: ${server.urls}`);
+      console.log(`  Имя пользователя: ${server.username}`);
+      console.log(`  Пароль: ${server.credential ? '***' + server.credential.slice(-3) : 'не указан'}`);
+      
+      // Проверяем формат URL
+      if (!server.urls) {
+        console.error('  ❌ ОШИБКА: отсутствует URL TURN сервера');
+      } else {
+        // Проверяем поддерживаемые протоколы
+        const protocols = ['turn:', 'turns:', 'stun:'];
+        const hasValidProtocol = protocols.some(proto => server.urls.includes(proto));
+        if (!hasValidProtocol) {
+          console.error('  ❌ ОШИБКА: неверный протокол в URL. Допустимы: turn:, turns:, stun:');
+        }
+      }
+      
+      // Проверяем наличие учетных данных
+      if (!server.username || !server.credential) {
+        console.error('  ❌ ОШИБКА: отсутствуют учетные данные TURN сервера');
+      } else {
+        console.log('  ✅ Учетные данные присутствуют');
+      }
+      
+      // Проверяем порт
+      const portMatch = server.urls.match(/:(\d+)/);
+      if (portMatch) {
+        const port = parseInt(portMatch[1]);
+        console.log(`  Порт: ${port}`);
+        
+        if (port < 1 || port > 65535) {
+          console.error('  ❌ ОШИБКА: неверный номер порта');
+        } else if (port < 1024) {
+          console.warn('  ⚠️  ВНИМАНИЕ: порт < 1024 может требовать прав администратора');
+        }
+      }
+      
+      console.log('  ---');
+    });
+    
+    console.log(`Всего TURN серверов: ${config.turnServers.length}`);
+    console.log('='.repeat(60));
+    
+    iceServers.push(...config.turnServers);
+  } else {
+    console.log('='.repeat(60));
+    console.log('TURN СЕРВЕРЫ: ОТКЛЮЧЕНЫ');
+    console.log('='.repeat(60));
+    console.log('⚠️  WebRTC соединения могут не работать через NAT/firewall');
+    
+    if (!config.turnServers || config.turnServers.length === 0) {
+      console.log('ℹ️  TURN серверы не настроены в config.json');
+    } else if (!config.useTurnServers) {
+      console.log('ℹ️  TURN серверы отключены в настройках (useTurnServers: false)');
+    }
+    console.log('='.repeat(60));
+  }
+  
+  return iceServers;
+}
 
 // Обработка подключений Socket.io
 io.on('connection', (socket) => {
   console.log('Новое подключение:', socket.id);
   
-  // Отправляем конфигурацию STUN серверов клиенту
-  socket.emit('stun-config', config.stunServers);
+  // Отправляем конфигурацию ICE серверов клиенту
+  const iceServers = getIceServers();
+  socket.emit('stun-config', iceServers);
   socket.emit('rtc-config', {
     video: config.rtc_video,
     audio: config.rtc_audio,
@@ -91,144 +393,194 @@ io.on('connection', (socket) => {
     }
   });
   
-  // Обработка входа пользователя
-  socket.on('user-join-attempt', (data) => {
-    if (data.password !== config.password) {
-      socket.emit('join-error', 'Неверный пароль');
-      return;
-    }
+// Обработка входа пользователя
+socket.on('user-join-attempt', (data) => {
+  if (data.password !== config.password) {
+    socket.emit('join-error', 'Неверный пароль');
+    return;
+  }
+  
+  const { username, room } = data;
+  
+  // Проверяем, есть ли уже пользователь с таким именем в комнате
+  const existingUser = Array.from(users.values()).find(user => 
+    user.username === username && user.room === room
+  );
+  
+  if (existingUser) {
+    socket.emit('join-error', 'Пользователь с таким именем уже существует в этой комнате');
     
-    const { username, room } = data;
+    // Отправляем предупреждение в комнату
+    const warningMessage = {
+      id: Date.now().toString(),
+      username: 'system',
+      userId: 'system',
+      text: `Внимание! Попытка входа ${username} под уже вошедшим пользователем с другого устройства!`,
+      timestamp: new Date(),
+      room: room,
+      isSystem: true,
+      isWarning: true
+    };
     
-    if (!rooms.has(room)) {
-      rooms.add(room);
-      messages.set(room, []);
-    }
-    
-    users.set(socket.id, { username, id: socket.id, room });
-    socket.join(room);
-    
-    socket.emit('user-joined', {
-      username,
-      room,
-      messageHistory: messages.get(room) || []
-    });
-    
-    socket.to(room).emit('user-joined-room', { username, id: socket.id });
-    
-    const roomUsers = Array.from(users.values()).filter(user => user.room === room);
-    io.to(room).emit('users-list', roomUsers);
-    
-    console.log(`Пользователь ${username} вошел в комнату ${room}`);
+    // Сохраняем системное сообщение
+    saveSystemMessageToFile(room, warningMessage);
+    io.to(room).emit('new-message', warningMessage);
+    return;
+  }
+  
+  if (!rooms.has(room)) {
+    rooms.add(room);
+  }
+  
+  users.set(socket.id, { username, id: socket.id, room });
+  socket.join(room);
+  
+  // Загружаем историю сообщений из файлов
+  const messageHistory = loadMessagesFromRoom(room);
+  
+  socket.emit('user-joined', {
+    username,
+    room,
+    messageHistory: messageHistory
   });
   
+  // Создаем системное сообщение о входе пользователя
+  const joinMessage = {
+    id: Date.now().toString(),
+    username: 'system',
+    userId: 'system',
+    text: `Пользователь ${username} присоединился к комнате`,
+    timestamp: new Date(),
+    room: room,
+    isSystem: true
+  };
+  
+  // Сохраняем системное сообщение
+  saveSystemMessageToFile(room, joinMessage);
+  socket.to(room).emit('new-message', joinMessage);
+  
+  const roomUsers = Array.from(users.values()).filter(user => user.room === room);
+  io.to(room).emit('users-list', roomUsers);
+  
+  console.log(`Пользователь ${username} вошел в комнату ${room}`);
+});
+
+// В обработке отключения пользователя - добавляем сохранение системного сообщения
+socket.on('disconnect', (reason) => {
+  const user = users.get(socket.id);
+  if (user) {
+    console.log(`Пользователь ${user.username} вышел из комнаты ${user.room}. Причина: ${reason}`);
+    
+    // Создаем системное сообщение о выходе пользователя
+    const leaveMessage = {
+      id: Date.now().toString(),
+      username: 'system',
+      userId: 'system',
+      text: `Пользователь ${user.username} вышел из комнаты`,
+      timestamp: new Date(),
+      room: user.room,
+      isSystem: true
+    };
+    
+    // Сохраняем системное сообщение
+    saveSystemMessageToFile(user.room, leaveMessage);
+    socket.to(user.room).emit('new-message', leaveMessage);
+    
+    users.delete(socket.id);
+    
+    const roomUsers = Array.from(users.values()).filter(u => u.room === user.room);
+    io.to(user.room).emit('users-list', roomUsers);
+  }
+});
+  
   // Обработка текстовых сообщений
- socket.on('send-message', (data) => {
+socket.on('send-message', (data) => {
   const user = users.get(socket.id);
   if (user) {
     // Проверка на кодовое слово "kill"
     if (data.text === config.killCode) {
-      // Получаем все сообщения комнаты
-      const roomMessages = messages.get(user.room) || [];
+      // Получаем все файлы комнаты
+      const roomDir = path.join(uploadsDir, user.room);
+      if (fs.existsSync(roomDir)) {
+        // Удаляем всю папку комнаты
+        fs.rmSync(roomDir, { recursive: true, force: true });
+        console.log(`Удалена папка комнаты ${user.room} по команде kill`);
+      }
       
-      // Собираем все файлы из сообщений комнаты
-      const filesToDelete = roomMessages
-        .filter(msg => msg.isFile && msg.fileUrl)
-        .map(msg => {
-          // Извлекаем имя файла из URL
-          const urlParts = msg.fileUrl.split('/');
-          return urlParts[urlParts.length - 1];
-        });
-
-      // Удаляем каждый файл
-      filesToDelete.forEach(fileName => {
-        const filePath = path.join(uploadsDir, fileName);
-        fs.unlink(filePath, (err) => {
-          if (err) {
-            // Если файла нет, или другая ошибка - просто логируем
-            console.log(`Файл ${fileName} не найден или ошибка удаления:`, err.message);
-          } else {
-            console.log(`Файл ${fileName} удален`);
-          }
-        });
-      });
-
-      // Очищаем историю сообщений комнаты
-      messages.set(user.room, []);
+      // Создаем системное сообщение об очистке чата
+      const clearMessage = {
+        id: Date.now().toString(),
+        username: 'system',
+        userId: 'system',
+        text: `История чата была очищена пользователем ${user.username}`,
+        timestamp: new Date(),
+        room: user.room,
+        isSystem: true
+      };
+      
+      // Сохраняем системное сообщение (после очистки, поэтому оно будет первым сообщением)
+      saveSystemMessageToFile(user.room, clearMessage);
+      
       io.to(user.room).emit('clear-chat');
+      io.to(user.room).emit('new-message', clearMessage);
       console.log(`Пользователь ${user.username} очистил чат комнаты ${user.room} и удалил файлы`);
       return;
     }
       
-      // Проверка на кодовое слово "killall"
-      if (data.text === config.killAllCode) {
-        console.log(`Пользователь ${user.username} активировал killall команду`);
-        
-        // Удаляем все файлы из директории uploads
-        fs.readdir(uploadsDir, (err, files) => {
-          if (err) {
-            console.error('Ошибка чтения директории uploads:', err);
-            return;
-          }
-          
-          let deletedCount = 0;
-          files.forEach(file => {
-            fs.unlink(path.join(uploadsDir, file), err => {
-              if (err) {
-                console.error(`Ошибка удаления файла ${file}:`, err);
-              } else {
-                deletedCount++;
-                console.log(`Удален файл: ${file}`);
-              }
-            });
-          });
-          
-          console.log(`Удалено файлов: ${deletedCount}`);
-        });
-        
-        // Очищаем историю всех чатов
-        messages.clear();
-        rooms.forEach(room => {
-          messages.set(room, []);
-        });
-        
-        // Отправляем сообщение всем пользователям
-        const killAllMessage = {
-          id: Date.now().toString(),
-          username: 'СИСТЕМА',
-          userId: 'system',
-          text: 'The tower has fallen!',
-          timestamp: new Date(),
-          isSystem: true,
-          isKillAll: true
-        };
-        
-        io.emit('killall-message', killAllMessage);
-        
-        // Завершаем работу сервера через 3 секунды
-        setTimeout(() => {
-          console.log('Сервер завершает работу по команде killall');
-          process.exit(0);
-        }, 3000);
-        
-        return;
-      }
+    // Проверка на кодовое слово "killall"
+if (data.text === config.killAllCode) {
+  console.log(`Пользователь ${user.username} активировал killall команду`);
+  
+  // Создаем системное сообщение перед удалением
+  const killAllMessage = {
+    id: Date.now().toString(),
+    username: 'system',
+    userId: 'system',
+    text: 'The tower has fallen!',
+    timestamp: new Date(),
+    isSystem: true,
+    isKillAll: true
+  };
+  
+  // Сохраняем системное сообщение (будет удалено вместе с остальными файлами)
+  saveSystemMessageToFile(user.room, killAllMessage);
+  
+  // Удаляем всю папку uploads
+  if (fs.existsSync(uploadsDir)) {
+    fs.rmSync(uploadsDir, { recursive: true, force: true });
+    console.log('Удалена папка uploads со всем содержимым');
+  }
+  
+  // Создаем пустую папку uploads
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  
+  // Отправляем сообщение всем пользователям
+  io.emit('killall-message', killAllMessage);
+  
+  // Завершаем работу сервера через 3 секунды
+  setTimeout(() => {
+    console.log('Сервер завершает работу по команде killall');
+    process.exit(0);
+  }, 3000);
+  
+  return;
+}
       
-    const message = {
-      id: Date.now().toString(),
-      username: user.username,
-      userId: socket.id,
-      text: data.text,
-      timestamp: new Date(),
-      room: user.room,
-      quote: data.quote || null,
-      isEncrypted: data.isEncrypted || false // Добавляем флаг шифрования
-    };
+      const message = {
+        id: Date.now().toString(),
+        username: user.username,
+        userId: socket.id,
+        text: data.text,
+        timestamp: new Date(),
+        room: user.room,
+        quote: data.quote || null,
+        isEncrypted: data.isEncrypted || false
+      };
       
-      if (!messages.has(user.room)) {
-        messages.set(user.room, []);
+      // Сохраняем сообщение в файл
+      if (saveMessageToFile(user.room, user.username, message)) {
+        console.log(`Сообщение сохранено в файл: ${user.room}/${user.username}/${message.id}.xml`);
       }
-      messages.get(user.room).push(message);
       
       io.to(user.room).emit('new-message', message);
     }
@@ -264,7 +616,14 @@ io.on('connection', (socket) => {
     
     const fileExt = data.fileName.split('.').pop();
     const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-    const filePath = path.join(uploadsDir, uniqueFileName);
+    
+    // Создаем пути для сохранения
+    const roomDir = path.join(uploadsDir, user.room);
+    const userDir = path.join(roomDir, user.username);
+    ensureDirectoryExistence(userDir);
+    
+    const filePath = path.join(userDir, uniqueFileName);
+    const fileUrl = `/uploads/${user.room}/${user.username}/${uniqueFileName}`;
     
     // Сохраняем файл (уже зашифрованный, если клиент его зашифровал)
     fs.writeFile(filePath, data.fileData, 'base64', (err) => {
@@ -286,6 +645,8 @@ io.on('connection', (socket) => {
             socket.emit('new-message', errorMessage);
             return;
         }
+        
+        console.log(`Файл сохранен: ${filePath}`);
         
         // Для аудио и видео файлов используем переданные длительность и размер
         const isAudio = data.fileType.startsWith('audio/');
@@ -309,20 +670,30 @@ io.on('connection', (socket) => {
             userId: socket.id,
             fileName: data.fileName,
             fileType: data.fileType,
-            fileUrl: `/uploads/${uniqueFileName}`,
+            fileUrl: fileUrl,
             fileSize: fileSizeDisplay,
             duration: duration,
             timestamp: new Date(),
             isFile: true,
             isAudio: isAudio,
-            isEncrypted: data.isEncrypted || false, // Добавляем флаг шифрования
+            isEncrypted: data.isEncrypted || false,
             room: user.room
         };
         
-        if (!messages.has(user.room)) {
-            messages.set(user.room, []);
+        // Сохраняем сообщение о файле
+        if (saveMessageToFile(user.room, user.username, message)) {
+          console.log(`Сообщение о файле сохранено: ${user.room}/${user.username}/${message.id}.xml`);
         }
-        messages.get(user.room).push(message);
+        
+        // Сохраняем метаданные файла
+        saveFileMetadata(user.room, user.username, uniqueFileName, {
+          fileName: data.fileName,
+          fileType: data.fileType,
+          fileUrl: fileUrl,
+          fileSize: fileSizeDisplay,
+          duration: duration,
+          isEncrypted: data.isEncrypted || false
+        });
         
         io.to(user.room).emit('new-message', message);
         if (callback) callback({ success: true });
@@ -342,7 +713,14 @@ io.on('connection', (socket) => {
     
     const fileExt = data.fileName.split('.').pop();
     const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-    const filePath = path.join(uploadsDir, uniqueFileName);
+    
+    // Создаем пути для сохранения
+    const roomDir = path.join(uploadsDir, user.room);
+    const userDir = path.join(roomDir, user.username);
+    ensureDirectoryExistence(userDir);
+    
+    const filePath = path.join(userDir, uniqueFileName);
+    const fileUrl = `/uploads/${user.room}/${user.username}/${uniqueFileName}`;
     
     // Сохраняем аудиофайл
     fs.writeFile(filePath, data.audioData, 'base64', (err) => {
@@ -352,7 +730,7 @@ io.on('connection', (socket) => {
             return;
         }
         
-        console.log('Аудиофайл сохранен:', uniqueFileName);
+        console.log('Аудиофайл сохранен:', filePath);
         
         const message = {
             id: Date.now().toString(),
@@ -360,19 +738,29 @@ io.on('connection', (socket) => {
             userId: socket.id,
             fileName: data.fileName,
             fileType: data.fileType,
-            fileUrl: `/uploads/${uniqueFileName}`,
+            fileUrl: fileUrl,
             duration: data.duration,
             timestamp: new Date(),
             isFile: true,
             isAudio: true,
-            isEncrypted: data.isEncrypted || false, // Добавляем флаг шифрования
+            isEncrypted: data.isEncrypted || false,
             room: user.room
         };
         
-        if (!messages.has(user.room)) {
-            messages.set(user.room, []);
+        // Сохраняем сообщение о файле
+        if (saveMessageToFile(user.room, user.username, message)) {
+          console.log(`Сообщение о аудиофайле сохранено: ${user.room}/${user.username}/${message.id}.xml`);
         }
-        messages.get(user.room).push(message);
+        
+        // Сохраняем метаданные файла
+        saveFileMetadata(user.room, user.username, uniqueFileName, {
+          fileName: data.fileName,
+          fileType: data.fileType,
+          fileUrl: fileUrl,
+          fileSize: `${(data.audioData.length * 0.75 / 1024).toFixed(2)} КБ`,
+          duration: data.duration,
+          isEncrypted: data.isEncrypted || false
+        });
         
         io.to(user.room).emit('new-message', message);
         console.log('Аудиосообщение отправлено в комнату:', user.room);
@@ -489,6 +877,103 @@ io.on('connection', (socket) => {
 
 const PORT = config.port;
 server.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
-  console.log(`Максимальный размер файла: ${config.maxFileSize / (1024 * 1024)} МБ`);
+  console.log('='.repeat(60));
+  console.log(`🚀 СЕРВЕР ЗАПУЩЕН НА ПОРТУ: ${PORT}`);
+  console.log('='.repeat(60));
+  
+  // Проверяем доступность порта
+  const net = require('net');
+  const tester = net.createServer();
+  
+  tester.once('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`❌ ОШИБКА: Порт ${PORT} уже занят!`);
+      console.error('   Возможные решения:');
+      console.error('   1. Измените порт в config.json');
+      console.error('   2. Закройте другое приложение, использующее этот порт');
+      console.error('   3. Подождите несколько секунд и попробуйте снова');
+    }
+  });
+  
+  tester.once('listening', () => {
+    tester.close();
+    console.log(`✅ Порт ${PORT} доступен для использования`);
+  });
+  
+  console.log(`📁 Максимальный размер файла: ${config.maxFileSize / (1024 * 1024)} МБ`);
+  console.log(`💾 Сообщения и файлы сохраняются в: ${uploadsDir}`);
+  console.log(`🔧 Использование TURN серверов: ${config.useTurnServers ? 'ВКЛЮЧЕНО' : 'ОТКЛЮЧЕНО'}`);
+  
+  // Получаем и логируем ICE серверы
+  const iceServers = getIceServers();
+  console.log(`🌐 Всего ICE серверов: ${iceServers.length}`);
+  
+  console.log('='.repeat(60));
 });
+
+// Функция для сохранения системных сообщений
+function saveSystemMessageToFile(room, message) {
+  try {
+    const roomDir = path.join(uploadsDir, room);
+    const systemDir = path.join(roomDir, 'system');
+    
+    // Создаем директории если их нет
+    ensureDirectoryExistence(systemDir);
+    
+    const messageFile = path.join(systemDir, `${message.id}.xml`);
+    
+    let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xmlContent += '<message>\n';
+    xmlContent += `  <id>${message.id}</id>\n`;
+    xmlContent += `  <username>${escapeXml(message.username)}</username>\n`;
+    xmlContent += `  <userId>${message.userId}</userId>\n`;
+    xmlContent += `  <text>${escapeXml(message.text)}</text>\n`;
+    xmlContent += `  <timestamp>${message.timestamp.toISOString()}</timestamp>\n`;
+    xmlContent += `  <room>${escapeXml(message.room)}</room>\n`;
+    xmlContent += `  <isSystem>${message.isSystem || true}</isSystem>\n`;
+    xmlContent += `  <isEncrypted>${message.isEncrypted || false}</isEncrypted>\n`;
+    xmlContent += `  <isFile>${message.isFile || false}</isFile>\n`;
+    xmlContent += `  <isAudio>${message.isAudio || false}</isAudio>\n`;
+    
+    if (message.isWarning) {
+      xmlContent += `  <isWarning>${message.isWarning}</isWarning>\n`;
+    }
+    
+    if (message.isKillAll) {
+      xmlContent += `  <isKillAll>${message.isKillAll}</isKillAll>\n`;
+    }
+    
+    if (message.fileName) {
+      xmlContent += `  <fileName>${escapeXml(message.fileName)}</fileName>\n`;
+    }
+    if (message.fileType) {
+      xmlContent += `  <fileType>${escapeXml(message.fileType)}</fileType>\n`;
+    }
+    if (message.fileUrl) {
+      xmlContent += `  <fileUrl>${escapeXml(message.fileUrl)}</fileUrl>\n`;
+    }
+    if (message.fileSize) {
+      xmlContent += `  <fileSize>${escapeXml(message.fileSize)}</fileSize>\n`;
+    }
+    if (message.duration) {
+      xmlContent += `  <duration>${message.duration}</duration>\n`;
+    }
+    
+    if (message.quote) {
+      xmlContent += `  <quote>\n`;
+      xmlContent += `    <username>${escapeXml(message.quote.username)}</username>\n`;
+      xmlContent += `    <text>${escapeXml(message.quote.text)}</text>\n`;
+      xmlContent += `    <isEncrypted>${message.quote.isEncrypted || false}</isEncrypted>\n`;
+      xmlContent += `  </quote>\n`;
+    }
+    
+    xmlContent += '</message>';
+    
+    fs.writeFileSync(messageFile, xmlContent, 'utf8');
+    console.log(`Системное сообщение сохранено: ${messageFile}`);
+    return true;
+  } catch (error) {
+    console.error('Ошибка сохранения системного сообщения в файл:', error);
+    return false;
+  }
+}

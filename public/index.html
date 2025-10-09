@@ -59,8 +59,12 @@
     <div class="modal" id="loginModal">
         <div class="modal-content">
             <h2>Вход в чат</h2>
-            <input type="text" id="usernameInput" placeholder="Имя пользователя">
-            <input type="text" id="roomInput" placeholder="Название комнаты" value="Room_01">
+            <input type="text" id="usernameInput" placeholder="Имя пользователя" 
+                   pattern="[a-zA-Z0-9_-]{1,64}" 
+                   title="Только латинские буквы, цифры, дефис и нижнее подчеркивание (макс. 64 символа)">
+            <input type="text" id="roomInput" placeholder="Название комнаты" value="Room_01"
+                   pattern="[a-zA-Z0-9_-]{1,64}"
+                   title="Только латинские буквы, цифры, дефис и нижнее подчеркивание (макс. 64 символа)">
             <input type="password" id="passwordInput" placeholder="Пароль">
             <button id="joinChatBtn">Войти</button>
             <div class="error-message" id="loginError"></div>

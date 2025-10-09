@@ -353,13 +353,18 @@ class WebRTCManager {
     }
     
     createPeerConnection() {
-        // Получаем конфигурацию из глобальной переменной
-        const config = window.rtcConfig || {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
+        // Получаем конфигурацию ICE серверов из глобальной переменной
+        const iceServers = window.rtcConfig?.iceServers || [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+        ];
+        
+        const config = {
+            iceServers: iceServers,
+            iceTransportPolicy: 'all' // Используем и STUN и TURN
         };
+        
+        console.log('Создание PeerConnection с ICE серверами:', iceServers);
         
         this.peerConnection = new RTCPeerConnection(config);
         
@@ -386,6 +391,16 @@ class WebRTCManager {
             if (this.peerConnection.connectionState === 'disconnected' ||
                 this.peerConnection.connectionState === 'failed') {
                 this.endCall();
+            }
+        };
+        
+        // Обработка ICE соединения
+        this.peerConnection.oniceconnectionstatechange = () => {
+            console.log('Состояние ICE соединения:', this.peerConnection.iceConnectionState);
+            
+            if (this.peerConnection.iceConnectionState === 'disconnected' ||
+                this.peerConnection.iceConnectionState === 'failed') {
+                console.log('Проблемы с ICE соединением, возможно нужен TURN сервер');
             }
         };
     }

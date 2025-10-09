@@ -1,4 +1,4 @@
-﻿document.addEventListener('DOMContentLoaded', () => {
+﻿﻿document.addEventListener('DOMContentLoaded', () => {
     const socket = io({
         transports: ['websocket', 'polling'],
         reconnection: true,
@@ -17,12 +17,28 @@
     let messageHistory = [];
     let encryptionDebounceDelay = 500;
     let debounceTimer = null;
+    let shouldAutoScroll = true; // Флаг для управления авто-прокруткой
 
     // Инициализация WebRTC менеджера после создания socket
     window.webrtcManager = new WebRTCManager(socket);
 
     // Глобальная переменная для кэширования расшифрованных файлов
     window.decryptedFilesCache = {};
+
+    // Обработка получения конфигурации ICE серверов от сервера
+    socket.on('stun-config', (iceServers) => {
+        console.log('Получены ICE серверы:', iceServers);
+        if (!window.rtcConfig) {
+            window.rtcConfig = {};
+        }
+        window.rtcConfig.iceServers = iceServers;
+    });
+
+    // Обработка получения конфигурации RTC от сервера
+    socket.on('rtc-config', (rtcConfig) => {
+        window.rtcConfig = { ...window.rtcConfig, ...rtcConfig };
+        console.log('Полная конфигурация RTC:', window.rtcConfig);
+    });
 
     // Функция для преобразования Blob в base64
     function blobToBase64(blob) {
@@ -161,6 +177,7 @@
             <button class="encrypted-file-btn error">
                 🔒 Ключ дешифрации не верный.
             </button>
+            <div class="file-info">${fileName}</div>
         `;
     }
 
@@ -184,20 +201,14 @@
     };
 
     function displayDecryptedFile(blob, fileType, fileName, element) {
-    const url = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
 
-    if (fileType.startsWith('image/')) {
-        // Находим родительское сообщение и добавляем класс has-image
-        const messageElement = element.closest('.message');
-        if (messageElement) {
-            messageElement.classList.add('has-image');
-        }
-        
-        element.innerHTML = `
-            <img src="${url}" alt="${fileName}" 
-                 onclick="console.log('🖼️ Клик по расшифрованному изображению:', '${url}'); window.expandImage('${url}', '${fileType}')">
-            
-        `;
+        if (fileType.startsWith('image/')) {
+            element.innerHTML = `
+                <img src="${url}" alt="${fileName}" 
+                     onclick="console.log('🖼️ Клик по расшифрованному изображению:', '${url}'); window.expandImage('${url}', '${fileType}')">
+                <div class="file-size">${(blob.size / 1024).toFixed(2)} KB</div>
+            `;
         } else if (fileType.startsWith('video/')) {
             element.innerHTML = `
                 <video src="${url}" controls muted 
@@ -345,11 +356,27 @@
         }, 3000);
     });
 
+    // Валидация ввода имени пользователя и комнаты
+    function validateInput(input) {
+        const regex = /^[a-zA-Z0-9_-]{1,64}$/;
+        return regex.test(input);
+    }
+
     // Подключение к чату
     joinChatBtn.addEventListener('click', () => {
         const username = usernameInput.value.trim();
         const room = roomInput.value.trim() || 'Room_01';
         const password = passwordInput.value.trim();
+
+        if (!validateInput(username)) {
+            showLoginError('Имя пользователя может содержать только латинские буквы, цифры, дефис и нижнее подчеркивание (макс. 64 символа)');
+            return;
+        }
+
+        if (!validateInput(room)) {
+            showLoginError('Название комнаты может содержать только латинские буквы, цифры, дефис и нижнее подчеркивание (макс. 64 символа)');
+            return;
+        }
 
         if (username && password) {
             // Сохраняем имя пользователя в cookie
@@ -389,6 +416,9 @@
         // Загружаем историю сообщений
         messagesContainer.innerHTML = '';
         messageHistory = data.messageHistory || [];
+        
+        // Включаем авто-прокрутку при входе в комнату
+        shouldAutoScroll = true;
         messageHistory.forEach(message => addMessageToChat(message));
 
         // Добавляем кнопки звонков
@@ -425,47 +455,55 @@
     });
 
     // Добавление системного сообщения
-    function addSystemMessage(text) {
-        const message = {
-            id: Date.now().toString(),
-            username: 'Система',
-            userId: 'system',
-            text: text,
-            timestamp: new Date(),
-            isSystem: true
-        };
-        messageHistory.push(message);
-        addMessageToChat(message);
+   function addSystemMessage(text) {
+  const message = {
+    id: Date.now().toString(),
+    username: 'system',
+    userId: 'system',
+    text: text,
+    timestamp: new Date(),
+    isSystem: true
+  };
+  messageHistory.push(message);
+  addMessageToChat(message);
+}
+
+    // Функция для прокрутки вниз
+    function scrollToBottom() {
+        if (shouldAutoScroll) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
     }
 
-    // Добавление сообщения в чат
-    function addMessageToChat(message) {
-        const messageElement = document.createElement('div');
-        messageElement.classList.add('message');
-        messageElement.dataset.messageId = message.id;
-        messageElement.dataset.messageUsername = message.username;
+   // Добавление сообщения в чат
+function addMessageToChat(message) {
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message');
+    messageElement.dataset.messageId = message.id;
+    messageElement.dataset.messageUsername = message.username;
 
-        if (message.isSystem) {
-            messageElement.classList.add('system-message');
-        }
+    if (message.isSystem) {
+        messageElement.classList.add('system-message');
+    }
 
-        if (message.isKillAll) {
-            messageElement.classList.add('killall-message');
-        }
+    if (message.isKillAll) {
+        messageElement.classList.add('killall-message');
+    }
 
-        if (message.isFile || message.isAudio) {
-            messageElement.dataset.hasFile = 'true';
-        }
+    // Добавляем класс для предупреждающих сообщений
+    if (message.isWarning) {
+        messageElement.classList.add('warning-message');
+    }
 
-        if (message.isFile && message.fileType.startsWith('image/')) {
-            messageElement.classList.add('has-image');
-        }
+    if (message.isFile || message.isAudio) {
+        messageElement.dataset.hasFile = 'true';
+    }
 
-        // Определяем, наше ли это сообщение
-        const isMyMessage = message.userId === socket.id;
-        if (!message.isSystem && !message.isKillAll) {
-            messageElement.classList.add(isMyMessage ? 'my-message' : 'other-message');
-        }
+    // Определяем, наше ли это сообщение
+    const isMyMessage = message.userId === socket.id;
+    if (!message.isSystem && !message.isKillAll && !message.isWarning) {
+        messageElement.classList.add(isMyMessage ? 'my-message' : 'other-message');
+    }
 
         // Форматируем время
         const time = new Date(message.timestamp).toLocaleTimeString();
@@ -520,24 +558,24 @@
         }
 
         if (message.isFile) {
-    console.log('Отображение файла в чате:', message.fileName, 'Зашифрован:', message.isEncrypted);
+            console.log('Отображение файла в чате:', message.fileName, 'Зашифрован:', message.isEncrypted);
 
-    if (message.isEncrypted) {
-        // Для зашифрованных файлов показываем placeholder
-        messageContent += `
-        <div class="message-file">
-            <button class="encrypted-file-btn" 
-                    onclick="decryptAndDisplayFile('${message.fileUrl}', '${message.fileType}', '${message.fileName}', '${message.id}', this)"
-                    data-file-url="${message.fileUrl}"
-                    data-file-type="${message.fileType}"
-                    data-file-name="${message.fileName}"
-                    data-message-id="${message.id}">
-                🔒 Файл зашифрован. Нажмите для расшифровки.
-            </button>
-            
-        </div>
-    `;
-    } else {
+            if (message.isEncrypted) {
+                // Для зашифрованных файлов показываем placeholder
+                messageContent += `
+                <div class="message-file">
+                    <button class="encrypted-file-btn" 
+                            onclick="decryptAndDisplayFile('${message.fileUrl}', '${message.fileType}', '${message.fileName}', '${message.id}', this)"
+                            data-file-url="${message.fileUrl}"
+                            data-file-type="${message.fileType}"
+                            data-file-name="${message.fileName}"
+                            data-message-id="${message.id}">
+                        🔒 Файл зашифрован. Нажмите для расшифровки.
+                    </button>
+                    <div class="file-info">${message.fileName} (${message.fileSize})</div>
+                </div>
+            `;
+            } else {
                 // Для незашифрованных файлов стандартное отображение
                 if (message.isAudio) {
                     messageContent += `
@@ -549,15 +587,13 @@
                         </div>
                     `;
                 } else if (message.fileType.startsWith('image/')) {
-            // ДОБАВЛЯЕМ КЛАСС has-image К СООБЩЕНИЮ
-            messageElement.classList.add('has-image');
-            
-            messageContent += `
-                <div class="message-file">
-                    <img src="${message.fileUrl}" alt="${message.fileName}" 
-                         onclick="console.log('🖼️ Клик по изображению в чате:', '${message.fileUrl}'); window.expandImage('${message.fileUrl}', '${message.fileType}')">
-                </div>
-            `;
+                    messageContent += `
+                        <div class="message-file">
+                            <img src="${message.fileUrl}" alt="${message.fileName}" 
+                                 onclick="console.log('🖼️ Клик по изображению в чате:', '${message.fileUrl}'); window.expandImage('${message.fileUrl}', '${message.fileType}')">
+                            <div class="file-size">${message.fileSize}</div>
+                        </div>
+                    `;
                 } else if (message.fileType.startsWith('video/')) {
                     messageContent += `
         <div class="message-file">
@@ -586,7 +622,9 @@
 
         messageElement.innerHTML = messageContent;
         messagesContainer.appendChild(messageElement);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+        // Прокручиваем только если включена авто-прокрутка
+        scrollToBottom();
     }
 
     // Обработка списка пользователей
@@ -1383,6 +1421,9 @@
                     };
                 });
 
+                // Отключаем авто-прокрутку при дешифрации
+                shouldAutoScroll = false;
+
                 // Debounce перерасшифровки сообщений
                 if (window.encryptionManager.debounce) {
                     window.encryptionManager.debounce(() => {
@@ -1427,6 +1468,9 @@
                         window.decryptAndDisplayFile(fileUrl, fileType, fileName, messageId, this);
                     };
                 });
+
+                // Отключаем авто-прокрутку при дешифрации
+                shouldAutoScroll = false;
 
                 // Немедленно обновляем все сообщения
                 reDecryptAllMessages();
@@ -1574,9 +1618,9 @@ function handleViewportResize() {
     appContainer.style.height = height + 'px';
     chatContainer.style.height = height + 'px';
     
-    // Прокручиваем к последнему сообщению
+    // Прокручиваем к последнему сообщению только если включена авто-прокрутка
     const messagesContainer = document.getElementById('messagesContainer');
-    if (messagesContainer) {
+    if (messagesContainer && window.shouldAutoScroll) {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 }
@@ -1604,9 +1648,3 @@ document.addEventListener('focusin', () => {
 document.addEventListener('focusout', () => {
     setTimeout(handleViewportResize, 300);
 });
-
-// Функция для проверки, является ли файл изображением
-function isImageFile(fileType) {
-    const imageTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml'];
-    return imageTypes.includes(fileType.toLowerCase());
-}

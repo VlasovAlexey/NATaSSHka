@@ -5,6 +5,14 @@
     {"urls": "stun:stun.l.google.com:19302"},
     {"urls": "stun:stun1.l.google.com:19302"}
   ],
+  "turnServers": [
+    {
+      "urls": "turn:17.125.138.169:3478",
+      "username": "username",
+      "credential": "user-pass"
+    }
+  ],
+  "useTurnServers": false,
   "killCode": "kill",
   "killAllCode": "killall",
   "maxFileSize": 52428800,
