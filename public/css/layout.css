@@ -1,8 +1,39 @@
-﻿.app-container {
+﻿/* ===== BASE STYLES ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: fixed;
+}
+
+body {
+    background-color: #f0f2f5;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ===== LAYOUT STYLES ===== */
+.app-container {
     display: flex;
     width: 100vw;
     height: 100vh;
-    height: -webkit-fill-available; /* Для мобильных браузеров */
+    height: -webkit-fill-available;
     background-color: #fff;
     overflow: hidden;
     position: fixed;
@@ -12,7 +43,7 @@
     bottom: 0;
 }
 
-/* Сайдбар */
+/* Sidebar */
 .sidebar {
     width: 30%;
     background-color: #2d3e50;
@@ -26,79 +57,6 @@
     z-index: 100;
 }
 
-/* Когда ширина больше высоты (ландшафтный режим) */
-@media (min-aspect-ratio: 1/1) {
-    .sidebar {
-        transform: translateX(0);
-        opacity: 1;
-        width: 30%;
-    }
-    
-    .chat-container {
-        width: 70%;
-    }
-    
-    .sidebar-toggle-btn {
-        display: none !important;
-    }
-}
-
-/* Когда высота больше ширины (портретный режим) */
-@media (max-aspect-ratio: 1/1) {
-    .sidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100%;
-        transform: translateX(-100%);
-        opacity: 0;
-        width: 80%;
-        max-width: 300px;
-        z-index: 1000;
-    }
-    
-    .sidebar.active {
-        transform: translateX(0);
-        opacity: 1;
-        z-index: 1001;
-    }
-    
-    .chat-container {
-        width: 100%;
-    }
-    
-    /* Затемнение фона когда sidebar открыт */
-    .sidebar-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 999;
-        display: none;
-    }
-    
-    .sidebar-overlay.active {
-        display: block;
-    }
-    
-    /* Кнопка показа sidebar должна быть видна */
-    #showSidebarBtn {
-        display: flex !important;
-        z-index: 10;
-    }
-
-        .message-input-container {
-        padding-bottom: calc(10px + env(safe-area-inset-bottom) + 10px);
-    }
-    
-    .messages-container {
-        padding-bottom: env(safe-area-inset-bottom);
-    }
-
-}
-
 .sidebar-header {
     padding: 20px;
     border-bottom: 1px solid #3c5065;
@@ -106,20 +64,18 @@
     flex-direction: column;
 }
 
-/* room-info переносим вверх */
 .room-info {
-    font-size: 1rem;
+    font-size: 0.8rem;
     color: #a0aec0;
     margin-bottom: 10px;
     font-weight: bold;
 }
 
 .user-info {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: #a0aec0;
 }
 
-/* Стиль для списка пользователей с символом */
 .users-list {
     padding: 10px;
     overflow-y: auto;
@@ -132,7 +88,7 @@
     color: #ffd700;
 }
 
-/* Основной чат */
+/* Chat Container */
 .chat-container {
     flex-grow: 1;
     display: flex;
@@ -164,6 +120,7 @@
     flex: 1 1 auto;
     min-width: 150px;
     max-width: 500px;
+    
 }
 
 .call-buttons-container {
@@ -175,16 +132,17 @@
 
 .encryption-input-header {
     width: 100%;
-    padding: 12px 15px;
+    padding-right: 40px !important;
+    padding: 11px 14px;
     border: none;
     border-radius: 20px;
     outline: none;
-    font-size: 1rem;
+    font-size: 0.8rem;
     transition: all 0.23s ease-in-out;
-    background-color: white;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    resize: horizontal;
-    max-width: 100%;
+    min-width: 50px;
+    outline: 1px solid rgb(230,230,230);
+    background-color: #ededed;
+    caret-color: #000;
 }
 
 .messages-container {
@@ -192,13 +150,12 @@
     padding: 20px;
     overflow-y: auto;
     background: linear-gradient(to bottom, #d0d58c, #76aa89);
-    
-    /* Плавная прокрутка с инерцией для мобильных устройств */
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.3) rgba(0, 0, 0, 0.1);
 }
 
-/* Стилизация scrollbar без кнопок */
 .messages-container::-webkit-scrollbar {
     width: 8px;
 }
@@ -217,15 +174,8 @@
     background: rgba(0, 0, 0, 0.5);
 }
 
-/* Скрываем кнопки прокрутки (стрелки) */
 .messages-container::-webkit-scrollbar-button {
     display: none;
-}
-
-/* Для Firefox */
-.messages-container {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.3) rgba(0, 0, 0, 0.1);
 }
 
 .message-input-container {
@@ -235,9 +185,168 @@
     border-top: 1px solid #e0e0e0;
     align-items: center;
     flex-shrink: 0;
+    position: relative;
+    gap: 5px;
+    transition: all 0.23s ease-in-out;
 }
 
-/* Стили для кнопок переключения sidebar */
+/* ===== COMPONENT STYLES ===== */
+/* Message Input */
+#messageInput {
+    flex-grow: 1;
+    padding: 11px 14px;
+    border: none;
+    border-radius: 20px;
+    outline: none;
+    font-size: 0.8rem;
+    transition: all 0.23s ease-in-out;
+    min-width: 50px;
+    outline: 1px solid rgb(230,230,230);
+    background-color: #ededed;
+    caret-color: #000;
+}
+
+#messageInput::after {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 20px;
+    background-color: #2d3e50;
+    animation: blink 1s infinite;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.message-input-container:not(.has-text) #messageInput::after {
+    opacity: 1;
+}
+
+.message-input-container.has-text #messageInput::after,
+#messageInput:focus::after {
+    opacity: 0;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+.message-input-container:not(.has-text) #messageInput::placeholder {
+    color: transparent;
+}
+
+/* Buttons */
+.record-buttons-container {
+    display: flex;
+    gap: 5px;
+    transition: opacity 0.23s ease-in-out;
+    opacity: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.send-file-container {
+    position: relative;
+    width: 45px;
+    height: 45px;
+    z-index: 2;
+}
+
+.record-btn {
+    width: 45px;
+    height: 45px;
+    padding: 0;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    transition: transform 0.23s ease-in-out;
+}
+
+#recordVideoBtn {
+    background-color: #2196F3;
+}
+
+.record-btn:hover {
+    transform: scale(1.05);
+}
+
+.record-btn:active {
+    transform: scale(0.95);
+}
+
+.file-input-label {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    z-index: 2;
+    background-color: #2d3e50;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    transition: all 0.23s ease-in-out;
+}
+
+.file-input-label:hover {
+    background-color: #3c5065;
+    transform: scale(1.05);
+}
+
+.file-input-label:active {
+    transform: scale(0.95);
+}
+
+#sendMessageBtn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 45px;
+    height: 45px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    z-index: 3;
+    background-color: #2d3e50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: all 0.23s ease-in-out;
+}
+
+#sendMessageBtn:hover:not(:disabled) {
+    background-color: #3c5065;
+    transform: scale(1.05);
+}
+
+#sendMessageBtn:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+#sendMessageBtn:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.call-btn,
 .sidebar-toggle-btn {
     width: 45px;
     height: 45px;
@@ -253,44 +362,23 @@
     justify-content: center;
     flex-shrink: 0;
     transition: all 0.23s ease-in-out;
-    z-index: 10;
 }
 
+.call-btn:hover,
 .sidebar-toggle-btn:hover {
     background-color: #999999;
     transform: scale(1.05);
 }
 
+.call-btn:active,
 .sidebar-toggle-btn:active {
     transform: scale(0.95);
-}
-
-/* Кнопка показа sidebar в заголовке чата */
-#showSidebarBtn {
-    margin-right: 10px;
-}
-
-/* Кнопка скрытия sidebar в sidebar */
-#hideSidebarBtn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 11;
-}
-
-/* Модальные окна должны быть выше всего */
-.modal {
-    z-index: 1100 !important;
-}
-
-.modal-content {
-    z-index: 1101 !important;
 }
 
 .clear-key-btn {
     position: absolute;
     right: 12px;
-    top: 50%;
+    top: 45%;
     transform: translateY(-50%);
     background: none;
     border: none;
@@ -315,25 +403,946 @@
     color: #666;
 }
 
-/* Убедимся, что поле ввода имеет правильные отступы */
-.encryption-input-header {
-    padding-right: 40px !important; /* Место для крестика */
+.cancel-quote {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.23s ease-in-out;
 }
 
-/* For all scrollbars */
-::-webkit-scrollbar-button {
-  display: none;
+.cancel-quote:hover {
+    background-color: #f0f0f0;
+    color: #666;
 }
 
-/* Дополнительное центрирование */
+/* State Management */
+.message-input-container.has-text .record-buttons-container {
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    overflow: hidden;
+}
+
+.message-input-container.has-text .file-input-label {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.message-input-container.has-text #sendMessageBtn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.message-input-container:not(.has-text) #sendMessageBtn {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.message-input-container:not(.has-text) .record-buttons-container,
+.message-input-container:not(.has-text) .file-input-label {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ===== CHAT MESSAGE STYLES ===== */
+.message {
+    margin-bottom: 15px;
+    max-width: 70%;
+    padding: 0px;
+    border-radius: 7.5px;
+    position: relative;
+    word-wrap: break-word;
+    animation: messageAppear 0.3s ease-out;
+    transform-origin: center top;
+}
+
+@keyframes messageAppear {
+    0% {
+        opacity: 0;
+        transform: translateY(10px) scale(0.95);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.message.my-message {
+    background-color: #DCF8C6;
+    margin-left: auto;
+    border-top-right-radius: 0;
+}
+
+.message.other-message {
+    background-color: white;
+    margin-right: auto;
+    border-top-left-radius: 0;
+}
+
+.message-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 0.8rem;
+    padding: 10px 10px 0px 10px;
+    color: #666;
+}
+
+.message-sender {
+    font-weight: bold;
+    margin-right: 10px;
+    
+}
+
+.message-time {
+    color: #999;
+}
+
+.message-text {
+    line-height: 1.4;
+    padding: 0px 10px 10px 10px;
+    
+}
+
+/* File Messages */
 .message-file {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 5px;
+    margin-top: 5px;
+    cursor: pointer;
+    background-color: transparent !important;
+    padding: 0;
+    margin-top: 5px;
+    width: 100%;
+    text-align: center;
+}
+
+.message-file img,
+.message-file video {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 5px;
+    
+    cursor: pointer;
+    object-fit: contain;
+    transition: none !important;
+    transform: none !important;
+}
+
+.message.my-message .message-file img,
+.message.my-message .message-file video,
+.message.other-message .message-file img,
+.message.other-message .message-file video {
+    width: 100%;
+    height: auto;
+    max-height: none;
+    border-radius: 7.5px;
+    margin: 0;
+    padding: 0;
+}
+
+.message-file:has(img) .file-size,
+.message-file:has(video) .file-size {
+    display: none;
+}
+
+.message-file a {
+    color: #2d3e50;
+    text-decoration: none;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.message-file a:hover {
+    text-decoration: underline;
+}
+
+.file-size {
+    font-size: 12px;
+    color: #bbbbbb;
+    margin-bottom: 5px;
+
+    text-align: center;
+}
+
+/* Audio Messages */
+.message-audio {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 0px 0px 10px 10px;
+    padding: 10px 0px 10px 0px;
+    margin-top: 5px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+}
+
+.audio-play-btn {
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    transition: all 0.23s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+.audio-play-btn:hover {
+    background-color: #45a049;
+    transform: scale(1.05);
+}
+
+.audio-play-btn:active {
+    transform: scale(0.95);
+}
+
+.audio-play-btn.playing {
+    background-color: #ff9800;
+}
+
+.audio-duration {
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+    text-align: center;
+    width: 100%;
+}
+
+/* System Messages */
+.system-message {
+    background-color: #e6e6e6 !important;
+    margin: 10px auto;
+    max-width: 80%;
+    text-align: center;
+    font-style: italic;
+    border-radius: 10px;
+}
+
+.killall-message {
+    background-color: #ff0000 !important;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2rem;
+    text-align: center;
+    margin: 10px auto;
+    max-width: 80%;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.warning-message {
+    background-color: #ffebee !important;
+    border: 2px solid #f44336 !important;
+    color: #c62828 !important;
+    font-weight: bold;
+    margin: 10px auto;
+    max-width: 80%;
+    text-align: center;
+    border-radius: 10px;
+    padding: 15px;
+    animation: pulse-warning 2s infinite;
+}
+
+@keyframes pulse-warning {
+    0% {
+        box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+    }
+}
+
+.warning-message .message-sender {
+    color: #c62828 !important;
+}
+
+.warning-message .message-text {
+    color: #c62828 !important;
+    font-weight: bold;
+}
+
+/* Quote Styles */
+.message.quoted {
+    border: 2px solid #4CAF50;
+    border-radius: 7.5px;
+}
+
+.quote-block {
+    display: flex;
+    align-items: flex-start;
+    background-color: #f0f2f5;
+    border-left: 4px solid #4CAF50;
+    padding: 10px;
+}
+
+.quote-content {
+    flex-grow: 1;
+    margin-right: 10px;
+}
+
+.quote-username {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #4CAF50;
+    margin-bottom: 5px;
+}
+
+.quote-text {
+    font-size: 0.9rem;
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.message-quote {
+    background-color: #f0f2f5;
+    border-left: 4px solid #4CAF50;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+}
+
+.message-quote .quote-username {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #4CAF50;
+    margin-bottom: 4px;
+}
+
+.message-quote .quote-text {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* Encrypted File Button */
+.encrypted-file-btn {
+    background-color: #5fbe67;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    padding: 12px 20px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.23s ease-in-out;
+    display: block;
+    margin: 4px auto;
+    font-size: 1rem;
+    min-width: 200px;
+    max-width: 100%;
+    word-wrap: break-word;
+    white-space: normal;
+    outline: none;
+    margin: 0px 10px 0px 10px;
+    box-shadow: none;
+}
+
+.encrypted-file-btn:hover {
+    background-color: #4caa55;
+    
+}
+
+.encrypted-file-btn:active {
+}
+
+.encrypted-file-btn.error {
+    background-color: #cd5047;
+}
+
+.encrypted-file-btn.error:hover {
+    background-color: #b8463f;
+}
+
+.file-info {
+    padding: 10px;
+    font-size: 12px;
+}
+
+/* Remove borders and outlines */
+.message-file, 
+.message-audio,
+.message-file img,
+.message-file video,
+.message-file a,
+.audio-play-btn,
+.message-file button,
+.message-file a {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+}
+
+/* ===== MODAL STYLES ===== */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
     display: flex;
     justify-content: center;
     align-items: center;
-    flex-direction: column;
+    z-index: 1000;
 }
 
-/* Сайдбар в портретном режиме */
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 10px;
+    width: 400px;
+    max-width: 90%;
+    text-align: center;
+    z-index: 1101 !important;
+}
+
+.modal-content h2 {
+    margin-bottom: 20px;
+    color: #2d3e50;
+}
+
+.modal-content input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.modal-content input[type="password"] {
+    margin-bottom: 5px;
+}
+
+.modal-content button {
+    padding: 12px 25px;
+    background-color: #2d3e50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    border-radius: 25px !important;
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.23s ease-in-out;
+    outline: none !important;
+    border: none !important;
+}
+
+.modal-content button:hover {
+    background-color: #3c5065;
+}
+
+/* Image Modal */
+.image-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1100;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    pointer-events: none;
+    padding: 20px;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.image-modal.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.image-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    cursor: pointer;
+}
+
+.image-modal-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+    max-height: 100%;
+    z-index: 2;
+    cursor: default;
+}
+
+#modalImage {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 5px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    transition: none !important;
+    transform: none !important;
+    cursor: default;
+}
+
+.image-close-btn {
+    display: none !important;
+}
+
+/* Video Modal */
+.video-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1100;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    pointer-events: none;
+    padding: 40px;
+    box-sizing: border-box;
+}
+
+.video-modal.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.video-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    cursor: pointer;
+}
+
+.video-modal-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+    max-height: 100%;
+    z-index: 2;
+}
+
+#modalVideo {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    border-radius: 5px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    background: black;
+    cursor: default;
+}
+
+.video-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.video-close-btn:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: scale(1.1);
+}
+
+/* Camera Preview */
+.camera-preview {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+#cameraPreview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.recording-timer {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.2rem;
+    color: #f44336;
+    font-weight: bold;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 5px 10px;
+    border-radius: 5px;
+    z-index: 10;
+}
+
+/* Call Interface */
+.call-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1002;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.video-container {
+    display: flex;
+    width: 100%;
+    gap: 6px;
+}
+
+.video-container video {
+    width: 50%;
+    height: 100%;
+    object-fit: cover;
+}
+
+#localVideo {
+    transform: scaleX(-1);
+}
+
+.call-controls {
+    margin-top: 20px;
+}
+
+/* Recording Indicator */
+.recording-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #f44336;
+    color: white;
+    padding: 20px 30px;
+    border-radius: 10px;
+    z-index: 1005;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#videoRecordingIndicator {
+    background-color: #2196F3;
+}
+
+.recording-dot {
+    width: 12px;
+    height: 12px;
+    background-color: white;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Users List */
+#availableUsersList {
+    margin: 20px 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.user-call-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #f0f2f5;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.user-call-btn:hover {
+    background-color: #e0e0e0;
+}
+
+/* Special Buttons */
+.modal-ok-btn {
+    display: block;
+    margin: 20px auto 0 auto;
+    width: 200px;
+    padding: 12px 20px;
+    background-color: #2d3e50;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 1rem;
+    text-align: center;
+    transition: all 0.23s ease-in-out;
+}
+
+.modal-ok-btn:hover {
+    background-color: #3c5065;
+    transform: scale(1.05);
+}
+
+.modal-ok-btn:active {
+    transform: scale(0.95);
+}
+
+.call-end-btn {
+    width: 200px;
+    padding: 12px 20px;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 1rem;
+    text-align: center;
+    transition: all 0.23s ease-in-out;
+    margin-top: 20px;
+}
+
+.call-end-btn:hover {
+    background-color: #da190b;
+    transform: scale(1.05);
+}
+
+.call-end-btn:active {
+    transform: scale(0.95);
+}
+
+#acceptCallBtn {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.23s ease-in-out;
+    width: 200px;
+    padding: 12px 20px;
+}
+
+#acceptCallBtn:hover {
+    background-color: #45a049;
+    transform: scale(1.05);
+}
+
+#acceptCallBtn:active {
+    transform: scale(0.95);
+}
+
+#rejectCallBtn {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.23s ease-in-out;
+    width: 200px;
+    padding: 12px 20px;
+}
+
+#rejectCallBtn:hover {
+    background-color: #da190b;
+    transform: scale(1.05);
+}
+
+#rejectCallBtn:active {
+    transform: scale(0.95);
+}
+
+.call-buttons {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+    width: 100%;
+}
+
+/* Login Modal Specific */
+#loginModal .modal-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+#loginModal .modal-content h2 {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#loginModal .modal-content input {
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+#loginModal #joinChatBtn {
+    width: 200px;
+    padding: 12px 20px;
+    background-color: #2d3e50;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.23s ease-in-out;
+    margin-top: 10px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#loginModal #joinChatBtn:hover {
+    background-color: #3c5065;
+    transform: scale(1.05);
+}
+
+#loginModal #joinChatBtn:active {
+    transform: scale(0.95);
+}
+
+#loginModal .error-message {
+    text-align: center;
+    width: 100%;
+    margin-top: 10px;
+}
+
+/* Message Modal Specific */
+#messageModal .modal-content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#messageModal .modal-content h2 {
+    width: 100%;
+    text-align: center;
+}
+
+#messageModal .modal-content p {
+    width: 100%;
+    text-align: center;
+    margin: 15px 0;
+    line-height: 1.5;
+}
+
+.modal-buttons-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+    width: 100%;
+}
+
+/* ===== RESPONSIVE STYLES ===== */
+/* Landscape Mode */
+@media (min-aspect-ratio: 1/1) {
+    .sidebar {
+        transform: translateX(0);
+        opacity: 1;
+        width: 30%;
+    }
+    
+    .chat-container {
+        width: 70%;
+    }
+    
+    .sidebar-toggle-btn {
+        display: none !important;
+    }
+    
+    .image-modal {
+        padding: 40px;
+    }
+}
+
+/* Portrait Mode */
 @media (max-aspect-ratio: 1/1) {
     .sidebar {
         position: fixed;
@@ -344,17 +1353,20 @@
         opacity: 0;
         width: 80%;
         max-width: 300px;
-        z-index: 1002; /* Увеличиваем z-index сайдбара */
+        z-index: 1002;
         transition: all 0.3s ease-in-out;
     }
     
     .sidebar.active {
         transform: translateX(0);
         opacity: 1;
-        z-index: 1002; /* Сохраняем тот же z-index когда активен */
+        z-index: 1002;
     }
     
-    /* Затемнение фона когда sidebar открыт */
+    .chat-container {
+        width: 100%;
+    }
+    
     .sidebar-overlay {
         position: fixed;
         top: 0;
@@ -362,7 +1374,7 @@
         width: 100%;
         height: 100%;
         background-color: rgba(0, 0, 0, 0.5);
-        z-index: 1001; /* Уменьшаем z-index overlay'а */
+        z-index: 1001;
         display: none;
     }
     
@@ -370,26 +1382,174 @@
         display: block;
     }
     
-    /* Кнопка показа sidebar должна быть видна */
     #showSidebarBtn {
         display: flex !important;
-        z-index: 1000; /* Кнопка под сайдбаром но над контентом */
+        z-index: 1000;
+    }
+
+    .messages-container {
+        padding-bottom: env(safe-area-inset-bottom);
     }
     
-    /* Кнопка скрытия sidebar в sidebar */
-    #hideSidebarBtn {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 1003; /* Кнопка закрытия должна быть выше всего в сайдбаре */
+    .image-modal {
+        padding: 20px;
+    }
+    
+    .video-modal {
+        padding: 20px;
+    }
+    
+    .video-close-btn {
+        width: 35px;
+        height: 35px;
+        font-size: 20px;
     }
 }
 
-/* Модальные окна должны быть выше всего */
+/* Small Screens */
+@media (max-width: 480px) {
+    .modal-content .modal-ok-btn,
+    .call-end-btn,
+    #acceptCallBtn,
+    #rejectCallBtn,
+    #loginModal #joinChatBtn {
+        width: 180px;
+        padding: 10px 15px;
+        font-size: 0.9rem;
+    }
+    
+    .image-modal {
+        padding: 10px;
+    }
+    
+    .video-modal {
+        padding: 10px;
+    }
+    
+    .video-close-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 18px;
+        top: 5px;
+        right: 5px;
+    }
+}
+
+/* Scrollbar Styles for All Elements */
+::-webkit-scrollbar-button {
+    display: none;
+}
+
+/* Image Modal Animation */
+@keyframes imageModalAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.image-modal.active .image-modal-content,
+.video-modal.active .video-modal-content {
+    animation: imageModalAppear 0.3s ease-in-out;
+}
+
+/* Loading States */
+#modalImage[src=""],
+#modalImage[alt="Ошибка загрузки изображения"] {
+    min-width: 200px;
+    min-height: 200px;
+}
+
+#modalImage[src=""] {
+    background: #f0f0f0 url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="10" fill="%23666">Загрузка...</text></svg>') no-repeat center;
+}
+
+#modalImage[alt="Ошибка загрузки изображения"] {
+    background: #f0f0f0 url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="10" fill="%23f00">Ошибка загрузки</text></svg>') no-repeat center;
+}
+
+#modalVideo[src=""] {
+    background: #000 url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="10" fill="%23fff">Загрузка видео...</text></svg>') no-repeat center;
+    min-width: 300px;
+    min-height: 200px;
+}
+
+/* Z-index priorities */
+#preparingModal {
+    z-index: 1003;
+}
+
+#cameraPreviewModal {
+    z-index: 1004;
+}
+
 .modal {
     z-index: 1100 !important;
 }
 
-.modal-content {
-    z-index: 1101 !important;
+/* Кнопка закрытия модального окна изображений */
+.image-close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 3;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.image-close-btn:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: scale(1.1);
+}
+
+/* ===== MEDIA MESSAGE SIZING ===== */
+.message-file img,
+.message-file video {
+    max-width: 100%;
+    border-radius: 5px;
+    cursor: pointer;
+    object-fit: contain;
+    transition: none !important;
+    transform: none !important;
+    
+    /* Автоматическое ограничение размера */
+    max-height: 90vh; /* Запасное значение для случаев без JS */
+}
+
+/* Специфичные стили для медиа в сообщениях */
+.message.my-message .message-file img,
+.message.my-message .message-file video,
+.message.other-message .message-file img,
+.message.other-message .message-file video {
+    height: auto;
+    border-radius: 0px 0px 7px 7px;
+    margin: 0px;
+    padding: 0px;
+    text-align: left;
+    
+    /* Ограничения по умолчанию */
+    max-height: 80%; /* Стандартное ограничение для маленьких изображений */
+}
+
+/* Класс для больших медиа-файлов */
+.message-file.media-large img,
+.message-file.media-large video {
+    max-height: 80% !important;
+    width: auto !important;
+    max-width: 100% !important;
+    object-fit: contain;
 }

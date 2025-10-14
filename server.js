@@ -381,17 +381,18 @@ io.on('connection', (socket) => {
   // Отправляем конфигурацию ICE серверов клиенту
   const iceServers = getIceServers();
   socket.emit('stun-config', iceServers);
-  socket.emit('rtc-config', {
-    video: config.rtc_video,
-    audio: config.rtc_audio,
-    videoRec: {
-      width: config.videoRec_width,
-      height: config.videoRec_height,
-      frameRate: config.videoRec_frameRate,
-      bitrate: config.videoRec_bitrate,
-      mimeType: config.videoRec_mimeType
-    }
-  });
+ socket.emit('rtc-config', {
+  video: config.rtc_video,
+  audio: config.rtc_audio,
+  videoRec: {
+    width: config.videoRec_width,
+    height: config.videoRec_height,
+    frameRate: config.videoRec_frameRate,
+    bitrate: config.videoRec_bitrate,
+    mimeType: config.videoRec_mimeType
+  },
+  useTurnServers: config.useTurnServers
+});
   
 // Обработка входа пользователя
 socket.on('user-join-attempt', (data) => {

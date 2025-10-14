@@ -377,7 +377,7 @@ showRecordingIndicator() {
     if (this.recordingIndicator) {
         this.recordingIndicator.classList.remove('hidden');
         // Устанавливаем текст
-        this.recordingIndicator.innerHTML = '<div class="recording-dot"></div>Запись аудио...';
+        this.recordingIndicator.innerHTML = '<div class="recording-dot"></div>Запись...';
     }
 }
 
