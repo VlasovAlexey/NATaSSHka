@@ -3,7 +3,14 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const fs = require('fs');
+
+// Хранилище для пользователей и комнат
+const users = new Map();
+const rooms = new Set(['Room_01']);
+
+// Хранилище для реакций
 const messageReactions = new Map(); // Хранилище реакций: messageId -> {reactions}
+const reactionUsers = new Map(); // messageId -> { reactionCode -> [usernames] }
 
 // Загрузка конфигурации
 const configPath = path.join(__dirname, 'config.json');
@@ -79,10 +86,6 @@ app.use('/uploads', express.static(uploadsDir, {
   index: false,
   redirect: false
 }));
-
-// Хранилище для пользователей и комнат
-const users = new Map();
-const rooms = new Set(['Room_01']);
 
 // Функции для работы с файловой системой
 function ensureDirectoryExistence(dirPath) {
@@ -235,16 +238,38 @@ function loadMessagesFromRoom(room) {
                         if (fileSizeMatch) message.fileSize = unescapeXml(fileSizeMatch[1]);
                         if (durationMatch) message.duration = parseFloat(durationMatch[1]) || 0;
                         
-                        // Парсинг реакций
+                         // Парсинг реакций
                         const reactionsMatch = fileContent.match(/<reactions>([\s\S]*?)<\/reactions>/);
                         if (reactionsMatch) {
                             const reactionsContent = reactionsMatch[1];
-                            const reactionMatches = reactionsContent.matchAll(/<reaction code="(.*?)" count="(.*?)"\/>/g);
+                            const reactionMatches = reactionsContent.matchAll(/<reaction code="(.*?)" count="(.*?)"([^>]*)>([\s\S]*?)<\/reaction>/g);
                             message.reactions = {};
+                            
+                            // Инициализируем хранилище пользователей реакций для этого сообщения
+                            if (!reactionUsers.has(message.id)) {
+                                reactionUsers.set(message.id, {});
+                            }
+                            
+                            const usersReactions = reactionUsers.get(message.id);
+                            
                             for (const match of reactionMatches) {
                                 const code = match[1];
                                 const count = parseInt(match[2]);
+                                const innerContent = match[4];
+                                
                                 message.reactions[code] = count;
+                                
+                                // Парсим пользователей реакции
+                                const usersMatch = innerContent.match(/<users>([\s\S]*?)<\/users>/);
+                                if (usersMatch) {
+                                    const usersContent = usersMatch[1];
+                                    const userMatches = usersContent.matchAll(/<user>(.*?)<\/user>/g);
+                                    usersReactions[code] = [];
+                                    
+                                    for (const userMatch of userMatches) {
+                                        usersReactions[code].push(unescapeXml(userMatch[1]));
+                                    }
+                                }
                                 
                                 // Сохраняем в глобальное хранилище реакций
                                 if (!messageReactions.has(message.id)) {
@@ -252,6 +277,10 @@ function loadMessagesFromRoom(room) {
                                 }
                                 messageReactions.get(message.id)[code] = count;
                             }
+                            
+                            // Добавляем информацию о пользователях реакций в объект сообщения
+                            // для отправки на клиент
+                            message.reactionUsers = usersReactions;
                         }
                         
                         // Парсинг цитаты
@@ -439,35 +468,59 @@ socket.on('add-reaction', (data) => {
     const user = users.get(socket.id);
     if (user) {
         const { messageId, reactionCode } = data;
+        const username = user.username;
         
         // Инициализируем хранилище реакций для сообщения если его нет
         if (!messageReactions.has(messageId)) {
             messageReactions.set(messageId, {});
         }
         
-        const reactions = messageReactions.get(messageId);
+        // Инициализируем хранилище пользователей для сообщения если его нет
+        if (!reactionUsers.has(messageId)) {
+            reactionUsers.set(messageId, {});
+        }
         
-        // Увеличиваем счетчик реакции
+        const reactions = messageReactions.get(messageId);
+        const usersReactions = reactionUsers.get(messageId);
+        
+        // Инициализируем реакцию если ее нет
         if (!reactions[reactionCode]) {
             reactions[reactionCode] = 0;
         }
-        reactions[reactionCode]++;
         
-        // Сохраняем реакции в файл сообщения
-        updateMessageReactionsInFile(user.room, messageId, reactions);
+        // Инициализируем массив пользователей для реакции если его нет
+        if (!usersReactions[reactionCode]) {
+            usersReactions[reactionCode] = [];
+        }
         
-        // Рассылаем обновленные реакции всем в комнате
-        io.to(user.room).emit('reactions-updated', {
-            messageId: messageId,
-            reactions: reactions
-        });
-        
-        console.log(`Пользователь ${user.username} добавил реакцию ${reactionCode} к сообщению ${messageId}`);
+        // Проверяем, не добавлял ли уже этот пользователь данную реакцию
+        if (!usersReactions[reactionCode].includes(username)) {
+            // Увеличиваем счетчик реакции
+            reactions[reactionCode]++;
+            
+            // Добавляем пользователя в список
+            usersReactions[reactionCode].push(username);
+            
+            // Сохраняем реакции в файл сообщения
+            updateMessageReactionsInFile(user.room, messageId, reactions, usersReactions);
+            
+            // Рассылаем обновленные реакции всем в комнате
+            io.to(user.room).emit('reactions-updated', {
+                messageId: messageId,
+                reactions: reactions,
+                reactionUsers: usersReactions  // Отправляем полную информацию о пользователях
+            });
+            
+            console.log(`Пользователь ${username} добавил реакцию ${reactionCode} к сообщению ${messageId}`);
+        } else {
+            // Пользователь уже ставил эту реакцию - можно реализовать удаление, но пока просто игнорируем
+            console.log(`Пользователь ${username} уже ставил реакцию ${reactionCode} для сообщения ${messageId}`);
+        }
     }
 });
 
 // Функция для обновления реакций в файле сообщения
-function updateMessageReactionsInFile(room, messageId, reactions) {
+function updateMessageReactionsInFile(room, messageId, reactions, usersReactions) {
     try {
         const roomDir = path.join(uploadsDir, room);
         if (!fs.existsSync(roomDir)) {
@@ -489,7 +542,22 @@ function updateMessageReactionsInFile(room, messageId, reactions) {
                     
                     // Добавляем новый блок реакций
                     if (Object.keys(reactions).length > 0) {
-                        const reactionsXml = `\n  <reactions>\n${Object.entries(reactions).map(([code, count]) => `    <reaction code="${code}" count="${count}"/>`).join('\n')}\n  </reactions>`;
+                        let reactionsXml = '\n  <reactions>\n';
+                        Object.entries(reactions).forEach(([code, count]) => {
+                            reactionsXml += `    <reaction code="${code}" count="${count}">\n`;
+                            
+                            // Добавляем пользователей, поставивших эту реакцию
+                            if (usersReactions && usersReactions[code] && usersReactions[code].length > 0) {
+                                reactionsXml += `      <users>\n`;
+                                usersReactions[code].forEach(username => {
+                                    reactionsXml += `        <user>${escapeXml(username)}</user>\n`;
+                                });
+                                reactionsXml += `      </users>\n`;
+                            }
+                            
+                            reactionsXml += `    </reaction>\n`;
+                        });
+                        reactionsXml += '  </reactions>';
                         
                         // Вставляем перед закрывающим тегом message
                         newContent = newContent.replace('</message>', `${reactionsXml}\n</message>`);
@@ -553,10 +621,19 @@ socket.on('user-join-attempt', (data) => {
   // Загружаем историю сообщений из файлов
   const messageHistory = loadMessagesFromRoom(room);
   
+  // Создаем объект с информацией о пользователях реакций для всех сообщений
+  const reactionUsersData = {};
+  messageHistory.forEach(message => {
+    if (message.id && reactionUsers.has(message.id)) {
+      reactionUsersData[message.id] = reactionUsers.get(message.id);
+    }
+  });
+  
   socket.emit('user-joined', {
     username,
     room,
-    messageHistory: messageHistory
+    messageHistory: messageHistory,
+    reactionUsersData: reactionUsersData  // Добавляем данные о пользователях реакций
   });
   
   // Создаем системное сообщение о входе пользователя

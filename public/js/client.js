@@ -427,50 +427,61 @@ function displayDecryptedFile(blob, fileType, fileName, messageFileElement) {
 
 	// Успешное подключение
 	socket.on('user-joined', (data) => {
-		currentUser = data.username;
-		currentRoom = data.room;
-		
-		// Устанавливаем глобальную переменную для комнаты
-    	window.currentRoom = currentRoom;
+    currentUser = data.username;
+    currentRoom = data.room;
 
-		// Добавляем символ для текущего пользователя
-		if (userInfo) userInfo.textContent = '✪ ' + currentUser;
-		if (roomInfo) roomInfo.textContent = `Комната: ${currentRoom}`;
+    // Устанавливаем глобальную переменную для комнаты
+    window.currentRoom = currentRoom;
 
-		loginModal.classList.add('hidden');
+    if (userInfo) userInfo.textContent = '✪ ' + currentUser;
+    if (roomInfo) roomInfo.textContent = `Комната: ${currentRoom}`;
 
-		// Загружаем историю сообщений
-		messagesContainer.innerHTML = '';
-		messageHistory = data.messageHistory || [];
+    loginModal.classList.add('hidden');
 
-		// Включаем авто-прокрутку при входе в комнату
-		shouldAutoScroll = true;
-		messageHistory.forEach(message => addMessageToChat(message));
+    // Загружаем историю сообщений
+    messagesContainer.innerHTML = '';
+    messageHistory = data.messageHistory || [];
 
-		// Добавляем кнопки звонков (с проверкой TURN серверов)
-		addCallButtons();
+    // Инициализируем глобальное хранилище для данных о пользователях реакций
+    if (!window.reactionUsersData) {
+        window.reactionUsersData = new Map();
+    }
 
-		// Проверяем состояние TURN серверов и скрываем кнопки если нужно
-		if (window.rtcConfig) {
-			toggleCallButtons(window.rtcConfig.useTurnServers);
-		}
+    // Загружаем данные о пользователях реакций из истории
+    if (data.reactionUsersData) {
+        Object.entries(data.reactionUsersData).forEach(([messageId, usersData]) => {
+            window.reactionUsersData.set(messageId, usersData);
+        });
+    }
 
-		// Инициализируем цитирование
-		setupMessageQuoting();
+    // Включаем авто-прокрутку при входе в комнату
+    shouldAutoScroll = true;
+    messageHistory.forEach(message => addMessageToChat(message));
 
-		// Инициализируем обработчик ключа шифрования
-		setupEncryptionKeyHandler();
+    // Добавляем кнопки звонков (с проверкой TURN серверов)
+    addCallButtons();
 
-		// Инициализируем переключение sidebar
-		setupSidebarToggle();
+    // Проверяем состояние TURN серверов и скрываем кнопки если нужно
+    if (window.rtcConfig) {
+        toggleCallButtons(window.rtcConfig.useTurnServers);
+    }
 
-		// Инициализируем модальные окна
-		setupImageModal();
-		setupVideoModal();
+    // Инициализируем цитирование
+    setupMessageQuoting();
 
-		// Обновляем состояние каретки
-		updateButtonStates();
-	});
+    // Инициализируем обработчик ключа шифрования
+    setupEncryptionKeyHandler();
+
+    // Инициализируем переключение sidebar
+    setupSidebarToggle();
+
+    // Инициализируем модальные окна
+    setupImageModal();
+    setupVideoModal();
+
+    // Обновляем состояние каретки
+    updateButtonStates();
+});
 
 	// Обработка очистки чата
 	socket.on('clear-chat', () => {
@@ -523,7 +534,7 @@ socket.on('message-updated', (message) => {
 
 	// Добавление сообщения в чат
 function addMessageToChat(message) {
-    const messageElement = document.createElement('div');
+   const messageElement = document.createElement('div');
     messageElement.classList.add('message');
     messageElement.dataset.messageId = message.id;
     messageElement.dataset.messageUsername = message.username;
@@ -548,6 +559,18 @@ function addMessageToChat(message) {
     // Определяем, наше ли это сообщение
     const isMyMessage = message.userId === socket.id;
     if (!message.isSystem && !message.isKillAll && !message.isWarning) {
+		if (window.reactionsManager) {
+        window.reactionsManager.addReactionButton(messageElement);
+        window.reactionsManager.updateMessageReactions(messageElement, message.reactions);
+        
+        // Сохраняем информацию о пользователях реакций при загрузке истории
+        if (message.reactions && Object.keys(message.reactions).length > 0) {
+            if (!window.reactionUsersData) {
+                window.reactionUsersData = new Map();
+            }
+            // Здесь можно добавить логику для загрузки пользователей реакций из истории
+        }
+    }
         messageElement.classList.add(isMyMessage ? 'my-message' : 'other-message');
     }
 
@@ -672,6 +695,16 @@ function addMessageToChat(message) {
         if (window.reactionsManager) {
             window.reactionsManager.addReactionButton(messageElement);
             window.reactionsManager.updateMessageReactions(messageElement, message.reactions);
+            
+            // Инициализируем данные о пользователях реакций для этого сообщения
+            if (message.reactions && Object.keys(message.reactions).length > 0) {
+                // Если у сообщения есть реакции, но нет данных о пользователях в глобальном хранилище,
+                // пытаемся найти их в загруженных данных истории
+                if (!window.reactionUsersData.has(message.id)) {
+                    // Можно попробовать найти данные в message.reactionUsers, если они были загружены из XML
+                    // Для этого нужно обновить функцию loadMessagesFromRoom на сервере
+                }
+            }
         }
     }
 
@@ -688,7 +721,13 @@ function updateMessageReactions(messageElement, message) {
 
 // Обработка обновления реакций
 socket.on('reactions-updated', (data) => {
-    const { messageId, reactions } = data;
+    const { messageId, reactions, reactionUsers } = data;
+    
+    // Сохраняем информацию о пользователях реакций в глобальное хранилище
+    if (!window.reactionUsersData) {
+        window.reactionUsersData = new Map();
+    }
+    window.reactionUsersData.set(messageId, reactionUsers);
     
     // Обновляем отображение реакций
     const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
