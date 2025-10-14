@@ -1,4 +1,5 @@
 ﻿// webrtc.js - Управление WebRTC звонками
+const poster_call = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48IS0tIFVwbG9hZGVkIHRvOiBTVkcgUmVwbywgd3d3LnN2Z3JlcG8uY29tLCBHZW5lcmF0b3I6IFNWRyBSZXBvIE1peGVyIFRvb2xzIC0tPg0KPHN2ZyB3aWR0aD0iODAwcHgiIGhlaWdodD0iODAwcHgiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4NCjxwYXRoIGQ9Ik04LjQ2NDYgOC40NjQ3NkMxMC40MTcyIDYuNTEyMTQgMTMuNTgzIDYuNTEyMTQgMTUuNTM1NyA4LjQ2NDc2TTUuNjM1OTkgNS42MzY1M0M5LjE1MDcxIDIuMTIxODEgMTQuODQ5MiAyLjEyMTgxIDE4LjM2MzkgNS42MzY1M00xNC44MzY5IDE1Ljg1QzEzLjE4MzMgMTUuNDcxNCAxMC44MTY3IDE1LjQ3MTQgOS4xNjMwNyAxNS44NUM4LjQyNjk0IDE2LjAxODUgOCAxNi43MTk2IDggMTcuNDc0OFYxNy42MTc2QzggMTguNDMwNyA3LjUwNzc2IDE5LjE2MjkgNi43NTQ4MiAxOS40Njk3TDUuNzU0ODIgMTkuODc3M0M0LjQzOTM5IDIwLjQxMzQgMyAxOS40NDU3IDMgMTguMDI1MlYxNi40MDU2QzMgMTUuODY4NiAzLjIxMTA2IDE1LjM0NzUgMy42MTk5NSAxNC45OTkzQzguMzE2NjMgMTEuMDAwMiAxNS42ODM0IDExLjAwMDIgMjAuMzgwMSAxNC45OTkzQzIwLjc4ODkgMTUuMzQ3NSAyMSAxNS44Njg2IDIxIDE2LjQwNTZWMTguMDI1MkMyMSAxOS40NDU3IDE5LjU2MDYgMjAuNDEzNCAxOC4yNDUyIDE5Ljg3NzNMMTcuMjQ1MiAxOS40Njk3QzE2LjQ5MjIgMTkuMTYyOSAxNiAxOC40MzA3IDE2IDE3LjYxNzZWMTcuNDc0OEMxNiAxNi43MTk2IDE1LjU3MzEgMTYuMDE4NSAxNC44MzY5IDE1Ljg1WiIgc3Ryb2tlPSIjZWVlZWVlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPg0KPC9zdmc+';
 class WebRTCManager {
     constructor(socket) {
         if (!socket) {
@@ -240,7 +241,8 @@ class WebRTCManager {
                 document.getElementById('localVideo').srcObject = this.localStream;
             } else {
                 // Для аудио звонка показываем placeholder
-                document.getElementById('localVideo').poster = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkeT0iLjM1ZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmYiIGZvbnQtc2l6U9IjIwIj5BdWRpbyBDYWxsPC90ZXh0Pjwvc3ZnPg==';
+                document.getElementById('localVideo').poster = poster_call;
+                document.getElementById('remoteVideo').poster = poster_call;
             }
             
             // Создаем и отправляем предложение
@@ -306,7 +308,8 @@ class WebRTCManager {
                 document.getElementById('localVideo').srcObject = this.localStream;
             } else {
                 // Для аудио звонка показываем placeholder
-                document.getElementById('localVideo').poster = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkeT0iLjM1ZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmYiIGZvbnQtc2l6U9IjIwIj5BdWRpbyBDYWxsPC90ZXh0Pjwvc3ZnPg==';
+                document.getElementById('localVideo').poster = poster_call;
+                document.getElementById('remoteVideo').poster = poster_call;
             }
             
             // Устанавливаем удаленное предложение

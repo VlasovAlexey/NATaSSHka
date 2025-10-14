@@ -3,6 +3,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const fs = require('fs');
+const messageReactions = new Map(); // Хранилище реакций: messageId -> {reactions}
 
 // Загрузка конфигурации
 const configPath = path.join(__dirname, 'config.json');
@@ -93,66 +94,75 @@ function ensureDirectoryExistence(dirPath) {
 }
 
 function saveMessageToFile(room, username, message) {
-  try {
-    // Если это системное сообщение, используем специальную функцию
-    if (message.isSystem) {
-      return saveSystemMessageToFile(room, message);
+    try {
+        // Если это системное сообщение, используем специальную функцию
+        if (message.isSystem) {
+            return saveSystemMessageToFile(room, message);
+        }
+        
+        const roomDir = path.join(uploadsDir, room);
+        const userDir = path.join(roomDir, username);
+        
+        // Создаем директории если их нет
+        ensureDirectoryExistence(userDir);
+        
+        const messageFile = path.join(userDir, `${message.id}.xml`);
+        
+        let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        xmlContent += '<message>\n';
+        xmlContent += `  <id>${message.id}</id>\n`;
+        xmlContent += `  <username>${escapeXml(message.username)}</username>\n`;
+        xmlContent += `  <userId>${message.userId}</userId>\n`;
+        xmlContent += `  <text>${escapeXml(message.text)}</text>\n`;
+        xmlContent += `  <timestamp>${message.timestamp.toISOString()}</timestamp>\n`;
+        xmlContent += `  <room>${escapeXml(message.room)}</room>\n`;
+        xmlContent += `  <isSystem>${message.isSystem || false}</isSystem>\n`;
+        xmlContent += `  <isEncrypted>${message.isEncrypted || false}</isEncrypted>\n`;
+        xmlContent += `  <isFile>${message.isFile || false}</isFile>\n`;
+        xmlContent += `  <isAudio>${message.isAudio || false}</isAudio>\n`;
+        
+        // Сохраняем реакции если они есть
+if (message.reactions && Object.keys(message.reactions).length > 0) {
+    xmlContent += `  <reactions>\n`;
+    Object.entries(message.reactions).forEach(([code, count]) => {
+        xmlContent += `    <reaction code="${code}" count="${count}"/>\n`;
+    });
+    xmlContent += `  </reactions>\n`;
+}
+        
+        if (message.fileName) {
+            xmlContent += `  <fileName>${escapeXml(message.fileName)}</fileName>\n`;
+        }
+        if (message.fileType) {
+            xmlContent += `  <fileType>${escapeXml(message.fileType)}</fileType>\n`;
+        }
+        if (message.fileUrl) {
+            xmlContent += `  <fileUrl>${escapeXml(message.fileUrl)}</fileUrl>\n`;
+        }
+        if (message.fileSize) {
+            xmlContent += `  <fileSize>${escapeXml(message.fileSize)}</fileSize>\n`;
+        }
+        if (message.duration) {
+            xmlContent += `  <duration>${message.duration}</duration>\n`;
+        }
+        
+        if (message.quote) {
+            xmlContent += `  <quote>\n`;
+            xmlContent += `    <username>${escapeXml(message.quote.username)}</username>\n`;
+            xmlContent += `    <text>${escapeXml(message.quote.text)}</text>\n`;
+            xmlContent += `    <isEncrypted>${message.quote.isEncrypted || false}</isEncrypted>\n`;
+            xmlContent += `  </quote>\n`;
+        }
+        
+        xmlContent += '</message>';
+        
+        fs.writeFileSync(messageFile, xmlContent, 'utf8');
+        console.log(`Сообщение сохранено: ${messageFile}`);
+        return true;
+    } catch (error) {
+        console.error('Ошибка сохранения сообщения в файл:', error);
+        return false;
     }
-    
-    const roomDir = path.join(uploadsDir, room);
-    const userDir = path.join(roomDir, username);
-    
-    // Создаем директории если их нет
-    ensureDirectoryExistence(userDir);
-    
-    const messageFile = path.join(userDir, `${message.id}.xml`);
-    
-    let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    xmlContent += '<message>\n';
-    xmlContent += `  <id>${message.id}</id>\n`;
-    xmlContent += `  <username>${escapeXml(message.username)}</username>\n`;
-    xmlContent += `  <userId>${message.userId}</userId>\n`;
-    xmlContent += `  <text>${escapeXml(message.text)}</text>\n`;
-    xmlContent += `  <timestamp>${message.timestamp.toISOString()}</timestamp>\n`;
-    xmlContent += `  <room>${escapeXml(message.room)}</room>\n`;
-    xmlContent += `  <isSystem>${message.isSystem || false}</isSystem>\n`;
-    xmlContent += `  <isEncrypted>${message.isEncrypted || false}</isEncrypted>\n`;
-    xmlContent += `  <isFile>${message.isFile || false}</isFile>\n`;
-    xmlContent += `  <isAudio>${message.isAudio || false}</isAudio>\n`;
-    
-    if (message.fileName) {
-      xmlContent += `  <fileName>${escapeXml(message.fileName)}</fileName>\n`;
-    }
-    if (message.fileType) {
-      xmlContent += `  <fileType>${escapeXml(message.fileType)}</fileType>\n`;
-    }
-    if (message.fileUrl) {
-      xmlContent += `  <fileUrl>${escapeXml(message.fileUrl)}</fileUrl>\n`;
-    }
-    if (message.fileSize) {
-      xmlContent += `  <fileSize>${escapeXml(message.fileSize)}</fileSize>\n`;
-    }
-    if (message.duration) {
-      xmlContent += `  <duration>${message.duration}</duration>\n`;
-    }
-    
-    if (message.quote) {
-      xmlContent += `  <quote>\n`;
-      xmlContent += `    <username>${escapeXml(message.quote.username)}</username>\n`;
-      xmlContent += `    <text>${escapeXml(message.quote.text)}</text>\n`;
-      xmlContent += `    <isEncrypted>${message.quote.isEncrypted || false}</isEncrypted>\n`;
-      xmlContent += `  </quote>\n`;
-    }
-    
-    xmlContent += '</message>';
-    
-    fs.writeFileSync(messageFile, xmlContent, 'utf8');
-    console.log(`Сообщение сохранено: ${messageFile}`);
-    return true;
-  } catch (error) {
-    console.error('Ошибка сохранения сообщения в файл:', error);
-    return false;
-  }
 }
 
 function escapeXml(unsafe) {
@@ -166,98 +176,128 @@ function escapeXml(unsafe) {
 }
 
 function loadMessagesFromRoom(room) {
-  const messages = [];
-  try {
-    const roomDir = path.join(uploadsDir, room);
-    if (!fs.existsSync(roomDir)) {
-      return messages;
+    const messages = [];
+    try {
+        const roomDir = path.join(uploadsDir, room);
+        if (!fs.existsSync(roomDir)) {
+            return messages;
+        }
+        
+        const users = fs.readdirSync(roomDir);
+        
+        users.forEach(user => {
+            const userDir = path.join(roomDir, user);
+            if (fs.statSync(userDir).isDirectory()) {
+                const messageFiles = fs.readdirSync(userDir).filter(file => file.endsWith('.xml'));
+                
+                messageFiles.forEach(messageFile => {
+                    try {
+                        const filePath = path.join(userDir, messageFile);
+                        const fileContent = fs.readFileSync(filePath, 'utf8');
+                        
+                        // Простой парсинг XML
+                        const idMatch = fileContent.match(/<id>(.*?)<\/id>/);
+                        const usernameMatch = fileContent.match(/<username>(.*?)<\/username>/);
+                        const userIdMatch = fileContent.match(/<userId>(.*?)<\/userId>/);
+                        const textMatch = fileContent.match(/<text>(.*?)<\/text>/);
+                        const timestampMatch = fileContent.match(/<timestamp>(.*?)<\/timestamp>/);
+                        const roomMatch = fileContent.match(/<room>(.*?)<\/room>/);
+                        const isSystemMatch = fileContent.match(/<isSystem>(.*?)<\/isSystem>/);
+                        const isEncryptedMatch = fileContent.match(/<isEncrypted>(.*?)<\/isEncrypted>/);
+                        const isFileMatch = fileContent.match(/<isFile>(.*?)<\/isFile>/);
+                        const isAudioMatch = fileContent.match(/<isAudio>(.*?)<\/isAudio>/);
+                        const isWarningMatch = fileContent.match(/<isWarning>(.*?)<\/isWarning>/);
+                        const isKillAllMatch = fileContent.match(/<isKillAll>(.*?)<\/isKillAll>/);
+                        const fileNameMatch = fileContent.match(/<fileName>(.*?)<\/fileName>/);
+                        const fileTypeMatch = fileContent.match(/<fileType>(.*?)<\/fileType>/);
+                        const fileUrlMatch = fileContent.match(/<fileUrl>(.*?)<\/fileUrl>/);
+                        const fileSizeMatch = fileContent.match(/<fileSize>(.*?)<\/fileSize>/);
+                        const durationMatch = fileContent.match(/<duration>(.*?)<\/duration>/);
+                        
+                        const message = {
+                            id: idMatch ? idMatch[1] : path.parse(messageFile).name,
+                            username: usernameMatch ? unescapeXml(usernameMatch[1]) : user,
+                            userId: userIdMatch ? userIdMatch[1] : '',
+                            text: textMatch ? unescapeXml(textMatch[1]) : '',
+                            timestamp: timestampMatch ? new Date(timestampMatch[1]) : new Date(),
+                            room: roomMatch ? unescapeXml(roomMatch[1]) : room,
+                            isSystem: isSystemMatch ? isSystemMatch[1] === 'true' : (user === 'system'),
+                            isEncrypted: isEncryptedMatch ? isEncryptedMatch[1] === 'true' : false,
+                            isFile: isFileMatch ? isFileMatch[1] === 'true' : false,
+                            isAudio: isAudioMatch ? isAudioMatch[1] === 'true' : false,
+                            isWarning: isWarningMatch ? isWarningMatch[1] === 'true' : false,
+                            isKillAll: isKillAllMatch ? isKillAllMatch[1] === 'true' : false
+                        };
+                        
+                        if (fileNameMatch) message.fileName = unescapeXml(fileNameMatch[1]);
+                        if (fileTypeMatch) message.fileType = unescapeXml(fileTypeMatch[1]);
+                        if (fileUrlMatch) message.fileUrl = unescapeXml(fileUrlMatch[1]);
+                        if (fileSizeMatch) message.fileSize = unescapeXml(fileSizeMatch[1]);
+                        if (durationMatch) message.duration = parseFloat(durationMatch[1]) || 0;
+                        
+                        // Парсинг реакций
+                        const reactionsMatch = fileContent.match(/<reactions>([\s\S]*?)<\/reactions>/);
+                        if (reactionsMatch) {
+                            const reactionsContent = reactionsMatch[1];
+                            const reactionMatches = reactionsContent.matchAll(/<reaction code="(.*?)" count="(.*?)"\/>/g);
+                            message.reactions = {};
+                            for (const match of reactionMatches) {
+                                const code = match[1];
+                                const count = parseInt(match[2]);
+                                message.reactions[code] = count;
+                                
+                                // Сохраняем в глобальное хранилище реакций
+                                if (!messageReactions.has(message.id)) {
+                                    messageReactions.set(message.id, {});
+                                }
+                                messageReactions.get(message.id)[code] = count;
+                            }
+                        }
+                        
+                        // Парсинг цитаты
+                        const quoteMatch = fileContent.match(/<quote>([\s\S]*?)<\/quote>/);
+                        if (quoteMatch) {
+                            const quoteContent = quoteMatch[1];
+                            const quoteUsernameMatch = quoteContent.match(/<username>(.*?)<\/username>/);
+                            const quoteTextMatch = quoteContent.match(/<text>(.*?)<\/text>/);
+                            const quoteIsEncryptedMatch = quoteContent.match(/<isEncrypted>(.*?)<\/isEncrypted>/);
+                            
+                            if (quoteUsernameMatch && quoteTextMatch) {
+                                message.quote = {
+                                    username: unescapeXml(quoteUsernameMatch[1]),
+                                    text: unescapeXml(quoteTextMatch[1]),
+                                    isEncrypted: quoteIsEncryptedMatch ? quoteIsEncryptedMatch[1] === 'true' : false
+                                };
+                            }
+                        }
+                        
+                        // Пропускаем пустые текстовые сообщения, которые не являются файлами, аудио или системными
+                        const shouldSkip = !message.isSystem && 
+                                          !message.isFile && 
+                                          !message.isAudio && 
+                                          !message.isWarning &&
+                                          !message.isKillAll &&
+                                          (!message.text || message.text.trim() === '') &&
+                                          !message.quote;
+                        
+                        if (!shouldSkip) {
+                            messages.push(message);
+                        }
+                    } catch (error) {
+                        console.error('Ошибка чтения файла сообщения:', messageFile, error);
+                    }
+                });
+            }
+        });
+        
+        // Сортируем сообщения по времени
+        messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        
+    } catch (error) {
+        console.error('Ошибка загрузки сообщений комнаты:', room, error);
     }
     
-    const users = fs.readdirSync(roomDir);
-    
-    users.forEach(user => {
-      const userDir = path.join(roomDir, user);
-      if (fs.statSync(userDir).isDirectory()) {
-        const messageFiles = fs.readdirSync(userDir).filter(file => file.endsWith('.xml'));
-        
-        messageFiles.forEach(messageFile => {
-          try {
-            const filePath = path.join(userDir, messageFile);
-            const fileContent = fs.readFileSync(filePath, 'utf8');
-            
-            // Простой парсинг XML
-            const idMatch = fileContent.match(/<id>(.*?)<\/id>/);
-            const usernameMatch = fileContent.match(/<username>(.*?)<\/username>/);
-            const userIdMatch = fileContent.match(/<userId>(.*?)<\/userId>/);
-            const textMatch = fileContent.match(/<text>(.*?)<\/text>/);
-            const timestampMatch = fileContent.match(/<timestamp>(.*?)<\/timestamp>/);
-            const roomMatch = fileContent.match(/<room>(.*?)<\/room>/);
-            const isSystemMatch = fileContent.match(/<isSystem>(.*?)<\/isSystem>/);
-            const isEncryptedMatch = fileContent.match(/<isEncrypted>(.*?)<\/isEncrypted>/);
-            const isFileMatch = fileContent.match(/<isFile>(.*?)<\/isFile>/);
-            const isAudioMatch = fileContent.match(/<isAudio>(.*?)<\/isAudio>/);
-            const isWarningMatch = fileContent.match(/<isWarning>(.*?)<\/isWarning>/);
-            const isKillAllMatch = fileContent.match(/<isKillAll>(.*?)<\/isKillAll>/);
-            const fileNameMatch = fileContent.match(/<fileName>(.*?)<\/fileName>/);
-            const fileTypeMatch = fileContent.match(/<fileType>(.*?)<\/fileType>/);
-            const fileUrlMatch = fileContent.match(/<fileUrl>(.*?)<\/fileUrl>/);
-            const fileSizeMatch = fileContent.match(/<fileSize>(.*?)<\/fileSize>/);
-            const durationMatch = fileContent.match(/<duration>(.*?)<\/duration>/);
-            
-            const message = {
-              id: idMatch ? idMatch[1] : path.parse(messageFile).name,
-              username: usernameMatch ? unescapeXml(usernameMatch[1]) : user,
-              userId: userIdMatch ? userIdMatch[1] : '',
-              text: textMatch ? unescapeXml(textMatch[1]) : '',
-              timestamp: timestampMatch ? new Date(timestampMatch[1]) : new Date(),
-              room: roomMatch ? unescapeXml(roomMatch[1]) : room,
-              isSystem: isSystemMatch ? isSystemMatch[1] === 'true' : (user === 'system'),
-              isEncrypted: isEncryptedMatch ? isEncryptedMatch[1] === 'true' : false,
-              isFile: isFileMatch ? isFileMatch[1] === 'true' : false,
-              isAudio: isAudioMatch ? isAudioMatch[1] === 'true' : false,
-              isWarning: isWarningMatch ? isWarningMatch[1] === 'true' : false,
-              isKillAll: isKillAllMatch ? isKillAllMatch[1] === 'true' : false
-            };
-            
-            if (fileNameMatch) message.fileName = unescapeXml(fileNameMatch[1]);
-            if (fileTypeMatch) message.fileType = unescapeXml(fileTypeMatch[1]);
-            if (fileUrlMatch) message.fileUrl = unescapeXml(fileUrlMatch[1]);
-            if (fileSizeMatch) message.fileSize = unescapeXml(fileSizeMatch[1]);
-            if (durationMatch) message.duration = parseFloat(durationMatch[1]) || 0;
-            
-            // Парсинг цитаты
-            const quoteMatch = fileContent.match(/<quote>([\s\S]*?)<\/quote>/);
-            if (quoteMatch) {
-              const quoteContent = quoteMatch[1];
-              const quoteUsernameMatch = quoteContent.match(/<username>(.*?)<\/username>/);
-              const quoteTextMatch = quoteContent.match(/<text>(.*?)<\/text>/);
-              const quoteIsEncryptedMatch = quoteContent.match(/<isEncrypted>(.*?)<\/isEncrypted>/);
-              
-              if (quoteUsernameMatch && quoteTextMatch) {
-                message.quote = {
-                  username: unescapeXml(quoteUsernameMatch[1]),
-                  text: unescapeXml(quoteTextMatch[1]),
-                  isEncrypted: quoteIsEncryptedMatch ? quoteIsEncryptedMatch[1] === 'true' : false
-                };
-              }
-            }
-            
-            messages.push(message);
-          } catch (error) {
-            console.error('Ошибка чтения файла сообщения:', messageFile, error);
-          }
-        });
-      }
-    });
-    
-    // Сортируем сообщения по времени
-    messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    
-  } catch (error) {
-    console.error('Ошибка загрузки сообщений комнаты:', room, error);
-  }
-  
-  return messages;
+    return messages;
 }
 
 function unescapeXml(safe) {
@@ -393,7 +433,81 @@ io.on('connection', (socket) => {
   },
   useTurnServers: config.useTurnServers
 });
-  
+ 
+// Обработка реакций на сообщения
+socket.on('add-reaction', (data) => {
+    const user = users.get(socket.id);
+    if (user) {
+        const { messageId, reactionCode } = data;
+        
+        // Инициализируем хранилище реакций для сообщения если его нет
+        if (!messageReactions.has(messageId)) {
+            messageReactions.set(messageId, {});
+        }
+        
+        const reactions = messageReactions.get(messageId);
+        
+        // Увеличиваем счетчик реакции
+        if (!reactions[reactionCode]) {
+            reactions[reactionCode] = 0;
+        }
+        reactions[reactionCode]++;
+        
+        // Сохраняем реакции в файл сообщения
+        updateMessageReactionsInFile(user.room, messageId, reactions);
+        
+        // Рассылаем обновленные реакции всем в комнате
+        io.to(user.room).emit('reactions-updated', {
+            messageId: messageId,
+            reactions: reactions
+        });
+        
+        console.log(`Пользователь ${user.username} добавил реакцию ${reactionCode} к сообщению ${messageId}`);
+    }
+});
+
+// Функция для обновления реакций в файле сообщения
+function updateMessageReactionsInFile(room, messageId, reactions) {
+    try {
+        const roomDir = path.join(uploadsDir, room);
+        if (!fs.existsSync(roomDir)) {
+            return false;
+        }
+        
+        // Ищем файл сообщения по всем пользователям
+        const users = fs.readdirSync(roomDir);
+        for (const user of users) {
+            const userDir = path.join(roomDir, user);
+            if (fs.statSync(userDir).isDirectory()) {
+                const messageFile = path.join(userDir, `${messageId}.xml`);
+                if (fs.existsSync(messageFile)) {
+                    // Читаем и обновляем файл
+                    const fileContent = fs.readFileSync(messageFile, 'utf8');
+                    
+                    // Удаляем старый блок реакций если есть
+                    let newContent = fileContent.replace(/<reactions>[\s\S]*?<\/reactions>/, '');
+                    
+                    // Добавляем новый блок реакций
+                    if (Object.keys(reactions).length > 0) {
+                        const reactionsXml = `\n  <reactions>\n${Object.entries(reactions).map(([code, count]) => `    <reaction code="${code}" count="${count}"/>`).join('\n')}\n  </reactions>`;
+                        
+                        // Вставляем перед закрывающим тегом message
+                        newContent = newContent.replace('</message>', `${reactionsXml}\n</message>`);
+                    }
+                    
+                    // Записываем обновленный файл
+                    fs.writeFileSync(messageFile, newContent, 'utf8');
+                    console.log(`Реакции обновлены в файле: ${messageFile}`);
+                    return true;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка обновления реакций в файле:', error);
+    }
+    return false;
+}
+
 // Обработка входа пользователя
 socket.on('user-join-attempt', (data) => {
   if (data.password !== config.password) {
@@ -914,67 +1028,76 @@ server.listen(PORT, () => {
 
 // Функция для сохранения системных сообщений
 function saveSystemMessageToFile(room, message) {
-  try {
-    const roomDir = path.join(uploadsDir, room);
-    const systemDir = path.join(roomDir, 'system');
-    
-    // Создаем директории если их нет
-    ensureDirectoryExistence(systemDir);
-    
-    const messageFile = path.join(systemDir, `${message.id}.xml`);
-    
-    let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    xmlContent += '<message>\n';
-    xmlContent += `  <id>${message.id}</id>\n`;
-    xmlContent += `  <username>${escapeXml(message.username)}</username>\n`;
-    xmlContent += `  <userId>${message.userId}</userId>\n`;
-    xmlContent += `  <text>${escapeXml(message.text)}</text>\n`;
-    xmlContent += `  <timestamp>${message.timestamp.toISOString()}</timestamp>\n`;
-    xmlContent += `  <room>${escapeXml(message.room)}</room>\n`;
-    xmlContent += `  <isSystem>${message.isSystem || true}</isSystem>\n`;
-    xmlContent += `  <isEncrypted>${message.isEncrypted || false}</isEncrypted>\n`;
-    xmlContent += `  <isFile>${message.isFile || false}</isFile>\n`;
-    xmlContent += `  <isAudio>${message.isAudio || false}</isAudio>\n`;
-    
-    if (message.isWarning) {
-      xmlContent += `  <isWarning>${message.isWarning}</isWarning>\n`;
+    try {
+        const roomDir = path.join(uploadsDir, room);
+        const systemDir = path.join(roomDir, 'system');
+        
+        // Создаем директории если их нет
+        ensureDirectoryExistence(systemDir);
+        
+        const messageFile = path.join(systemDir, `${message.id}.xml`);
+        
+        let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        xmlContent += '<message>\n';
+        xmlContent += `  <id>${message.id}</id>\n`;
+        xmlContent += `  <username>${escapeXml(message.username)}</username>\n`;
+        xmlContent += `  <userId>${message.userId}</userId>\n`;
+        xmlContent += `  <text>${escapeXml(message.text)}</text>\n`;
+        xmlContent += `  <timestamp>${message.timestamp.toISOString()}</timestamp>\n`;
+        xmlContent += `  <room>${escapeXml(message.room)}</room>\n`;
+        xmlContent += `  <isSystem>${message.isSystem || true}</isSystem>\n`;
+        xmlContent += `  <isEncrypted>${message.isEncrypted || false}</isEncrypted>\n`;
+        xmlContent += `  <isFile>${message.isFile || false}</isFile>\n`;
+        xmlContent += `  <isAudio>${message.isAudio || false}</isAudio>\n`;
+        
+        if (message.isWarning) {
+            xmlContent += `  <isWarning>${message.isWarning}</isWarning>\n`;
+        }
+        
+        if (message.isKillAll) {
+            xmlContent += `  <isKillAll>${message.isKillAll}</isKillAll>\n`;
+        }
+        
+        // Сохраняем реакции если они есть (для системных сообщений обычно нет)
+        if (message.reactions && Object.keys(message.reactions).length > 0) {
+            xmlContent += `  <reactions>\n`;
+            Object.entries(message.reactions).forEach(([code, count]) => {
+                xmlContent += `    <reaction code="${code}" count="${count}"/>\n`;
+            });
+            xmlContent += `  </reactions>\n`;
+        }
+        
+        if (message.fileName) {
+            xmlContent += `  <fileName>${escapeXml(message.fileName)}</fileName>\n`;
+        }
+        if (message.fileType) {
+            xmlContent += `  <fileType>${escapeXml(message.fileType)}</fileType>\n`;
+        }
+        if (message.fileUrl) {
+            xmlContent += `  <fileUrl>${escapeXml(message.fileUrl)}</fileUrl>\n`;
+        }
+        if (message.fileSize) {
+            xmlContent += `  <fileSize>${escapeXml(message.fileSize)}</fileSize>\n`;
+        }
+        if (message.duration) {
+            xmlContent += `  <duration>${message.duration}</duration>\n`;
+        }
+        
+        if (message.quote) {
+            xmlContent += `  <quote>\n`;
+            xmlContent += `    <username>${escapeXml(message.quote.username)}</username>\n`;
+            xmlContent += `    <text>${escapeXml(message.quote.text)}</text>\n`;
+            xmlContent += `    <isEncrypted>${message.quote.isEncrypted || false}</isEncrypted>\n`;
+            xmlContent += `  </quote>\n`;
+        }
+        
+        xmlContent += '</message>';
+        
+        fs.writeFileSync(messageFile, xmlContent, 'utf8');
+        console.log(`Системное сообщение сохранено: ${messageFile}`);
+        return true;
+    } catch (error) {
+        console.error('Ошибка сохранения системного сообщения в файл:', error);
+        return false;
     }
-    
-    if (message.isKillAll) {
-      xmlContent += `  <isKillAll>${message.isKillAll}</isKillAll>\n`;
-    }
-    
-    if (message.fileName) {
-      xmlContent += `  <fileName>${escapeXml(message.fileName)}</fileName>\n`;
-    }
-    if (message.fileType) {
-      xmlContent += `  <fileType>${escapeXml(message.fileType)}</fileType>\n`;
-    }
-    if (message.fileUrl) {
-      xmlContent += `  <fileUrl>${escapeXml(message.fileUrl)}</fileUrl>\n`;
-    }
-    if (message.fileSize) {
-      xmlContent += `  <fileSize>${escapeXml(message.fileSize)}</fileSize>\n`;
-    }
-    if (message.duration) {
-      xmlContent += `  <duration>${message.duration}</duration>\n`;
-    }
-    
-    if (message.quote) {
-      xmlContent += `  <quote>\n`;
-      xmlContent += `    <username>${escapeXml(message.quote.username)}</username>\n`;
-      xmlContent += `    <text>${escapeXml(message.quote.text)}</text>\n`;
-      xmlContent += `    <isEncrypted>${message.quote.isEncrypted || false}</isEncrypted>\n`;
-      xmlContent += `  </quote>\n`;
-    }
-    
-    xmlContent += '</message>';
-    
-    fs.writeFileSync(messageFile, xmlContent, 'utf8');
-    console.log(`Системное сообщение сохранено: ${messageFile}`);
-    return true;
-  } catch (error) {
-    console.error('Ошибка сохранения системного сообщения в файл:', error);
-    return false;
-  }
 }

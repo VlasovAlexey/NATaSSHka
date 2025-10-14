@@ -429,6 +429,9 @@ function displayDecryptedFile(blob, fileType, fileName, messageFileElement) {
 	socket.on('user-joined', (data) => {
 		currentUser = data.username;
 		currentRoom = data.room;
+		
+		// Устанавливаем глобальную переменную для комнаты
+    	window.currentRoom = currentRoom;
 
 		// Добавляем символ для текущего пользователя
 		if (userInfo) userInfo.textContent = '✪ ' + currentUser;
@@ -477,10 +480,25 @@ function displayDecryptedFile(blob, fileType, fileName, messageFileElement) {
 	});
 
 	// Обработка получения нового сообщения
-	socket.on('new-message', (message) => {
-		messageHistory.push(message);
-		addMessageToChat(message);
-	});
+socket.on('new-message', (message) => {
+    messageHistory.push(message);
+    addMessageToChat(message);
+});
+
+// Обработка обновления сообщения (например, при добавлении реакции)
+socket.on('message-updated', (message) => {
+    // Обновляем сообщение в истории
+    const messageIndex = messageHistory.findIndex(msg => msg.id === message.id);
+    if (messageIndex !== -1) {
+        messageHistory[messageIndex] = message;
+    }
+    
+    // Обновляем отображение сообщения
+    const messageElement = document.querySelector(`[data-message-id="${message.id}"]`);
+    if (messageElement) {
+        updateMessageReactions(messageElement, message);
+    }
+});
 
 	// Добавление системного сообщения
 	function addSystemMessage(text) {
@@ -504,155 +522,180 @@ function displayDecryptedFile(blob, fileType, fileName, messageFileElement) {
 	}
 
 	// Добавление сообщения в чат
-	function addMessageToChat(message) {
-		const messageElement = document.createElement('div');
-		messageElement.classList.add('message');
-		messageElement.dataset.messageId = message.id;
-		messageElement.dataset.messageUsername = message.username;
+function addMessageToChat(message) {
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message');
+    messageElement.dataset.messageId = message.id;
+    messageElement.dataset.messageUsername = message.username;
 
-		if (message.isSystem) {
-			messageElement.classList.add('system-message');
-		}
+    if (message.isSystem) {
+        messageElement.classList.add('system-message');
+    }
 
-		if (message.isKillAll) {
-			messageElement.classList.add('killall-message');
-		}
+    if (message.isKillAll) {
+        messageElement.classList.add('killall-message');
+    }
 
-		// Добавляем класс для предупреждающих сообщений
-		if (message.isWarning) {
-			messageElement.classList.add('warning-message');
-		}
+    // Добавляем класс для предупреждающих сообщений
+    if (message.isWarning) {
+        messageElement.classList.add('warning-message');
+    }
 
-		if (message.isFile || message.isAudio) {
-			messageElement.dataset.hasFile = 'true';
-		}
+    if (message.isFile || message.isAudio) {
+        messageElement.dataset.hasFile = 'true';
+    }
 
-		// Определяем, наше ли это сообщение
-		const isMyMessage = message.userId === socket.id;
-		if (!message.isSystem && !message.isKillAll && !message.isWarning) {
-			messageElement.classList.add(isMyMessage ? 'my-message' : 'other-message');
-		}
+    // Определяем, наше ли это сообщение
+    const isMyMessage = message.userId === socket.id;
+    if (!message.isSystem && !message.isKillAll && !message.isWarning) {
+        messageElement.classList.add(isMyMessage ? 'my-message' : 'other-message');
+    }
 
-		// Форматируем время
-		const time = new Date(message.timestamp).toLocaleTimeString();
+    // Форматируем время
+    const time = new Date(message.timestamp).toLocaleTimeString();
 
-		let messageContent = `
-            <div class="message-info">
-                <span class="message-sender">${message.username}</span>
-                <span class="message-time">${time}</span>
-            </div>
-        `;
-
-		// Добавляем цитату, если она есть
-		if (message.quote) {
-			let quoteText = message.quote.text;
-			let quoteUsername = message.quote.username;
-
-			// Обрабатываем цитату (расшифровываем если нужно)
-			if (message.quote.isEncrypted) {
-				if (window.encryptionManager.encryptionKey) {
-					try {
-						quoteText = window.encryptionManager.decryptMessage(quoteText);
-					} catch (error) {
-						quoteText = "🔒 Неверный ключ шифрования";
-					}
-				} else {
-					quoteText = "🔒 Неверный ключ шифрования";
-				}
-			}
-
-			messageContent += `
-                <div class="message-quote">
-                    <div class="quote-username">${quoteUsername}</div>
-                    <div class="quote-text">${quoteText}</div>
-                </div>
-            `;
-		}
-
-		// Обрабатываем текст сообщения (расшифровываем если нужно)
-		let messageText = message.text;
-		let isEncryptedMessage = message.isEncrypted;
-
-		if (isEncryptedMessage) {
-			if (window.encryptionManager.encryptionKey) {
-				try {
-					messageText = window.encryptionManager.decryptMessage(messageText);
-				} catch (error) {
-					messageText = "🔒 Неверный ключ шифрования";
-				}
-			} else {
-				messageText = "🔒 Неверный ключ шифрования";
-			}
-		}
-
-		if (message.isFile) {
-			console.log('Отображение файла в чате:', message.fileName, 'Зашифрован:', message.isEncrypted);
-if (message.isEncrypted) {
-    messageContent += `
-    <div class="message-file">
-        <button class="encrypted-file-btn" 
-                onclick="decryptAndDisplayFile('${message.fileUrl}', '${message.fileType}', '${message.fileName}', '${message.id}', this)"
-                data-file-url="${message.fileUrl}"
-                data-file-type="${message.fileType}"
-                data-file-name="${message.fileName}"
-                data-message-id="${message.id}">
-            🔒 Файл зашифрован. Нажмите для расшифровки.
-        </button>
-        <div class="file-info">${message.fileName} (${message.fileSize})</div>
-    </div>
-    `;
-} else {
-				// Для незашифрованных файлов стандартное отображение
-				if (message.isAudio) {
-					messageContent += `
-                        <div class="message-audio">
-                            <button class="audio-play-btn" onclick="window.audioRecorder.playAudioMessage('${message.fileUrl}', this)">
-                                🔊
-                            </button>
-                            <span class="audio-duration">${message.duration} сек • ${message.fileSize}</span>
-                        </div>
-                    `;
-				} else if (message.fileType.startsWith('image/')) {
-					messageContent += `
-                        <div class="message-file">
-                            <img src="${message.fileUrl}" alt="${message.fileName}" 
-                                 onclick="console.log('🖼️ Клик по изображению в чате:', '${message.fileUrl}'); window.expandImage('${message.fileUrl}', '${message.fileType}')">
-                            <div class="file-size">${message.fileSize}</div>
-                        </div>
-                    `;
-				} else if (message.fileType.startsWith('video/')) {
-					messageContent += `
-        <div class="message-file">
-            <video src="${message.fileUrl}" controls muted 
-                   onclick="window.expandVideoWithSound('${message.fileUrl}', this)">
-                Ваш браузер не поддерживает видео.
-            </video>
-            <div class="file-size">${message.duration} сек • ${message.fileSize}</div>
+    let messageContent = `
+        <div class="message-info">
+            <span class="message-sender">${message.username}</span>
+            <span class="message-time">${time}</span>
         </div>
     `;
-				} else {
-					messageContent += `
-                        <div class="message-file">
-                            <a href="${message.fileUrl}" download="${message.fileName}">
-                                📄 ${message.fileName}
-                            </a>
-                            <div class="file-size">${message.fileSize}</div>
-                        </div>
-                    `;
-				}
-			}
-		} else {
-			// Если это текстовое сообщение
-			messageContent += `<div class="message-text">${messageText}</div>`;
-		}
 
-		messageElement.innerHTML = messageContent;
-		messagesContainer.appendChild(messageElement);
+    // Добавляем цитату, если она есть
+    if (message.quote) {
+        let quoteText = message.quote.text;
+        let quoteUsername = message.quote.username;
 
-		// Прокручиваем только если включена авто-прокрутка
-		scrollToBottom();
-	}
+        // Обрабатываем цитату (расшифровываем если нужно)
+        if (message.quote.isEncrypted) {
+            if (window.encryptionManager && window.encryptionManager.encryptionKey) {
+                try {
+                    quoteText = window.encryptionManager.decryptMessage(quoteText);
+                } catch (error) {
+                    quoteText = "🔒 Неверный ключ шифрования";
+                }
+            } else {
+                quoteText = "🔒 Неверный ключ шифрования";
+            }
+        }
 
+        messageContent += `
+            <div class="message-quote">
+                <div class="quote-username">${quoteUsername}</div>
+                <div class="quote-text">${quoteText}</div>
+            </div>
+        `;
+    }
+
+    // Обрабатываем текст сообщения (расшифровываем если нужно)
+    let messageText = message.text;
+    let isEncryptedMessage = message.isEncrypted;
+
+    if (isEncryptedMessage) {
+        if (window.encryptionManager && window.encryptionManager.encryptionKey) {
+            try {
+                messageText = window.encryptionManager.decryptMessage(messageText);
+            } catch (error) {
+                messageText = "🔒 Неверный ключ шифрования";
+            }
+        } else {
+            messageText = "🔒 Неверный ключ шифрования";
+        }
+    }
+
+    if (message.isFile) {
+        console.log('Отображение файла в чате:', message.fileName, 'Зашифрован:', message.isEncrypted);
+        if (message.isEncrypted) {
+            messageContent += `
+            <div class="message-file">
+                <button class="encrypted-file-btn" 
+                        onclick="decryptAndDisplayFile('${message.fileUrl}', '${message.fileType}', '${message.fileName}', '${message.id}', this)"
+                        data-file-url="${message.fileUrl}"
+                        data-file-type="${message.fileType}"
+                        data-file-name="${message.fileName}"
+                        data-message-id="${message.id}">
+                    🔒 Файл зашифрован. Нажмите для расшифровки.
+                </button>
+                <div class="file-info">${message.fileName} (${message.fileSize})</div>
+            </div>
+            `;
+        } else {
+            // Для незашифрованных файлов стандартное отображение
+            if (message.isAudio) {
+                messageContent += `
+                    <div class="message-audio">
+                        <button class="audio-play-btn" onclick="window.audioRecorder.playAudioMessage('${message.fileUrl}', this)">
+                            🔊
+                        </button>
+                        <span class="audio-duration">${message.duration} сек • ${message.fileSize}</span>
+                    </div>
+                `;
+            } else if (message.fileType.startsWith('image/')) {
+                messageContent += `
+                    <div class="message-file">
+                        <img src="${message.fileUrl}" alt="${message.fileName}" 
+                             onclick="console.log('🖼️ Клик по изображению в чате:', '${message.fileUrl}'); window.expandImage('${message.fileUrl}', '${message.fileType}')">
+                        <div class="file-size">${message.fileSize}</div>
+                    </div>
+                `;
+            } else if (message.fileType.startsWith('video/')) {
+                messageContent += `
+                    <div class="message-file">
+                        <video src="${message.fileUrl}" controls muted 
+                               onclick="window.expandVideoWithSound('${message.fileUrl}', this)">
+                            Ваш браузер не поддерживает видео.
+                        </video>
+                        <div class="file-size">${message.duration} сек • ${message.fileSize}</div>
+                    </div>
+                `;
+            } else {
+                messageContent += `
+                    <div class="message-file">
+                        <a href="${message.fileUrl}" download="${message.fileName}">
+                            📄 ${message.fileName}
+                        </a>
+                        <div class="file-size">${message.fileSize}</div>
+                    </div>
+                `;
+            }
+        }
+    } else {
+        // Если это текстовое сообщение
+        messageContent += `<div class="message-text">${messageText}</div>`;
+    }
+
+    messageElement.innerHTML = messageContent;
+    messagesContainer.appendChild(messageElement);
+
+    // Добавляем кнопку реакции и отображаем существующие реакции
+    if (!message.isSystem && !message.isKillAll && !message.isWarning) {
+        if (window.reactionsManager) {
+            window.reactionsManager.addReactionButton(messageElement);
+            window.reactionsManager.updateMessageReactions(messageElement, message.reactions);
+        }
+    }
+
+    // Прокручиваем только если включена авто-прокрутка
+    scrollToBottom();
+}
+
+// Функция для обновления реакций сообщения
+function updateMessageReactions(messageElement, message) {
+    if (window.reactionsManager) {
+        window.reactionsManager.updateMessageReactions(messageElement, message.reactions);
+    }
+}
+
+// Обработка обновления реакций
+socket.on('reactions-updated', (data) => {
+    const { messageId, reactions } = data;
+    
+    // Обновляем отображение реакций
+    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (messageElement && window.reactionsManager) {
+        window.reactionsManager.updateMessageReactions(messageElement, reactions);
+    }
+});
 	// Обработка списка пользователей
 	socket.on('users-list', (users) => {
 		usersList.innerHTML = '';
@@ -1563,6 +1606,8 @@ if (message.isEncrypted) {
 		messageHistory.forEach(message => {
 			addMessageToChat(message);
 		});
+		 // ВКЛЮЧАЕМ авто-прокрутку после перерасшифровки всех сообщений
+    	shouldAutoScroll = true;
 	}
 
 	// Функции для управления sidebar
