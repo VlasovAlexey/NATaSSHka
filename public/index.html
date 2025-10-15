@@ -11,7 +11,9 @@
         <!-- Сайдбар -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <button id="hideSidebarBtn" class="sidebar-toggle-btn hidden">←</button>
+                <button id="hideSidebarBtn" class="sidebar-toggle-btn hidden">
+                    <img src="icons/circle-arrow-left.svg" alt="File icon" class="file-icon">
+                </button>
                 <div class="room-info" id="roomInfo"></div>
                 <div class="user-info" id="userInfo"></div>
             </div>
@@ -22,7 +24,9 @@
         <div class="chat-container">
             <div class="chat-header">
                 <div class="header-content">
-                    <button id="showSidebarBtn" class="sidebar-toggle-btn hidden">→</button>
+                    <button id="showSidebarBtn" class="sidebar-toggle-btn hidden">
+                        <img src="icons/circle-arrow-right.svg" alt="File icon" class="file-icon">
+                    </button>
                     
                     <div class="encryption-input-wrapper">
                         <input type="password" id="encryptionKeyInput" placeholder="Ключ шифрования" class="encryption-input-header">
@@ -30,8 +34,12 @@
                     </div>
                     
                     <div class="call-buttons-container">
-                        <button id="audioCallBtn" class="call-btn">📞</button>
-                        <button id="videoCallBtn" class="call-btn">📹</button>
+                        <button id="audioCallBtn" class="call-btn">
+                            <img src="icons/call.svg" alt="File icon" class="file-icon">
+                        </button>
+                        <button id="videoCallBtn" class="call-btn">
+                            <img src="icons/camera-5.svg" alt="File icon" class="file-icon">
+                        </button>
                     </div>
                 </div>
             </div>
@@ -39,11 +47,17 @@
             <div class="message-input-container">
                 <input type="text" id="messageInput" placeholder="Введите сообщение...">
                 <div class="record-buttons-container">
-                    <button id="recordButton" class="record-btn">🎤</button>
-                    <button id="recordVideoBtn" class="record-btn">🎥</button>
+                    <button id="recordButton" class="record-btn">
+                        <img src="icons/mic.svg" alt="File icon" class="file-icon">
+                    </button>
+                    <button id="recordVideoBtn" class="record-btn">
+                        <img src="icons/video.svg" alt="File icon" class="file-icon">
+                    </button>
                 </div>
                 <div class="send-file-container">
-                    <label for="fileInput" class="file-input-label">📎</label>
+                    <label for="fileInput" class="file-input-label">
+                        <img src="icons/clip.svg" alt="File icon" class="file-icon">
+                    </label>
                     <button id="sendMessageBtn">↵</button>
                 </div>
                 <input type="file" id="fileInput" hidden>
@@ -76,7 +90,7 @@
     <!-- Индикатор записи видео -->
     <div class="recording-indicator hidden" id="videoRecordingIndicator">
         <div class="recording-dot"></div>
-        Запись видео...
+        Запись...
     </div>
     
     <!-- Модальное окно предпросмотра камеры -->

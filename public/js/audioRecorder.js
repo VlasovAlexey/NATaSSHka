@@ -181,7 +181,7 @@ class AudioRecorder {
                 }
                 
                 // Восстанавливаем иконку кнопки
-                this.recordButton.innerHTML = '🎤';
+                this.recordButton.innerHTML = '<img src="icons/mic.svg" alt="File icon" class="file-icon">';
             };
             
             // Запускаем запись
@@ -193,7 +193,7 @@ class AudioRecorder {
             }
             
             // Меняем иконку кнопки
-            this.recordButton.innerHTML = '⏹️';
+            this.recordButton.innerHTML = '<img src="icons/mic-red.svg" alt="File icon" class="file-icon">';
             
             // Устанавливаем таймаут для автоматической остановки записи (60 секунд)
             this.recordingTimeout = setTimeout(() => {

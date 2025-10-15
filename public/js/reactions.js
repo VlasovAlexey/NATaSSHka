@@ -210,7 +210,7 @@ class ReactionsManager {
         
         const reactionBtn = document.createElement('div');
         reactionBtn.className = 'reaction-btn';
-        reactionBtn.innerHTML = '&#128170;';
+        reactionBtn.innerHTML = '♡';
         reactionBtn.title = 'Добавить реакцию';
         
         reactionBtn.addEventListener('click', (e) => {

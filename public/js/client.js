@@ -1504,14 +1504,14 @@ socket.on('reactions-updated', (data) => {
 		const audioCallBtn = document.createElement('button');
 		audioCallBtn.id = 'audioCallBtn';
 		audioCallBtn.className = 'call-btn';
-		audioCallBtn.innerHTML = '📞';
+		audioCallBtn.innerHTML = '<img src="icons/call.svg" alt="File icon" class="file-icon">';
 		audioCallBtn.title = 'Аудиозвонок';
 
 		// Создаем кнопку видеозвонка
 		const videoCallBtn = document.createElement('button');
 		videoCallBtn.id = 'videoCallBtn';
 		videoCallBtn.className = 'call-btn';
-		videoCallBtn.innerHTML = '📹';
+		videoCallBtn.innerHTML = '<img src="icons/camera-5.svg" alt="File icon" class="file-icon">';
 		videoCallBtn.title = 'Видеозвонок';
 
 		// Добавляем кнопки в контейнер
