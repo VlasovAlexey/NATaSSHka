@@ -286,7 +286,7 @@ function displayDecryptedFile(blob, fileType, fileName, messageFileElement) {
 
 	// Меняем текст кнопки отправки на символ
 	if (sendMessageBtn) {
-		sendMessageBtn.textContent = ' ↵ ';
+		sendMessageBtn.innerHTML = '<img src="icons/send-2.svg" alt="File icon" class="file-icon">';
 		sendMessageBtn.title = 'Отправить сообщение';
 	}
 
@@ -511,6 +511,20 @@ socket.on('message-updated', (message) => {
     }
 });
 
+// Обработчик удаления сообщения от сервера
+socket.on('message-deleted', (data) => {
+  const messageElement = document.querySelector(`[data-message-id="${data.messageId}"]`);
+  if (messageElement) {
+    messageElement.remove();
+    
+    // Удаляем из истории
+    const index = messageHistory.findIndex(msg => msg.id === data.messageId);
+    if (index !== -1) {
+      messageHistory.splice(index, 1);
+    }
+  }
+});
+
 	// Добавление системного сообщения
 	function addSystemMessage(text) {
 		const message = {
@@ -532,6 +546,104 @@ socket.on('message-updated', (message) => {
 		}
 	}
 
+	// Функция для добавления кнопки удаления к сообщению
+function addDeleteButton(messageElement, message) {
+  if (!messageElement || !message) return;
+  
+  // Проверяем, можно ли удалять это сообщение
+  if (canDeleteMessage(message)) {
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'message-delete-btn';
+    deleteButton.innerHTML = '×';
+    deleteButton.title = 'Удалить сообщение';
+    deleteButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showDeleteConfirmation(message.id);
+    });
+    
+    // Находим или создаем контейнер для времени
+    const messageInfo = messageElement.querySelector('.message-info');
+    if (messageInfo) {
+      // Создаем контейнер для времени и кнопки удаления
+      const timeContainer = document.createElement('div');
+      timeContainer.className = 'message-time-container';
+      
+      // Переносим время в контейнер
+      const timeElement = messageInfo.querySelector('.message-time');
+      if (timeElement) {
+        messageInfo.removeChild(timeElement);
+        timeContainer.appendChild(timeElement);
+      }
+      
+      // Добавляем кнопку удаления
+      timeContainer.appendChild(deleteButton);
+      messageInfo.appendChild(timeContainer);
+    }
+  }
+}
+
+// Функция проверки возможности удаления сообщения
+function canDeleteMessage(message) {
+  return currentUser && 
+         message.username === currentUser && 
+         !message.isSystem && 
+         !message.isKillAll && 
+         !message.isWarning;
+}
+
+// Обработчик ошибок удаления
+socket.on('delete-error', (data) => {
+  console.error('Ошибка удаления сообщения:', data.error);
+  showMessage('Ошибка', 'Не удалось удалить сообщение: ' + data.error);
+});
+
+// Функция подтверждения удаления
+function showDeleteConfirmation(messageId) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.display = 'flex';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <h2>Подтверждение удаления</h2>
+      <p>Вы действительно хотите безвозвратно удалить это сообщение?</p>
+      <div class="modal-buttons-container">
+        <button id="cancelDelete" class="modal-ok-btn" style="background-color: #6c757d;">Отмена</button>
+        <button id="confirmDelete" class="modal-ok-btn" style="background-color: #dc3545;">Удалить</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+
+  // Обработчики кнопок
+  document.getElementById('cancelDelete').addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+
+  document.getElementById('confirmDelete').addEventListener('click', () => {
+    // Блокируем кнопку чтобы избежать повторных нажатий
+    const confirmBtn = document.getElementById('confirmDelete');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Удаление...';
+    
+    socket.emit('delete-message', { messageId }, (response) => {
+      // Обработка ответа от сервера
+      if (response && response.error) {
+        console.error('Ошибка удаления:', response.error);
+        showMessage('Ошибка', 'Не удалось удалить сообщение: ' + response.error);
+      }
+      // В любом случае закрываем модальное окно
+      document.body.removeChild(modal);
+    });
+  });
+
+  // Закрытие по клику вне модального окна
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  });
+}
 	// Добавление сообщения в чат
 function addMessageToChat(message) {
    const messageElement = document.createElement('div');
@@ -708,6 +820,13 @@ function addMessageToChat(message) {
         }
     }
 
+	messagesContainer.appendChild(messageElement);
+
+// Добавляем кнопку удаления если нужно
+setTimeout(() => {
+  addDeleteButton(messageElement, message);
+}, 0);
+
     // Прокручиваем только если включена авто-прокрутка
     scrollToBottom();
 }
@@ -735,6 +854,58 @@ socket.on('reactions-updated', (data) => {
         window.reactionsManager.updateMessageReactions(messageElement, reactions);
     }
 });
+
+// server.js - обновите обработчик delete-message для поддержки callback
+
+socket.on('delete-message', (data, callback) => {
+  const user = users.get(socket.id);
+  if (user) {
+    const { messageId } = data;
+    
+    console.log(`Пользователь ${user.username} запросил удаление сообщения ${messageId}`);
+    
+    // Находим сообщение в истории для проверки прав
+    const message = messageHistory.find(msg => msg.id === messageId);
+    if (!message) {
+      console.log(`Сообщение ${messageId} не найдено в истории`);
+      if (callback) callback({ error: 'Сообщение не найдено' });
+      return;
+    }
+    
+    // Проверяем, что пользователь является автором сообщения
+    if (message.username === user.username) {
+      // Удаляем файлы с диска
+      const deleteResult = deleteMessageFromFiles(user.room, messageId, user.username);
+      
+      if (deleteResult) {
+        // Удаляем из истории
+        const index = messageHistory.findIndex(msg => msg.id === messageId);
+        if (index !== -1) {
+          messageHistory.splice(index, 1);
+        }
+        
+        // Удаляем реакции если есть
+        messageReactions.delete(messageId);
+        reactionUsers.delete(messageId);
+        
+        // Рассылаем событие удаления всем в комнате
+        io.to(user.room).emit('message-deleted', { messageId });
+        
+        console.log(`Пользователь ${user.username} успешно удалил сообщение ${messageId}`);
+        if (callback) callback({ success: true });
+      } else {
+        console.error(`Не удалось удалить файлы сообщения ${messageId}`);
+        if (callback) callback({ error: 'Не удалось удалить файлы сообщения' });
+      }
+    } else {
+      console.log(`Попытка удалить чужое сообщение: ${user.username} пытается удалить сообщение ${message.username}`);
+      if (callback) callback({ error: 'Нельзя удалять чужие сообщения' });
+    }
+  } else {
+    if (callback) callback({ error: 'Пользователь не авторизован' });
+  }
+});
+
 	// Обработка списка пользователей
 	socket.on('users-list', (users) => {
 		usersList.innerHTML = '';

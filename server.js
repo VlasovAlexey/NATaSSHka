@@ -462,7 +462,226 @@ io.on('connection', (socket) => {
   },
   useTurnServers: config.useTurnServers
 });
- 
+
+// Обработка удаления сообщения// server.js - обновите обработчик delete-message
+
+socket.on('delete-message', (data, callback) => {
+  const user = users.get(socket.id);
+  if (user) {
+    const { messageId } = data;
+    
+    console.log(`=== НАЧАЛО УДАЛЕНИЯ СООБЩЕНИЯ ===`);
+    console.log(`Пользователь: ${user.username}`);
+    console.log(`Комната: ${user.room}`);
+    console.log(`ID сообщения: ${messageId}`);
+    
+    // Вместо поиска в messageHistory, проверяем существование файла сообщения
+    const userDir = path.join(uploadsDir, user.room, user.username);
+    const messageFile = path.join(userDir, `${messageId}.xml`);
+    
+    if (!fs.existsSync(messageFile)) {
+      console.log(`❌ Сообщение ${messageId} не найдено для пользователя ${user.username}`);
+      if (callback) callback({ error: 'Сообщение не найдено' });
+      return;
+    }
+    
+    // Читаем XML файл чтобы убедиться, что пользователь является автором
+    try {
+      const fileContent = fs.readFileSync(messageFile, 'utf8');
+      const usernameMatch = fileContent.match(/<username>(.*?)<\/username>/);
+      
+      if (usernameMatch && usernameMatch[1] === user.username) {
+        // Удаляем файлы с диска
+        const deleteResult = deleteMessageFromFiles(user.room, messageId, user.username);
+        
+        if (deleteResult) {
+          // Рассылаем событие удаления всем в комнате
+          io.to(user.room).emit('message-deleted', { messageId });
+          
+          console.log(`✅ Пользователь ${user.username} успешно удалил сообщение ${messageId}`);
+          if (callback) callback({ success: true });
+        } else {
+          console.error(`❌ Не удалось удалить файлы сообщения ${messageId}`);
+          if (callback) callback({ error: 'Не удалось удалить файлы сообщения' });
+        }
+      } else {
+        const foundUsername = usernameMatch ? usernameMatch[1] : 'неизвестного пользователя';
+        console.log(`❌ Попытка удалить чужое сообщение: ${user.username} пытается удалить сообщение ${foundUsername}`);
+        if (callback) callback({ error: 'Нельзя удалять чужие сообщения' });
+      }
+    } catch (readError) {
+      console.error('❌ Ошибка чтения XML файла сообщения:', readError);
+      if (callback) callback({ error: 'Ошибка при проверке сообщения' });
+    }
+    
+    console.log(`=== ЗАВЕРШЕНИЕ УДАЛЕНИЯ СООБЩЕНИЯ ===`);
+  } else {
+    if (callback) callback({ error: 'Пользователь не авторизован' });
+  }
+});
+
+// Функция для удаления файлов сообщения
+function deleteMessageFromFiles(room, messageId, username) {
+  try {
+    const roomDir = path.join(uploadsDir, room);
+    const userDir = path.join(roomDir, username);
+    
+    // Проверяем существование директории пользователя
+    if (!fs.existsSync(userDir)) {
+      console.log(`Директория пользователя не найдена: ${userDir}`);
+      return false;
+    }
+    
+    console.log(`Начинаем удаление файлов сообщения ${messageId} пользователя ${username} в комнате ${room}`);
+    
+    let fileUrls = [];
+    let deletedFiles = [];
+    
+    // 1. Сначала читаем XML сообщения, чтобы получить информацию о файлах
+    const messageFile = path.join(userDir, `${messageId}.xml`);
+    
+    if (fs.existsSync(messageFile)) {
+      try {
+        const fileContent = fs.readFileSync(messageFile, 'utf8');
+        
+        // Извлекаем все fileUrl из XML
+        const fileUrlMatches = fileContent.match(/<fileUrl>(.*?)<\/fileUrl>/g);
+        if (fileUrlMatches) {
+          fileUrls = fileUrlMatches.map(match => {
+            return match.replace(/<fileUrl>|<\/fileUrl>/g, '');
+          });
+        }
+        
+        console.log(`Найдено fileUrls в XML:`, fileUrls);
+        
+        // 2. Удаляем XML файл сообщения
+        fs.unlinkSync(messageFile);
+        deletedFiles.push(messageFile);
+        console.log(`Удален XML файл сообщения: ${messageFile}`);
+      } catch (readError) {
+        console.error('Ошибка чтения XML файла:', readError);
+        // Все равно пытаемся удалить XML файл
+        if (fs.existsSync(messageFile)) {
+          fs.unlinkSync(messageFile);
+          deletedFiles.push(messageFile);
+        }
+      }
+    } else {
+      console.log(`XML файл сообщения не найден: ${messageFile}`);
+    }
+    
+    // 3. Удаляем все связанные файлы из fileUrls и их XML метаданные
+    fileUrls.forEach(fileUrl => {
+      try {
+        if (fileUrl && fileUrl.startsWith('/uploads/')) {
+          // Извлекаем имя файла из URL
+          const fileName = fileUrl.split('/').pop();
+          if (fileName) {
+            const filePath = path.join(userDir, fileName);
+            
+            // Удаляем основной файл
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              deletedFiles.push(filePath);
+              console.log(`Удален файл: ${filePath}`);
+            }
+            
+            // Удаляем XML метаданные для этого файла
+            const metadataFilePath = path.join(userDir, `${fileName}.xml`);
+            if (fs.existsSync(metadataFilePath)) {
+              fs.unlinkSync(metadataFilePath);
+              deletedFiles.push(metadataFilePath);
+              console.log(`Удален файл метаданных: ${metadataFilePath}`);
+            }
+          }
+        }
+      } catch (fileError) {
+        console.error(`Ошибка удаления файла ${fileUrl}:`, fileError);
+      }
+    });
+    
+    // 4. Дополнительный поиск: ищем все файлы, связанные с messageId
+    const files = fs.readdirSync(userDir);
+    files.forEach(file => {
+      try {
+        // Ищем файлы, которые начинаются с messageId или содержат его
+        if (file.startsWith(messageId) || 
+            file.includes(`-${messageId}-`) || 
+            file.includes(`_${messageId}_`) ||
+            file === `${messageId}`) {
+          
+          const filePath = path.join(userDir, file);
+          
+          // Проверяем, не удалили ли мы уже этот файл
+          if (fs.existsSync(filePath) && !deletedFiles.includes(filePath)) {
+            // Удаляем файл
+            fs.unlinkSync(filePath);
+            deletedFiles.push(filePath);
+            console.log(`Удален связанный файл: ${filePath}`);
+            
+            // Если это не XML файл, ищем его XML метаданные
+            if (!file.endsWith('.xml')) {
+              const metadataFilePath = path.join(userDir, `${file}.xml`);
+              if (fs.existsSync(metadataFilePath) && !deletedFiles.includes(metadataFilePath)) {
+                fs.unlinkSync(metadataFilePath);
+                deletedFiles.push(metadataFilePath);
+                console.log(`Удален файл метаданных для ${file}: ${metadataFilePath}`);
+              }
+            }
+          }
+        }
+        
+        // Дополнительно: ищем XML файлы, которые ссылаются на это сообщение
+        if (file.endsWith('.xml') && !deletedFiles.includes(path.join(userDir, file))) {
+          try {
+            const fileContent = fs.readFileSync(path.join(userDir, file), 'utf8');
+            // Проверяем, ссылается ли этот XML на наше сообщение
+            if (fileContent.includes(messageId)) {
+              const filePath = path.join(userDir, file);
+              fs.unlinkSync(filePath);
+              deletedFiles.push(filePath);
+              console.log(`Удален XML файл, ссылающийся на сообщение: ${filePath}`);
+            }
+          } catch (e) {
+            // Игнорируем ошибки чтения
+          }
+        }
+      } catch (error) {
+        console.error(`Ошибка при обработке файла ${file}:`, error);
+      }
+    });
+    
+    // 5. Удаляем все XML файлы, которые могли быть созданы для этого сообщения
+    const xmlFiles = fs.readdirSync(userDir).filter(f => f.endsWith('.xml'));
+    xmlFiles.forEach(xmlFile => {
+      try {
+        // Проверяем, связан ли XML файл с нашим сообщением
+        if (xmlFile.startsWith(messageId) || 
+            xmlFile.includes(messageId) ||
+            xmlFile === `${messageId}.xml`) {
+          
+          const xmlFilePath = path.join(userDir, xmlFile);
+          if (fs.existsSync(xmlFilePath) && !deletedFiles.includes(xmlFilePath)) {
+            fs.unlinkSync(xmlFilePath);
+            deletedFiles.push(xmlFilePath);
+            console.log(`Удален XML файл сообщения: ${xmlFilePath}`);
+          }
+        }
+      } catch (error) {
+        console.error(`Ошибка удаления XML файла ${xmlFile}:`, error);
+      }
+    });
+    
+    console.log(`Завершено удаление файлов сообщения ${messageId}. Удалено файлов: ${deletedFiles.length}`);
+    console.log('Удаленные файлы:', deletedFiles);
+    return true;
+    
+  } catch (error) {
+    console.error('Общая ошибка удаления файлов сообщения:', error);
+    return false;
+  }
+}
+
 // Обработка реакций на сообщения
 socket.on('add-reaction', (data) => {
     const user = users.get(socket.id);

@@ -7,8 +7,8 @@
   ],
   "turnServers": [
     {
-      "urls": "turn:217.25.238.69:3478",
-      "username": "pipi",
+      "urls": "turn:211.21.231.39:3478",
+      "username": "user",
       "credential": "pass"
     }
   ],
