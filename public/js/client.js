@@ -61,6 +61,177 @@
 			if (callButtonsContainer) callButtonsContainer.style.display = 'flex';
 		}
 	}
+
+	// Глобальные переменные для уведомлений
+let pushConfig = {
+  enabled: true,
+  displayTime: 7000,
+  autoCloseDelay: 5000,
+  playSound: true
+};
+let notificationPermission = null;
+let notificationSound = null;
+
+// Функция для инициализации уведомлений
+function initializePushNotifications() {
+  // Проверяем поддержку уведомлений
+  if (!('Notification' in window)) {
+    console.log('Браузер не поддерживает уведомления');
+    return;
+  }
+
+  // Запрашиваем разрешение, если еще не запрашивали
+  if (Notification.permission === 'default') {
+    requestNotificationPermission();
+  } else {
+    notificationPermission = Notification.permission;
+  }
+
+  // Создаем аудио элемент для звука уведомления
+  if (pushConfig.playSound) {
+    notificationSound = new Audio(pushConfig.soundFile || '/sounds/notification.mp3');
+    notificationSound.preload = 'auto';
+  }
+
+  console.log('Уведомления инициализированы, разрешение:', notificationPermission);
+}
+
+// Функция запроса разрешения на уведомления
+function requestNotificationPermission() {
+  Notification.requestPermission().then(permission => {
+    notificationPermission = permission;
+    console.log('Разрешение на уведомления:', permission);
+    
+    if (permission === 'granted') {
+      // Показываем тестовое уведомление
+      showTestNotification();
+    }
+  });
+}
+
+// Тестовое уведомление
+function showTestNotification() {
+  if (notificationPermission === 'granted') {
+    const notification = new Notification('NATaSSHka - Уведомления включены', {
+      body: 'Вы будете получать уведомления о новых сообщениях',
+      icon: '/icons/icon-192x192.png',
+      tag: 'test-notification'
+    });
+
+    setTimeout(() => {
+      notification.close();
+    }, 3000);
+  }
+}
+
+// Функция показа уведомления о новом сообщении
+function showMessageNotification(message) {
+  if (!pushConfig.enabled || notificationPermission !== 'granted') {
+    return;
+  }
+
+  // Не показываем уведомления для собственных сообщений
+  if (message.userId === socket.id) {
+    return;
+  }
+
+  // Не показываем уведомления для системных сообщений
+  if (message.isSystem || message.isKillAll) {
+    return;
+  }
+
+  let title = `Новое сообщение от ${message.username}`;
+  let body = '';
+  let icon = '/icons/icon-192x192.png';
+
+  // Формируем содержимое уведомления в зависимости от типа сообщения
+  if (message.isFile) {
+    if (message.isAudio) {
+      title = `🎤 Голосовое сообщение от ${message.username}`;
+      body = `Длительность: ${message.duration} сек`;
+      icon = '/icons/mic.svg';
+    } else if (message.fileType.startsWith('image/')) {
+      title = `🖼️ Изображение от ${message.username}`;
+      body = `Файл: ${message.fileName}`;
+      icon = '/icons/image.svg';
+    } else if (message.fileType.startsWith('video/')) {
+      title = `🎥 Видео от ${message.username}`;
+      body = `Длительность: ${message.duration} сек`;
+      icon = '/icons/video.svg';
+    } else {
+      title = `📎 Файл от ${message.username}`;
+      body = `Файл: ${message.fileName} (${message.fileSize})`;
+      icon = '/icons/clip.svg';
+    }
+  } else {
+    // Текстовое сообщение
+    let text = message.text;
+    if (message.isEncrypted) {
+      if (window.encryptionManager && window.encryptionManager.encryptionKey) {
+        try {
+          text = window.encryptionManager.decryptMessage(message.text);
+        } catch (error) {
+          text = '🔒 Зашифрованное сообщение';
+        }
+      } else {
+        text = '🔒 Зашифрованное сообщение';
+      }
+    }
+
+    // Обрезаем длинный текст
+    if (text.length > 100) {
+      text = text.substring(0, 100) + '...';
+    }
+
+    body = text;
+  }
+
+  // Создаем уведомление
+  const notification = new Notification(title, {
+    body: body,
+    icon: icon,
+    tag: `message-${message.id}`,
+    requireInteraction: false,
+    silent: !pushConfig.playSound
+  });
+
+  // Проигрываем звук, если включен
+  if (pushConfig.playSound && notificationSound) {
+    notificationSound.play().catch(e => console.log('Не удалось воспроизвести звук уведомления:', e));
+  }
+
+  // Автоматическое закрытие уведомления
+  setTimeout(() => {
+    notification.close();
+  }, pushConfig.displayTime);
+
+  // Обработчик клика по уведомлению
+  notification.onclick = function() {
+    window.focus();
+    notification.close();
+    
+    // Прокручиваем к сообщению
+    const messageElement = document.querySelector(`[data-message-id="${message.id}"]`);
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      messageElement.style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
+      setTimeout(() => {
+        messageElement.style.backgroundColor = '';
+      }, 2000);
+    }
+  };
+}
+
+// Обработчик получения конфигурации уведомлений
+socket.on('push-config', (config) => {
+  pushConfig = { ...pushConfig, ...config };
+  console.log('Конфигурация уведомлений получена:', pushConfig);
+  
+  // Инициализируем уведомления после получения конфигурации
+  initializePushNotifications();
+});
+
+
 	// Функция для преобразования Blob в base64
 	function blobToBase64(blob) {
 		return new Promise((resolve, reject) => {
@@ -494,6 +665,9 @@ function displayDecryptedFile(blob, fileType, fileName, messageFileElement) {
 socket.on('new-message', (message) => {
     messageHistory.push(message);
     addMessageToChat(message);
+
+  // Показываем уведомление
+  showMessageNotification(message);
 });
 
 // Обработка обновления сообщения (например, при добавлении реакции)

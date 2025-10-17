@@ -7,7 +7,7 @@
   ],
   "turnServers": [
     {
-      "urls": "turn:211.21.231.39:3478",
+      "urls": "turn:211.21.23.9:3478",
       "username": "user",
       "credential": "pass"
     }
@@ -38,5 +38,12 @@
   "videoRec_frameRate": 25,
   "videoRec_bitrate": 2500000,
   "videoRec_mimeType": "video/webm;codecs=vp9",
-  "encryptionDebounceDelay": 500
+  "encryptionDebounceDelay": 500,
+  "pushNotifications": {
+    "enabled": true,
+    "displayTime": 5000,
+    "autoCloseDelay": 3000,
+    "playSound": true,
+    "soundFile": "/sounds/notification.mp3"
+  }
 }
