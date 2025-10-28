@@ -12,7 +12,7 @@
         <div class="sidebar">
             <div class="sidebar-header">
                 <button id="hideSidebarBtn" class="sidebar-toggle-btn hidden">
-                    <img src="icons/circle-arrow-left.svg" alt="File icon" class="file-icon">
+                    <img src="icons/circle-arrow-left.svg" alt="File icon" class="file-icon" draggable="false">
                 </button>
                 <div class="room-info" id="roomInfo"></div>
                 <div class="user-info" id="userInfo"></div>
@@ -25,7 +25,7 @@
             <div class="chat-header">
                 <div class="header-content">
                     <button id="showSidebarBtn" class="sidebar-toggle-btn hidden">
-                        <img src="icons/circle-arrow-right.svg" alt="File icon" class="file-icon">
+                        <img src="icons/circle-arrow-right.svg" alt="File icon" class="file-icon" draggable="false">
                     </button>
                     
                     <div class="encryption-input-wrapper">
@@ -35,10 +35,10 @@
                     
                     <div class="call-buttons-container">
                         <button id="audioCallBtn" class="call-btn">
-                            <img src="icons/call.svg" alt="File icon" class="file-icon">
+                            <img src="icons/call.svg" alt="File icon" class="file-icon" draggable="false">
                         </button>
                         <button id="videoCallBtn" class="call-btn">
-                            <img src="icons/camera-5.svg" alt="File icon" class="file-icon">
+                            <img src="icons/camera-5.svg" alt="File icon" class="file-icon" draggable="false">
                         </button>
                     </div>
                 </div>
@@ -47,16 +47,14 @@
             <div class="message-input-container">
                 <input type="text" id="messageInput" placeholder="Введите сообщение...">
                 <div class="record-buttons-container">
-                    <button id="recordButton" class="record-btn">
-                        <img src="icons/mic.svg" alt="File icon" class="file-icon">
+                    <button id="recordButton" class="record-btn" style="background-image: url('icons/mic.svg'); background-color: white; background-repeat: no-repeat; background-position: center; background-size: contain; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;">
                     </button>
-                    <button id="recordVideoBtn" class="record-btn">
-                        <img src="icons/video.svg" alt="File icon" class="file-icon">
+                    <button id="recordVideoBtn" class="record-btn" style="background-image: url('icons/video.svg'); background-color: white; background-repeat: no-repeat; background-position: center; background-size: contain; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;">
                     </button>
                 </div>
                 <div class="send-file-container">
                     <label for="fileInput" class="file-input-label">
-                        <img src="icons/clip.svg" alt="File icon" class="file-icon">
+                        <img src="icons/clip.svg" alt="File icon" class="file-icon" draggable="false">
                     </label>
                     <button id="sendMessageBtn">↵</button>
                 </div>

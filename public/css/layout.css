@@ -66,14 +66,14 @@ body {
 }
 
 .room-info {
-    font-size: 0.8rem;
+    font-size: 1.0rem;
     color: #454545;
     margin-bottom: 10px;
     font-weight: bold;
 }
 
 .user-info {
-    font-size: 0.8rem;
+    font-size: 1.0rem;
     color: #707070;
 }
 
@@ -137,7 +137,7 @@ body {
     border: none;
     border-radius: 20px;
     outline: none;
-    font-size: 0.8rem;
+    font-size: 1.0rem;
     transition: all 0.23s ease-in-out;
     min-width: 50px;
     outline: 1px solid rgb(230,230,230);
@@ -198,7 +198,7 @@ body {
     border: none;
     border-radius: 20px;
     outline: none;
-    font-size: 0.8rem;
+    font-size: 1.0rem;
     transition: all 0.23s ease-in-out;
     min-width: 50px;
     outline: 1px solid rgb(230,230,230);
@@ -267,7 +267,7 @@ body {
     z-index: 1;
     transition: transform 0.23s ease-in-out;
     transform: scale(0.7);
-    background-color: white;
+    
 }
 
 .record-btn:hover {
@@ -468,7 +468,7 @@ body {
     justify-content: space-between;
     margin-bottom: 5px;
     font-size: 0.8rem;
-    padding: 10px 10px 0px 10px;
+    padding: 5px 6px 0px 10px;
     color: #666;
 }
 
@@ -1571,8 +1571,8 @@ body {
     right: 3px;
     width: 22px;
     height: 22px;
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid #e0e0e0;
+    
+    /*border: 1px solid #ff7b00ff;*/
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -1589,7 +1589,7 @@ body {
 }
 
 .reaction-btn:hover {
-    background: #f0f0f0;
+    background: rgba(255, 205, 113, 0.5);
 }
 
 /* Для медиа-сообщений позиционируем кнопку поверх контента */
@@ -1790,6 +1790,9 @@ body {
 .file-icon{
   width: 40px;
   height: 40px;
+  -webkit-touch-callout: none; /* Safari iOS: отключает callout-меню */
+  -webkit-user-select: none;   /* Safari/Chrome: нельзя выделять */
+  user-select: none;           /* Везде: запрет выделения */
 }
 .record-btn{
   width: 45px;
@@ -1810,13 +1813,9 @@ body {
   height: 20px;
   border: none;
   border-radius: 50%;
-  background-color: #ff4444;
   color: white;
-  font-size: 14px;
-  font-weight: bold;
   cursor: pointer;
   display: flex;
-  align-items: center;
   justify-content: center;
   opacity: 0;
   transition: all 0.2s ease;
@@ -1830,16 +1829,14 @@ body {
 .message-delete-btn:hover {
   opacity: 1 !important;
   background-color: #cc0000;
-  transform: scale(1.1);
 }
 
 /* Адаптивность для мобильных устройств */
 @media (max-width: 768px) {
   .message-delete-btn {
     opacity: 0.5;
-    width: 24px;
-    height: 24px;
-    font-size: 16px;
+    width: 20px;
+    height: 20px;
   }
 }
 

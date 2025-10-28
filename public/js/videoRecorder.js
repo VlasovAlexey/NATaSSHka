@@ -196,7 +196,7 @@ class VideoRecorder {
                 }
                 
                 // Восстанавливаем иконку кнопки
-                this.recordButton.innerHTML = '<img src="icons/video.svg" alt="File icon" class="file-icon">';
+                //this.recordButton.innerHTML = '<img src="icons/video.svg" alt="File icon" class="file-icon">';
             };
             
             // Запускаем запись
@@ -209,7 +209,7 @@ class VideoRecorder {
             this.startRecordingTimer();
             
             // Меняем иконку кнопки
-            this.recordButton.innerHTML = '<img src="icons/video.svg" alt="File icon" class="file-icon">';
+            //this.recordButton.innerHTML = '<img src="icons/video.svg" alt="File icon" class="file-icon">';
             
             // Устанавливаем таймаут для автоматической остановки записи (60 секунд)
             this.recordingTimeout = setTimeout(() => {
