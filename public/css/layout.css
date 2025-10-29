@@ -353,7 +353,7 @@ body {
 .clear-key-btn {
     position: absolute;
     right: 12px;
-    top: 45%;
+    top: 50%;
     transform: translateY(-50%);
     background: none;
     border: none;
@@ -799,12 +799,12 @@ body {
 
 .modal-content {
     background-color: white;
-    padding: 30px;
+    padding: 20px;
     border-radius: 10px;
-    width: 400px;
     max-width: 90%;
     text-align: center;
     z-index: 1101 !important;
+    margin-bottom: 20%;
 }
 
 .modal-content h2 {
