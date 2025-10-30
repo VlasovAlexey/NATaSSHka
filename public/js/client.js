@@ -242,30 +242,33 @@ socket.on('push-config', (config) => {
 		});
 	}
 
-	// Функция для преобразования base64 в Blob
-	function base64ToBlob(base64, mimeType) {
-		const byteCharacters = atob(base64);
-		const byteNumbers = new Array(byteCharacters.length);
-		for (let i = 0; i < byteCharacters.length; i++) {
-			byteNumbers[i] = byteCharacters.charCodeAt(i);
-		}
-		const byteArray = new Uint8Array(byteNumbers);
-		return new Blob([byteArray], {
-			type: mimeType
-		});
-	}
+// Функция для преобразования base64 в Blob
+function base64ToBlob(base64, mimeType) {
+    try {
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        return new Blob([byteArray], { type: mimeType });
+    } catch (error) {
+        console.error('Ошибка преобразования base64 в Blob:', error);
+        throw new Error('Неверный ключ шифрования');
+    }
+}
 
-	// Функция для расшифровки и отображения файла
+// Функция для расшифровки и отображения файла
 window.decryptAndDisplayFile = async function(fileUrl, fileType, fileName, messageId, buttonElement) {
+    // Сохраняем контейнер ДО изменения DOM
+    const messageFileElement = buttonElement.closest('.message-file');
+    if (!messageFileElement) {
+        console.error('Не найден контейнер для файла');
+        return;
+    }
+
     try {
         console.log('Начало расшифровки файла:', fileName);
-
-        // Сохраняем контейнер ДО изменения DOM
-        const messageFileElement = buttonElement.closest('.message-file');
-        if (!messageFileElement) {
-            console.error('Не найден контейнер для файла');
-            return;
-        }
 
         // Показываем индикатор загрузки
         messageFileElement.innerHTML = 'Загрузка и расшифровка...';
@@ -300,6 +303,9 @@ window.decryptAndDisplayFile = async function(fileUrl, fileType, fileName, messa
         // Загружаем файл с сервера
         console.log('Загрузка файла с сервера:', fileUrl);
         const response = await fetch(fileUrl);
+        if (!response.ok) {
+            throw new Error(`Ошибка загрузки файла: ${response.status}`);
+        }
         const encryptedBlob = await response.blob();
 
         // Преобразуем в base64
@@ -316,19 +322,13 @@ window.decryptAndDisplayFile = async function(fileUrl, fileType, fileName, messa
             throw new Error('Неверный ключ шифрования');
         }
 
-        // Проверяем, является ли результат валидным base64
-        if (!isValidBase64(decryptedBase64)) {
-            console.error('Результат дешифрования не является валидным base64');
-            throw new Error('Неверный ключ шифрования');
-        }
-
         // Преобразуем обратно в Blob
         console.log('Преобразование base64 в Blob');
         const decryptedBlob = base64ToBlob(decryptedBase64, fileType);
 
         // Проверяем, является ли Blob валидным
-        if (decryptedBlob.size === 0) {
-            console.error('Размер расшифрованного файла равен 0');
+        if (!decryptedBlob || decryptedBlob.size === 0) {
+            console.error('Расшифрованный файл невалиден');
             throw new Error('Неверный ключ шифрования');
         }
 
@@ -345,39 +345,61 @@ window.decryptAndDisplayFile = async function(fileUrl, fileType, fileName, messa
         displayDecryptedFile(decryptedBlob, fileType, fileName, messageFileElement);
 
     } catch (error) {
-        console.error('Ошибка расшифровки файла:', error);
+        console.error('Ошибка расшифровки файла:', error.message);
 
-        // Сохраняем контейнер для показа ошибки
-        const messageFileElement = buttonElement.closest('.message-file');
-        if (!messageFileElement) {
-            console.error('Не найден контейнер для файла при ошибке');
-            return;
-        }
+        // Сохраняем информацию об ошибке в кэш
+        window.decryptedFilesCache[fileUrl] = {
+            status: 'error',
+            encryptionKey: window.encryptionManager.encryptionKey,
+            error: error.message
+        };
 
-        // Сохраняем информацию об ошибке в кэш только если это ошибка ключа
-        if (error.message.includes('Неверный ключ шифрования')) {
-            window.decryptedFilesCache[fileUrl] = {
-                status: 'error',
-                encryptionKey: window.encryptionManager.encryptionKey,
-                error: error.message
-            };
-        }
-
+        // Всегда показываем ошибку дешифрования
         showDecryptionError(messageFileElement, fileName, fileUrl, fileType, messageId);
     }
 };
 
-	// Функция для проверки валидности base64 строки
-	function isValidBase64(str) {
-		try {
-			// Проверяем, может ли строка быть корректно декодирована и закодирована обратно
-			return btoa(atob(str)) === str;
-		} catch (e) {
-			return false;
-		}
-	}
+// Вспомогательная функция для чтения текста из Blob
+function blobToText(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsText(blob);
+    });
+}
 
-	// Функция для отображения ошибки дешифрования
+// Функция для проверки валидности base64 строки
+function isValidBase64(str) {
+    if (typeof str !== 'string') {
+        return false;
+    }
+    
+    // Base64 regex pattern
+    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+    
+    // Проверяем длину (должна быть кратна 4)
+    if (str.length % 4 !== 0) {
+        return false;
+    }
+    
+    // Проверяем, содержит ли строка только валидные base64 символы
+    if (!base64Regex.test(str)) {
+        return false;
+    }
+    
+    // Пробуем декодировать
+    try {
+        const decoded = atob(str);
+        // Если декодирование прошло успешно, кодируем обратно и сравниваем
+        const reencoded = btoa(decoded);
+        return reencoded === str;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Функция для отображения ошибки дешифрования
 function showDecryptionError(messageFileElement, fileName, fileUrl, fileType, messageId) {
     messageFileElement.innerHTML = `
         <button class="encrypted-file-btn error" 
@@ -1585,63 +1607,74 @@ socket.on('delete-message', (data, callback) => {
 	}
 
 	// Отправка файла
-	fileInput.addEventListener('change', (e) => {
-		const file = e.target.files[0];
-		if (!file) return;
+fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-		// Проверяем размер файла (50 МБ)
-		if (file.size > 50 * 1024 * 1024) {
-			addSystemMessage(`Файл слишком большой. Максимальный размер: 50 МБ`);
-			fileInput.value = '';
-			return;
-		}
+    // Проверяем размер файла (50 МБ)
+    if (file.size > 50 * 1024 * 1024) {
+        addSystemMessage(`Файл слишком большой. Максимальный размер: 50 МБ`);
+        fileInput.value = '';
+        return;
+    }
 
-		const reader = new FileReader();
-		reader.onload = async function(event) {
-			let fileData = event.target.result.split(',')[1];
-			let isEncrypted = false;
+    // Показываем индикатор загрузки
+    showFileUploadIndicator(file.name);
 
-			console.log('Обработка файла:', file.name, 'Размер:', file.size, 'Тип:', file.type);
+    currentFileReader = new FileReader();
+    
+    currentFileReader.onload = async function(event) {
+        let fileData = event.target.result.split(',')[1];
+        let isEncrypted = false;
 
-			// Шифруем файл, если установлен ключ
-			if (window.encryptionManager && window.encryptionManager.encryptionKey) {
-				try {
-					console.log('Шифрование файла перед отправкой');
-					fileData = window.encryptionManager.encryptFile(fileData);
-					isEncrypted = true;
-					console.log('Файл успешно зашифрован');
-				} catch (error) {
-					console.error('Ошибка шифрования файла:', error);
-				}
-			} else {
-				console.log('Ключ шифрования не установлен, файл отправляется без шифрования');
-			}
+        console.log('Обработка файла:', file.name, 'Размер:', file.size, 'Тип:', file.type);
 
-			// Отправляем файл с callback для обработки результата
-			socket.emit('send-file', {
-				fileName: file.name,
-				fileType: file.type,
-				fileData: fileData,
-				isEncrypted: isEncrypted
-			}, (response) => {
-				if (response && response.error) {
-					console.error('Ошибка отправки файла:', response.error);
-					addSystemMessage(`Ошибка отправки файла ${file.name}: ${response.error}`);
-				} else {
-					console.log('Файл успешно отправлен:', file.name);
-				}
-			});
-		};
+        // Шифруем файл, если установлен ключ
+        if (window.encryptionManager && window.encryptionManager.encryptionKey) {
+            try {
+                console.log('Шифрование файла перед отправкой');
+                fileData = window.encryptionManager.encryptFile(fileData);
+                isEncrypted = true;
+                console.log('Файл успешно зашифрован');
+            } catch (error) {
+                console.error('Ошибка шифрования файла:', error);
+            }
+        } else {
+            console.log('Ключ шифрования не установлен, файл отправляется без шифрования');
+        }
 
-		reader.onerror = function() {
-			console.error('Ошибка чтения файла:', file.name);
-			addSystemMessage(`Ошибка чтения файла: ${file.name}`);
-			fileInput.value = '';
-		};
+        // Отправляем файл с callback для обработки результата
+        socket.emit('send-file', {
+            fileName: file.name,
+            fileType: file.type,
+            fileData: fileData,
+            isEncrypted: isEncrypted
+        }, (response) => {
+            if (response && response.error) {
+                console.error('Ошибка отправки файла:', response.error);
+                addSystemMessage(`Ошибка отправки файла ${file.name}: ${response.error}`);
+                showFileUploadError();
+            } else {
+                console.log('Файл успешно отправлен:', file.name);
+                hideFileUploadIndicator();
+            }
+        });
+    };
 
-		reader.readAsDataURL(file);
-		fileInput.value = '';
-	});
+    currentFileReader.onerror = function() {
+        console.error('Ошибка чтения файла:', file.name);
+        addSystemMessage(`Ошибка чтения файла: ${file.name}`);
+        showFileUploadError();
+        fileInput.value = '';
+    };
+
+    currentFileReader.onabort = function() {
+        console.log('Загрузка файла отменена:', file.name);
+        fileInput.value = '';
+    };
+
+    currentFileReader.readAsDataURL(file);
+});
 
 	// Функция отправки сообщения
 	function sendMessage() {
@@ -2105,6 +2138,71 @@ socket.on('delete-message', (data, callback) => {
 		}
 	});
 
+	// Добавим переменные для управления загрузкой
+let currentFileUploadIndicator = null;
+let currentFileReader = null;
+
+// Функция для показа индикатора загрузки
+function showFileUploadIndicator(fileName) {
+    // Удаляем старый индикатор, если есть
+    if (currentFileUploadIndicator) {
+        currentFileUploadIndicator.remove();
+    }
+
+    const indicator = document.createElement('div');
+    indicator.className = 'file-upload-indicator';
+    indicator.innerHTML = `
+        <div class="upload-progress-bar"></div>
+        <div class="upload-text">Загрузка: ${fileName}</div>
+        <button class="cancel-upload">✕</button>
+    `;
+
+    // Вставляем перед message-input-container
+    const messageInputContainer = document.querySelector('.message-input-container');
+    messageInputContainer.parentNode.insertBefore(indicator, messageInputContainer);
+
+    // Обработчик для кнопки отмены
+    const cancelBtn = indicator.querySelector('.cancel-upload');
+    cancelBtn.addEventListener('click', cancelFileUpload);
+
+    currentFileUploadIndicator = indicator;
+}
+
+// Функция для скрытия индикатора загрузки
+function hideFileUploadIndicator() {
+    if (currentFileUploadIndicator) {
+        currentFileUploadIndicator.remove();
+        currentFileUploadIndicator = null;
+    }
+}
+
+// Функция для показа ошибки загрузки
+function showFileUploadError() {
+    if (!currentFileUploadIndicator) return;
+
+    currentFileUploadIndicator.classList.add('error');
+    currentFileUploadIndicator.querySelector('.upload-text').textContent = 'Ошибка загрузки!';
+
+    // Через 2 секунды скрываем
+    setTimeout(() => {
+        hideFileUploadIndicator();
+    }, 2000);
+}
+
+// Функция отмены загрузки
+function cancelFileUpload() {
+    // Отменяем FileReader, если он активен
+    if (currentFileReader && currentFileReader.readyState === 1) {
+        currentFileReader.abort();
+    }
+
+    // Сбрасываем input файла
+    fileInput.value = '';
+    
+    // Скрываем индикатор
+    hideFileUploadIndicator();
+}
+
 	// Инициализация при загрузке
 	setTimeout(() => {
 		updateButtonStates();
@@ -2132,6 +2230,13 @@ function handleViewportResize() {
 		messagesContainer.scrollTop = messagesContainer.scrollHeight;
 	}
 }
+
+// Обработчик для отмены загрузки при закрытии страницы
+window.addEventListener('beforeunload', () => {
+    if (currentFileReader && currentFileReader.readyState === 1) {
+        currentFileReader.abort();
+    }
+});
 
 // Обработчики событий
 window.addEventListener('resize', handleViewportResize);

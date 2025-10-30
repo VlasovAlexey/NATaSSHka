@@ -142,7 +142,8 @@ body {
     min-width: 50px;
     outline: 1px solid rgb(230,230,230);
     background-color: #ededed;
-    caret-color: #000;
+    caret-color: #bbbbbb;
+    color: #bbbbbb;
 }
 
 .messages-container {
@@ -782,12 +783,13 @@ body {
 /* ===== MODAL STYLES ===== */
 .modal {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
+    top: 1%;
+    left: 2%;
+    width: 96%;
+    height: 90%;
+    background-color: rgba(0, 0, 0, 0.0);
     display: flex;
+    border-radius: 10px;
     justify-content: center;
     align-items: center;
     z-index: 1000;
@@ -805,6 +807,7 @@ body {
     text-align: center;
     z-index: 1101 !important;
     margin-bottom: 20%;
+    box-shadow: 0px 0px 20px #38685894;
 }
 
 .modal-content h2 {
@@ -1851,4 +1854,75 @@ body {
 .modal-buttons-container .modal-ok-btn {
   min-width: 120px;
   margin: 0;
+}
+
+/* Стили для индикатора загрузки файла */
+.file-upload-indicator {
+    display: flex;
+    align-items: center;
+    background-color: #f0f2f5;
+    /*border-left: 4px solid #4CAF50;*/
+    padding: 10px;
+    /*margin: 0px 0px 10px 0px;*/
+    border-radius: 0px;
+    min-height: 50px;
+    position: relative;
+    overflow: hidden;
+}
+
+.upload-progress-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 141, 160, 0.5), transparent);
+    background-size: 200% 100%;
+    animation: loading 3.5s infinite;
+    border-radius: 0px;
+}
+
+@keyframes loading {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.upload-text {
+    flex-grow: 1;
+    margin-right: 10px;
+    text-align: center;
+    z-index: 1;
+    color:#6e6e6e
+}
+
+.cancel-upload {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.23s ease-in-out;
+    z-index: 1;
+}
+
+.cancel-upload:hover {
+    background-color: #f0f0f0;
+    color: #666;
+}
+
+.file-upload-indicator.error {
+    background-color: #ffebee;
+    border-left-color: #f44336;
+    color: #c62828;
+}
+
+.file-upload-indicator.error .upload-progress-bar {
+    display: none;
 }
