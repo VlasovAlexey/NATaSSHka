@@ -7,7 +7,7 @@ pluginManagement {
 
     // Добавляем версии плагинов для совместимости
     plugins {
-        id("com.android.application") version "8.2.2"
+        id("com.android.application") version "8.13.1"
         id("org.jetbrains.kotlin.android") version "1.9.22"
     }
 }
