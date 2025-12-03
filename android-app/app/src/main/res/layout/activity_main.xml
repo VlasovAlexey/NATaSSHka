@@ -1,51 +1,261 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="0dp">
+    android:background="@color/white"
+    android:fitsSystemWindows="true">
 
-
-    <!-- Ввод IP сервера -->
+    <!-- Верхняя панель с меню, ключом шифрования и кнопками звонков -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:id="@+id/topBar"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:background="@color/white"
+        android:elevation="4dp"
+        android:paddingVertical="8dp"
+        android:paddingHorizontal="4dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
-        <EditText
-            android:id="@+id/serverIpInput"
+        <!-- Кнопка меню слева -->
+        <ImageButton
+            android:id="@+id/sidebarToggleBtn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_menu"
+            android:scaleType="center"
+            android:contentDescription="Меню" />
+
+        <!-- Поле ввода ключа шифрования -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/encryptionKeyLayout"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="IP адрес сервера"
-            android:inputType="text"
-            android:text="192.168.1.100" />
+            android:layout_marginHorizontal="8dp"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:hint="Ключ шифрования"
+            app:endIconDrawable="@drawable/ic_clear"
+            app:endIconMode="custom"
+            app:endIconTint="@color/gray"
+            app:boxCornerRadiusTopStart="20dp"
+            app:boxCornerRadiusTopEnd="20dp"
+            app:boxCornerRadiusBottomStart="20dp"
+            app:boxCornerRadiusBottomEnd="20dp">
 
-        <Button
-            android:id="@+id/connectButton"
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/encryptionKeyInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:maxLines="1"
+                android:paddingVertical="4dp"
+                android:textColor="@color/input_text_color" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Контейнер для кнопок звонков (справа) -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Подключиться" />
+            android:orientation="horizontal">
+
+            <!-- Кнопка аудиозвонка -->
+            <ImageButton
+                android:id="@+id/audioCallBtn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_audio_call"
+                android:scaleType="center"
+                android:contentDescription="Аудиозвонок" />
+
+            <!-- Кнопка видеозвонка -->
+            <ImageButton
+                android:id="@+id/videoCallBtn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_video_call"
+                android:scaleType="center"
+                android:contentDescription="Видеозвонок" />
+
+        </LinearLayout>
 
     </LinearLayout>
 
-    <!-- Кнопка запуска сервиса -->
-    <Button
-        android:id="@+id/startServiceButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Запустить сервис уведомлений"
-        android:layout_marginTop="16dp"
-        android:backgroundTint="#4CAF50" />
-
-    <!-- WebView для отображения чата -->
-    <WebView
-        android:id="@+id/webView"
-        android:layout_width="match_parent"
+    <!-- RecyclerView для сообщений -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/messagesRecyclerView"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="16dp" />
+        android:background="@drawable/chat_background_gradient"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:clipToPadding="false"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:layout_constraintBottom_toTopOf="@+id/messageInputContainer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/topBar"
+        tools:listitem="@layout/item_message" />
 
+    <!-- Панель ввода сообщения -->
+    <LinearLayout
+        android:id="@+id/messageInputContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:minHeight="60dp"
+        android:background="@color/white"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
+        <!-- Кнопка прикрепления файла -->
+        <ImageButton
+            android:id="@+id/attachFileBtn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_attach"
+            android:scaleType="center"
+            android:contentDescription="Прикрепить файл" />
 
-</LinearLayout>
+        <!-- Поле ввода сообщения -->
+        <EditText
+            android:id="@+id/messageInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/edittext_background"
+            android:hint="Введите сообщение..."
+            android:maxLines="1"
+            android:singleLine="true"
+            android:imeOptions="actionSend"
+            android:inputType="textShortMessage|textCapSentences"
+            android:minHeight="45dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="11dp"
+            android:paddingBottom="11dp"
+            android:textColor="@color/input_text_color" />
+
+        <!-- Контейнер для кнопок записи -->
+        <LinearLayout
+            android:id="@+id/recordButtonsContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="visible">
+
+            <!-- Кнопка записи аудио -->
+            <ImageButton
+                android:id="@+id/recordAudioBtn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_mic"
+                android:scaleType="center"
+                android:contentDescription="Запись аудио" />
+
+            <!-- Кнопка записи видео -->
+            <ImageButton
+                android:id="@+id/recordVideoBtn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_video"
+                android:scaleType="center"
+                android:contentDescription="Запись видео" />
+
+        </LinearLayout>
+
+        <!-- Кнопка отправки сообщения -->
+        <ImageButton
+            android:id="@+id/sendMessageBtn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_send"
+            android:scaleType="center"
+            android:contentDescription="Отправить сообщение"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+    <!-- Боковая панель (теперь появляется поверх) -->
+    <LinearLayout
+        android:id="@+id/sidebar"
+        android:layout_width="280dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:background="@color/white"
+        android:elevation="16dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="@color/light_gray">
+
+            <TextView
+                android:id="@+id/sidebarHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Комната: Room_01"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/black"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/userInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="✪ Пользователь"
+                android:textSize="14sp"
+                android:textColor="@color/dark_gray" />
+
+        </LinearLayout>
+
+        <!-- Список пользователей -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Пользователи в комнате:"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/black"
+            android:paddingStart="16dp"
+            android:paddingTop="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/usersRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:padding="16dp"
+            tools:listitem="@android:layout/simple_list_item_1" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
