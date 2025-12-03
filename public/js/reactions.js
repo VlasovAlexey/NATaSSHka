@@ -1,5 +1,4 @@
-﻿// reactions.js - Функционал реакций (смайлов) для сообщений
-class ReactionsManager {
+﻿class ReactionsManager {
     constructor() {
         this.reactionPicker = null;
         this.usersPopup = null;
@@ -52,21 +51,18 @@ class ReactionsManager {
     }
     
     setupEventListeners() {
-        // Закрытие пикера при клике вне его
         document.addEventListener('click', (e) => {
             if (this.reactionPicker && !this.reactionPicker.contains(e.target) && 
                 !e.target.closest('.reaction-btn')) {
                 this.hideReactionPicker();
             }
             
-            // Закрытие попапа пользователей на touch устройствах
             if (this.isTouchDevice && this.usersPopup && !this.usersPopup.contains(e.target) && 
                 !e.target.closest('.message-reaction')) {
                 this.hideUsersPopup();
             }
         });
         
-        // Обработка выбора реакции
         this.reactionPicker.addEventListener('click', (e) => {
             const reactionOption = e.target.closest('.reaction-option');
             if (reactionOption) {
@@ -77,7 +73,6 @@ class ReactionsManager {
             }
         });
         
-        // Закрытие по ESC
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (!this.reactionPicker.classList.contains('hidden')) {
@@ -96,7 +91,6 @@ class ReactionsManager {
         const rect = buttonElement.getBoundingClientRect();
         this.reactionPicker.dataset.messageId = messageId;
         
-        // Позиционируем пикер над кнопкой
         this.reactionPicker.style.left = `${rect.left}px`;
         this.reactionPicker.style.bottom = `${window.innerHeight - rect.top + 10}px`;
         
@@ -112,7 +106,6 @@ class ReactionsManager {
     showUsersPopup(messageId, reactionCode, reactionElement) {
         if (!this.usersPopup) return;
         
-        // Получаем данные о пользователях
         const usersData = window.reactionUsersData && window.reactionUsersData.get(messageId);
         if (!usersData || !usersData[reactionCode] || usersData[reactionCode].length === 0) {
             return;
@@ -121,13 +114,11 @@ class ReactionsManager {
         const rect = reactionElement.getBoundingClientRect();
         const users = usersData[reactionCode];
         
-        // Заполняем контент попапа
         const content = this.usersPopup.querySelector('.users-popup-content');
         content.innerHTML = users.map(username => 
             `<div class="user-item">${username}</div>`
         ).join('');
         
-        // Позиционируем попап
         this.usersPopup.style.left = `${rect.left}px`;
         this.usersPopup.style.bottom = `${window.innerHeight - rect.top + 10}px`;
         
@@ -143,7 +134,6 @@ class ReactionsManager {
     addReaction(messageId, reactionCode) {
         if (!window.socket || !messageId || !reactionCode) return;
         
-        // Получаем текущую комнату
         const room = window.currentRoom;
         if (!room) {
             console.error('Комната не определена');
@@ -168,7 +158,6 @@ class ReactionsManager {
             messageElement.appendChild(reactionsContainer);
         }
         
-        // Очищаем и обновляем реакции
         reactionsContainer.innerHTML = '';
         
         if (reactions && Object.keys(reactions).length > 0) {
@@ -179,16 +168,13 @@ class ReactionsManager {
                     reactionElement.innerHTML = `&#${code}; ${count}`;
                     reactionElement.dataset.code = code;
                     
-                    // Добавляем обработчики событий
                     if (this.isTouchDevice) {
-                        // На touch устройствах - обработка клика
                         reactionElement.addEventListener('click', (e) => {
                             e.stopPropagation();
                             const messageId = messageElement.dataset.messageId;
                             this.showUsersPopup(messageId, code, reactionElement);
                         });
                     } else {
-                        // На компьютере - обработка наведения
                         reactionElement.addEventListener('mouseenter', (e) => {
                             const messageId = messageElement.dataset.messageId;
                             this.showUsersPopup(messageId, code, reactionElement);
@@ -227,7 +213,6 @@ class ReactionsManager {
     }
 }
 
-// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
     window.reactionsManager = new ReactionsManager();
 });

@@ -8,7 +8,6 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Сайдбар -->
         <div class="sidebar">
             <div class="sidebar-header">
                 <button id="hideSidebarBtn" class="sidebar-toggle-btn hidden">
@@ -20,7 +19,6 @@
             <div class="users-list" id="usersList"></div>
         </div>
         
-        <!-- Основной чат -->
         <div class="chat-container">
             <div class="chat-header">
                 <div class="header-content">
@@ -63,7 +61,6 @@
         </div>
     </div>
     
-    <!-- Модальное окно входа -->
     <div class="modal" id="loginModal">
         <div class="modal-content">
             <h2>Вход в чат</h2>
@@ -79,32 +76,27 @@
         </div>
     </div>
     
-    <!-- Индикатор записи аудио -->
     <div class="recording-indicator hidden" id="recordingIndicator">
         <div class="recording-dot"></div>
         Запись аудио...
     </div>
     
-    <!-- Индикатор записи видео -->
     <div class="recording-indicator hidden" id="videoRecordingIndicator">
         <div class="recording-dot"></div>
         Запись...
     </div>
     
-    <!-- Модальное окно предпросмотра камеры -->
     <div class="modal hidden" id="cameraPreviewModal">
         <video id="cameraPreview" autoplay muted></video>
         <div class="recording-timer">0.0 сек</div>
     </div>
     
-    <!-- Модальное окно подготовки устройства -->
     <div class="modal hidden" id="preparingModal">
         <div class="modal-content">
             <h2>Подготовка устройства для записи. Ждите...</h2>
         </div>
     </div>
     
-    <!-- Модальное окно сообщений -->
     <div class="modal hidden" id="messageModal">
         <div class="modal-content">
             <h2 id="messageModalTitle">Сообщение</h2>
@@ -113,7 +105,6 @@
         </div>
     </div>
     
-   <!-- Модальное окно для изображений -->
 <div class="image-modal" id="imageModal">
     <div class="image-modal-overlay"></div>
     <div class="image-modal-content">
@@ -122,7 +113,6 @@
     </div>
 </div>
     
- <!-- Модальное окно для видео -->
 <div class="video-modal" id="videoModal">
     <div class="video-modal-overlay"></div>
     <div class="video-modal-content">
@@ -132,9 +122,7 @@
         </video>
     </div>
 </div>
-    <!-- Скрипты -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
-    <!--<script src="js/crypto-js.min.js"></script> -->
     <script src="js/crypto.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/cookie.js"></script>

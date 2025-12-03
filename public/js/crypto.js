@@ -1,5 +1,4 @@
-﻿// crypto.js - Функции шифрования и дешифрования сообщений и файлов
-class EncryptionManager {
+﻿class EncryptionManager {
     constructor() {
         this.encryptionKey = '';
         this.debounceTimer = null;
@@ -9,7 +8,6 @@ class EncryptionManager {
         console.log('Установлен ключ шифрования:', key ? '***' : 'пустой');
         this.encryptionKey = key;
         
-        // Очищаем кэш при изменении ключа
         if (window.decryptedFilesCache) {
             window.decryptedFilesCache = {};
             console.log('Кэш файлов очищен из-за смены ключа');
@@ -55,7 +53,6 @@ class EncryptionManager {
         
         try {
             console.log('Шифрование файла');
-            // Добавляем сигнатуру для проверки целостности
             const signature = "NATASSSHKA_VALID";
             const signatureBase64 = btoa(signature);
             const dataWithSignature = signatureBase64 + base64Data;
@@ -76,7 +73,6 @@ class EncryptionManager {
             console.log('Дешифрование файла');
             const bytes = CryptoJS.AES.decrypt(encryptedBase64, this.encryptionKey);
             
-            // Проверяем, является ли результат валидным
             if (!bytes.sigBytes || bytes.sigBytes === 0) {
                 throw new Error('Неверный ключ шифрования');
             }
@@ -87,7 +83,6 @@ class EncryptionManager {
                 throw new Error('Неверный ключ шифрования');
             }
             
-            // Проверяем сигнатуру
             const signature = "NATASSSHKA_VALID";
             const signatureBase64 = btoa(signature);
             
@@ -95,7 +90,6 @@ class EncryptionManager {
                 throw new Error('Неверный ключ шифрования');
             }
             
-            // Убираем сигнатуру
             return decrypted.substring(signatureBase64.length);
         } catch (error) {
             console.error('Ошибка дешифрования файла:', error);
@@ -109,5 +103,4 @@ class EncryptionManager {
     }
 }
 
-// Глобальный экземпляр менеджера шифрования
 window.encryptionManager = new EncryptionManager();
