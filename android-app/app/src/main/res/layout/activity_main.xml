@@ -33,32 +33,24 @@
             android:contentDescription="Меню" />
 
         <!-- Поле ввода ключа шифрования -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/encryptionKeyLayout"
+        <EditText
+            android:id="@+id/encryptionKeyInput"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginHorizontal="8dp"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-            android:hint="Ключ шифрования"
-            app:endIconDrawable="@drawable/ic_clear"
-            app:endIconMode="custom"
-            app:endIconTint="@color/gray"
-            app:boxCornerRadiusTopStart="20dp"
-            app:boxCornerRadiusTopEnd="20dp"
-            app:boxCornerRadiusBottomStart="20dp"
-            app:boxCornerRadiusBottomEnd="20dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/encryptionKeyInput"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="text"
-                android:maxLines="1"
-                android:paddingVertical="4dp"
-                android:textColor="@color/input_text_color" />
-
-        </com.google.android.material.textfield.TextInputLayout>
+            android:background="@drawable/edittext_background_light"
+            android:hint="Ключ шифрования..."
+            android:maxLines="1"
+            android:inputType="textPassword"
+            android:minHeight="45dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="11dp"
+            android:paddingBottom="11dp"
+            android:textColor="#757575"
+            android:textCursorDrawable="@drawable/cursor_color"
+            android:drawableEnd="@drawable/ic_clear" />
 
         <!-- Контейнер для кнопок звонков (справа) -->
         <LinearLayout
@@ -139,7 +131,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="@drawable/edittext_background"
+            android:background="@drawable/edittext_background_light"
             android:hint="Введите сообщение..."
             android:maxLines="1"
             android:singleLine="true"
@@ -150,7 +142,8 @@
             android:paddingEnd="14dp"
             android:paddingTop="11dp"
             android:paddingBottom="11dp"
-            android:textColor="@color/input_text_color" />
+            android:textColor="#757575"
+            android:textCursorDrawable="@drawable/cursor_color" />
 
         <!-- Контейнер для кнопок записи -->
         <LinearLayout

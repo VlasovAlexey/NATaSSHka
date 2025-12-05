@@ -10,10 +10,15 @@
     <color name="other_message">#FFFFFFFF</color>
     <color name="system_message">#FFE6E6E6</color>
 
-    <!-- Новые цвета для экрана входа -->
-    <color name="input_background">#FFEDEDED</color>
-    <color name="input_text_color">#FF757575</color>
-    <color name="icon_color">#FFBBBBBB</color>
+    <!-- Цвета для экрана входа -->
+    <color name="input_background">#80FFFFFF</color> <!-- Полупрозрачный белый -->
+    <color name="label">#FFFFFF</color>
+    <color name="entrance_background">#FF8ce0ff</color>
+    <color name="input_text_color">#FFFFFFFF</color> <!-- Белый текст для лучшей видимости -->
+    <color name="icon_color">#FFFFFFFF</color> <!-- Белые иконки -->
     <color name="button_background">#FF2D3E50</color>
-    <color name="transparent">#00000000</color>
+
+    <!-- Новые цвета для полей ввода -->
+    <color name="input_background_light">#FFEDEDED</color>
+    <color name="input_text_light">#FF757575</color>
 </resources>

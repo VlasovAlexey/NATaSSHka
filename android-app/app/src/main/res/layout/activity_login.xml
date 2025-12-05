@@ -6,7 +6,7 @@
     android:orientation="vertical"
     android:padding="24dp"
     android:gravity="center"
-    android:background="@color/white"
+    android:background="@drawable/login_gradient"
     android:focusable="true"
     android:focusableInTouchMode="true">
 
@@ -16,8 +16,31 @@
         android:text="NATaSSHka"
         android:textSize="32sp"
         android:textStyle="bold"
-        android:textColor="@color/black"
-        android:layout_marginBottom="32dp" />
+        android:textColor="@color/white"
+        android:layout_marginBottom="32dp"
+        android:shadowColor="@color/black"
+        android:shadowDx="2"
+        android:shadowDy="2"
+        android:shadowRadius="4" />
+
+    <!-- Прогресс бар для проверки серверов -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:indeterminateTint="@color/white"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Проверка доступности серверов..."
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:layout_marginBottom="16dp"
+        android:visibility="visible" />
 
     <!-- Поле ввода сервера -->
     <com.google.android.material.textfield.TextInputLayout
@@ -25,25 +48,31 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         app:boxBackgroundMode="outline"
-        app:boxBackgroundColor="@color/input_background"
-        app:boxStrokeColor="@color/gray"
+        app:boxBackgroundColor="@android:color/transparent"
+        app:boxStrokeColor="@color/white"
         app:boxCornerRadiusTopStart="28dp"
         app:boxCornerRadiusTopEnd="28dp"
         app:boxCornerRadiusBottomStart="28dp"
         app:boxCornerRadiusBottomEnd="28dp"
-        android:hint="Адрес сервера">
+        app:hintTextAppearance="@style/CenteredHintText"
+        android:hint="Адрес сервера"
+        android:visibility="gone"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox" >
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/serverInput"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:inputType="textUri"
             android:maxLines="1"
             android:text="http://10.0.2.2:3000"
-            android:textColor="@color/input_text_color"
-            android:background="@android:color/transparent" />
+            android:textColor="@color/white"
+            android:gravity="center"
+            android:textAlignment="center"
+            android:backgroundTint="@android:color/transparent"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -55,23 +84,29 @@
         android:layout_marginBottom="16dp"
         style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         app:boxBackgroundMode="outline"
-        app:boxBackgroundColor="@color/input_background"
-        app:boxStrokeColor="@color/gray"
+        app:boxBackgroundColor="@android:color/transparent"
+        app:boxStrokeColor="@color/white"
         app:boxCornerRadiusTopStart="28dp"
         app:boxCornerRadiusTopEnd="28dp"
         app:boxCornerRadiusBottomStart="28dp"
         app:boxCornerRadiusBottomEnd="28dp"
-        android:hint="Имя пользователя">
+        app:hintTextAppearance="@style/CenteredHintText"
+        android:hint="Имя пользователя"
+        android:visibility="gone">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/usernameInput"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:inputType="text|textNoSuggestions"
             android:maxLines="1"
             android:maxLength="16"
-            android:textColor="@color/input_text_color"
-            android:background="@android:color/transparent" />
+            android:textColor="@color/white"
+            android:gravity="center"
+            android:textAlignment="center"
+            android:backgroundTint="@android:color/transparent"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -83,23 +118,29 @@
         android:layout_marginBottom="16dp"
         style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         app:boxBackgroundMode="outline"
-        app:boxBackgroundColor="@color/input_background"
-        app:boxStrokeColor="@color/gray"
+        app:boxBackgroundColor="@android:color/transparent"
+        app:boxStrokeColor="@color/white"
         app:boxCornerRadiusTopStart="28dp"
         app:boxCornerRadiusTopEnd="28dp"
         app:boxCornerRadiusBottomStart="28dp"
         app:boxCornerRadiusBottomEnd="28dp"
-        android:hint="Комната">
+        app:hintTextAppearance="@style/CenteredHintText"
+        android:hint="Комната"
+        android:visibility="gone">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/roomInput"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:inputType="text"
             android:maxLines="1"
             android:text="Room_01"
-            android:textColor="@color/input_text_color"
-            android:background="@android:color/transparent" />
+            android:textColor="@color/white"
+            android:gravity="center"
+            android:textAlignment="center"
+            android:backgroundTint="@android:color/transparent"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -111,24 +152,30 @@
         android:layout_marginBottom="32dp"
         style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         app:boxBackgroundMode="outline"
-        app:boxBackgroundColor="@color/input_background"
-        app:boxStrokeColor="@color/gray"
+        app:boxBackgroundColor="@android:color/transparent"
+        app:boxStrokeColor="@color/white"
         app:boxCornerRadiusTopStart="28dp"
         app:boxCornerRadiusTopEnd="28dp"
         app:boxCornerRadiusBottomStart="28dp"
         app:boxCornerRadiusBottomEnd="28dp"
-        android:hint="Пароль">
+        app:hintTextAppearance="@style/CenteredHintText"
+        android:hint="Пароль"
+        android:visibility="gone">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/passwordInput"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:inputType="textPassword"
             android:maxLines="1"
             android:text="pass"
             android:imeOptions="actionDone"
-            android:textColor="@color/input_text_color"
-            android:background="@android:color/transparent" />
+            android:textColor="@color/white"
+            android:gravity="center"
+            android:textAlignment="center"
+            android:backgroundTint="@android:color/transparent"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -140,10 +187,13 @@
         android:text="Войти"
         android:textSize="18sp"
         app:cornerRadius="28dp"
-        app:backgroundTint="@color/button_background"
-        android:textColor="@color/white"
+        app:backgroundTint="@color/white"
+        android:textColor="@color/button_background"
         android:paddingStart="48dp"
         android:paddingEnd="48dp"
-        android:layout_gravity="center" />
+        android:layout_gravity="center"
+        android:elevation="8dp"
+        android:visibility="gone"
+        android:enabled="false" />
 
 </LinearLayout>

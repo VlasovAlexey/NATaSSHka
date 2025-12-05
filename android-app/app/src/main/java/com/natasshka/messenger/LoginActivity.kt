@@ -6,14 +6,20 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
+import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
+import kotlinx.coroutines.*
+import java.util.concurrent.TimeUnit
 
 class LoginActivity : AppCompatActivity() {
 
@@ -23,91 +29,313 @@ class LoginActivity : AppCompatActivity() {
         const val KEY_SERVER = "server"
         const val KEY_USERNAME = "username"
         const val KEY_ROOM = "room"
+        const val KEY_SERVER_CHECKED = "server_checked"
+        const val KEY_AUTO_SERVER = "auto_server"
     }
 
-    // Счетчик неудачных попыток подключения
-    private var connectionAttempts = 0
-    private val MAX_CONNECTION_ATTEMPTS = 3
+    // UI элементы
+    private lateinit var serverLayout: TextInputLayout
+    private lateinit var serverInput: TextInputEditText
+    private lateinit var usernameLayout: TextInputLayout
+    private lateinit var usernameInput: TextInputEditText
+    private lateinit var roomLayout: TextInputLayout
+    private lateinit var roomInput: TextInputEditText
+    private lateinit var passwordLayout: TextInputLayout
+    private lateinit var passwordInput: TextInputEditText
+    private lateinit var loginButton: Button
+    private lateinit var progressBar: ProgressBar
+    private lateinit var statusText: TextView
+
+    // Coroutine scope
+    private val coroutineScope = MainScope()
+    private var serverCheckJob: Job? = null
+
+    // Автоматически определенный сервер
+    private var autoDetectedServer: String? = null
+    private var isServerChecked = false
 
     // Регистрируем запрос разрешений
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val allGranted = permissions.all { it.value }
+
         if (!allGranted) {
             Toast.makeText(this, "Некоторые разрешения не предоставлены", Toast.LENGTH_LONG).show()
         }
 
-        // После получения разрешений продолжаем работу
-        findViewById<Button>(R.id.loginButton).isEnabled = true
+        // Включаем кнопку входа если проверка сервера завершена
+        enableLoginButtonIfReady()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        // Находим View через findViewById
-        val serverInput = findViewById<TextInputEditText>(R.id.serverInput)
-        val usernameInput = findViewById<TextInputEditText>(R.id.usernameInput)
-        val roomInput = findViewById<TextInputEditText>(R.id.roomInput)
-        val passwordInput = findViewById<TextInputEditText>(R.id.passwordInput)
-        val loginButton = findViewById<Button>(R.id.loginButton)
+        // Находим все View элементы
+        findViews()
+
+        // Инициализируем UI
+        initializeUI()
 
         // Загружаем сохраненные данные
-        loadSavedData(serverInput, usernameInput, roomInput)
+        loadSavedData()
 
-        // Временно отключаем кнопку входа до получения разрешений
-        loginButton.isEnabled = false
+        // Проверяем, есть ли сохраненный сервер который уже проверялся
+        checkSavedServer()
 
         // Запрашиваем разрешения
         requestPermissions()
-
-        // Кнопка входа
-        loginButton.setOnClickListener {
-            performLogin(serverInput, usernameInput, roomInput, passwordInput)
-        }
-
-        // Обработка нажатия Enter в поле пароля
-        passwordInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_DONE) {
-                performLogin(serverInput, usernameInput, roomInput, passwordInput)
-                true
-            } else {
-                false
-            }
-        }
-
-        // Фокус на поле сервера
-        serverInput.requestFocus()
-
-        // Показываем информационное сообщение о настройках
-        showBatteryInfo()
     }
 
-    private fun loadSavedData(
-        serverInput: TextInputEditText,
-        usernameInput: TextInputEditText,
-        roomInput: TextInputEditText
-    ) {
+    private fun findViews() {
+        serverLayout = findViewById(R.id.serverLayout)
+        serverInput = findViewById(R.id.serverInput)
+        usernameLayout = findViewById(R.id.usernameLayout)
+        usernameInput = findViewById(R.id.usernameInput)
+        roomLayout = findViewById(R.id.roomLayout)
+        roomInput = findViewById(R.id.roomInput)
+        passwordLayout = findViewById(R.id.passwordLayout)
+        passwordInput = findViewById(R.id.passwordInput)
+        loginButton = findViewById(R.id.loginButton)
+        progressBar = findViewById(R.id.progressBar)
+        statusText = findViewById(R.id.statusText)
+    }
+
+    private fun initializeUI() {
+        // Скрываем все поля сначала
+        serverLayout.visibility = android.view.View.GONE
+        usernameLayout.visibility = android.view.View.GONE
+        roomLayout.visibility = android.view.View.GONE
+        passwordLayout.visibility = android.view.View.GONE
+        loginButton.visibility = android.view.View.GONE
+
+        // Показываем только прогресс и статус
+        progressBar.visibility = android.view.View.VISIBLE
+        statusText.visibility = android.view.View.VISIBLE
+        statusText.text = "Проверка доступности серверов..."
+
+        // Отключаем кнопку
+        loginButton.isEnabled = false
+    }
+
+    private fun loadSavedData() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-        serverInput.setText(prefs.getString(KEY_SERVER, "http://10.0.2.2:3000"))
+        serverInput.setText(prefs.getString(KEY_SERVER, ""))
         usernameInput.setText(prefs.getString(KEY_USERNAME, ""))
         roomInput.setText(prefs.getString(KEY_ROOM, "Room_01"))
+
+        // Загружаем информацию о проверенном сервере
+        autoDetectedServer = prefs.getString(KEY_AUTO_SERVER, null)
     }
 
-    private fun saveData(
-        server: String,
-        username: String,
-        room: String
-    ) {
+    private fun checkSavedServer() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val serverChecked = prefs.getBoolean(KEY_SERVER_CHECKED, false)
+        val savedServer = prefs.getString(KEY_SERVER, "")
+
+        if (serverChecked && !savedServer.isNullOrEmpty()) {
+            // Если сервер уже был проверен ранее, пробуем использовать его
+            coroutineScope.launch {
+                checkSingleServer(savedServer)
+            }
+        } else {
+            // Проверяем все серверы из списка
+            checkAllServers()
+        }
+    }
+
+    private fun checkAllServers() {
+        serverCheckJob = coroutineScope.launch {
+            try {
+                withTimeout(TimeUnit.SECONDS.toMillis(10)) {
+                    val availableServers = ServerChecker.getAllAvailableServers()
+
+                    withContext(Dispatchers.Main) {
+                        handleServerCheckResults(availableServers)
+                    }
+                }
+            } catch (e: TimeoutCancellationException) {
+                withContext(Dispatchers.Main) {
+                    handleServerCheckFailed("Таймаут проверки серверов")
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    handleServerCheckFailed("Ошибка проверки серверов")
+                }
+            }
+        }
+    }
+
+    private suspend fun checkSingleServer(serverUrl: String) {
+        try {
+            val isAvailable = ServerChecker.checkSpecificServer(serverUrl)
+
+            withContext(Dispatchers.Main) {
+                if (isAvailable) {
+                    // Сервер доступен, скрываем поле ввода
+                    autoDetectedServer = serverUrl
+                    hideServerField()
+                    showLoginFields()
+                    saveServerInfo(serverUrl, true)
+                    isServerChecked = true
+                    enableLoginButtonIfReady()
+                } else {
+                    // Сервер недоступен, проверяем все серверы
+                    checkAllServers()
+                }
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                checkAllServers()
+            }
+        }
+    }
+
+    private fun handleServerCheckResults(availableServers: List<String>) {
+        progressBar.visibility = android.view.View.GONE
+
+        when {
+            availableServers.isEmpty() -> {
+                // Ни один сервер не доступен
+                statusText.text = "Серверы недоступны. Введите адрес вручную."
+                showAllFields()
+            }
+            availableServers.size == 1 -> {
+                // Только один сервер доступен
+                val serverUrl = availableServers.first()
+                autoDetectedServer = serverUrl
+                hideServerField()
+                showLoginFields()
+                saveServerInfo(serverUrl, true)
+                isServerChecked = true
+                enableLoginButtonIfReady()
+            }
+            else -> {
+                // Несколько серверов доступны, выбираем первый
+                val serverUrl = availableServers.first()
+                autoDetectedServer = serverUrl
+                hideServerField()
+                showLoginFields()
+                saveServerInfo(serverUrl, true)
+                isServerChecked = true
+                enableLoginButtonIfReady()
+
+                // Показываем диалог выбора сервера если нужно
+                if (availableServers.size > 1) {
+                    showServerSelectionDialog(availableServers)
+                }
+            }
+        }
+    }
+
+    private fun handleServerCheckFailed(errorMessage: String) {
+        progressBar.visibility = android.view.View.GONE
+        statusText.text = errorMessage
+        showAllFields()
+        isServerChecked = true
+        enableLoginButtonIfReady()
+    }
+
+    private fun hideStatusMessage() {
+        statusText.visibility = android.view.View.GONE
+    }
+
+    private fun getServerName(serverUrl: String): String {
+        return when {
+            serverUrl.contains("10.0.2.2") -> "Локальный сервер"
+            serverUrl.contains("217.25.238.69") -> "Публичный сервер"
+            else -> "Сервер ${serverUrl.substringAfter("://").substringBefore(":")}"
+        }
+    }
+
+    private fun showServerSelectionDialog(availableServers: List<String>) {
+        val serverNames = availableServers.map { getServerName(it) }
+
+        AlertDialog.Builder(this)
+            .setTitle("Выбор сервера")
+            .setMessage("Доступно несколько серверов. Выберите предпочтительный:")
+            .setItems(serverNames.toTypedArray()) { dialog, which ->
+                val selectedServer = availableServers[which]
+                autoDetectedServer = selectedServer
+                saveServerInfo(selectedServer, true)
+                dialog.dismiss()
+            }
+            .setNegativeButton("Оставить текущий") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun showAllFields() {
+        progressBar.visibility = android.view.View.GONE
+        hideStatusMessage()
+
+        serverLayout.visibility = android.view.View.VISIBLE
+        usernameLayout.visibility = android.view.View.VISIBLE
+        roomLayout.visibility = android.view.View.VISIBLE
+        passwordLayout.visibility = android.view.View.VISIBLE
+        loginButton.visibility = android.view.View.VISIBLE
+
+        isServerChecked = true
+        enableLoginButtonIfReady()
+    }
+
+    private fun hideServerField() {
+        serverLayout.visibility = android.view.View.GONE
+        hideStatusMessage()
+    }
+
+    private fun showLoginFields() {
+        progressBar.visibility = android.view.View.GONE
+        hideStatusMessage()
+
+        usernameLayout.visibility = android.view.View.VISIBLE
+        roomLayout.visibility = android.view.View.VISIBLE
+        passwordLayout.visibility = android.view.View.VISIBLE
+        loginButton.visibility = android.view.View.VISIBLE
+
+        isServerChecked = true
+        enableLoginButtonIfReady()
+    }
+
+    private fun enableLoginButtonIfReady() {
+        // Проверяем разрешения
+        val hasPermissions = checkIfPermissionsGranted()
+
+        // Кнопка активна если: проверка сервера завершена И есть разрешения
+        val shouldEnable = isServerChecked && hasPermissions
+
+        loginButton.isEnabled = shouldEnable
+
+        // Логи для отладки
+        Log.d("LoginActivity", "isServerChecked: $isServerChecked, hasPermissions: $hasPermissions, shouldEnable: $shouldEnable")
+    }
+
+    private fun checkIfPermissionsGranted(): Boolean {
+        val requiredPermissions = mutableListOf<String>().apply {
+            add(Manifest.permission.INTERNET)
+            add(Manifest.permission.ACCESS_NETWORK_STATE)
+
+            // Основные разрешения для работы приложения
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }.toTypedArray()
+
+        return requiredPermissions.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun saveServerInfo(serverUrl: String, isChecked: Boolean) {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val editor = prefs.edit()
 
-        editor.putString(KEY_SERVER, server)
-        editor.putString(KEY_USERNAME, username)
-        editor.putString(KEY_ROOM, room)
-
+        editor.putString(KEY_SERVER, serverUrl)
+        editor.putBoolean(KEY_SERVER_CHECKED, isChecked)
+        editor.putString(KEY_AUTO_SERVER, serverUrl)
         editor.apply()
     }
 
@@ -115,20 +343,8 @@ class LoginActivity : AppCompatActivity() {
         val requiredPermissions = mutableListOf<String>().apply {
             add(Manifest.permission.INTERNET)
             add(Manifest.permission.ACCESS_NETWORK_STATE)
-            add(Manifest.permission.READ_EXTERNAL_STORAGE)
-            add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            add(Manifest.permission.CAMERA)
-            add(Manifest.permission.RECORD_AUDIO)
-            add(Manifest.permission.WAKE_LOCK)
-            add(Manifest.permission.FOREGROUND_SERVICE)
-            add(Manifest.permission.FOREGROUND_SERVICE_MICROPHONE)
-            add(Manifest.permission.FOREGROUND_SERVICE_CAMERA)
-            add(Manifest.permission.FOREGROUND_SERVICE_DATA_SYNC)
-            add(Manifest.permission.RECEIVE_BOOT_COMPLETED)
-            add(Manifest.permission.SCHEDULE_EXACT_ALARM)
-            add(Manifest.permission.USE_EXACT_ALARM)
-            add(Manifest.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
 
+            // Основные разрешения для работы приложения
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -139,58 +355,45 @@ class LoginActivity : AppCompatActivity() {
         }.toTypedArray()
 
         if (missingPermissions.isNotEmpty()) {
-            // Запрашиваем разрешения
+            // Запрашиваем только основные разрешения
             permissionLauncher.launch(missingPermissions)
         } else {
-            // Разрешения уже есть, включаем кнопку
-            findViewById<Button>(R.id.loginButton).isEnabled = true
+            // Разрешения уже есть
+            enableLoginButtonIfReady()
         }
     }
 
-    private fun showBatteryInfo() {
-        // Показываем только один раз
-        val prefs = getSharedPreferences("AppSettings", Context.MODE_PRIVATE)
-        val alreadyShown = prefs.getBoolean("battery_info_shown", false)
-
-        if (!alreadyShown) {
-            android.os.Handler(mainLooper).postDelayed({
-                AlertDialog.Builder(this)
-                    .setTitle("Для корректной работы уведомлений")
-                    .setMessage(
-                        """
-                        Для получения уведомлений о новых сообщениях в фоновом режиме:
-                        
-                        1. Разрешите уведомления для этого приложения
-                        2. Отключите оптимизацию батареи (если предложат)
-                        3. Добавьте приложение в список исключений батареи
-                        
-                        Эти настройки можно изменить в настройках устройства.
-                        """.trimIndent()
-                    )
-                    .setPositiveButton("Понятно") { dialog, _ ->
-                        dialog.dismiss()
-                        // Сохраняем, что показали
-                        prefs.edit().putBoolean("battery_info_shown", true).apply()
-                    }
-                    .show()
-            }, 2000)
+    private fun performLogin() {
+        // Проверяем, включена ли кнопка
+        if (!loginButton.isEnabled) {
+            Toast.makeText(this, "Подождите завершения инициализации", Toast.LENGTH_SHORT).show()
+            return
         }
-    }
 
-    private fun performLogin(
-        serverInput: TextInputEditText,
-        usernameInput: TextInputEditText,
-        roomInput: TextInputEditText,
-        passwordInput: TextInputEditText
-    ) {
-        val server = serverInput.text.toString().trim()
+        val server = if (serverLayout.visibility == android.view.View.VISIBLE) {
+            serverInput.text.toString().trim()
+        } else {
+            autoDetectedServer ?: ""
+        }
+
         val username = usernameInput.text.toString().trim()
         val room = roomInput.text.toString().trim()
         val password = passwordInput.text.toString().trim()
 
-        // Валидация сервера
-        if (server.isEmpty()) {
-            serverInput.error = "Введите адрес сервера"
+        // Валидация сервера (если поле видимо)
+        if (serverLayout.visibility == android.view.View.VISIBLE) {
+            if (server.isEmpty()) {
+                serverInput.error = "Введите адрес сервера"
+                return
+            }
+
+            // Проверяем формат URL
+            if (!server.startsWith("http://") && !server.startsWith("https://")) {
+                serverInput.error = "URL должен начинаться с http:// или https://"
+                return
+            }
+        } else if (autoDetectedServer.isNullOrEmpty()) {
+            Toast.makeText(this, "Сервер не найден", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -219,12 +422,6 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
-        // Проверяем формат URL
-        if (!server.startsWith("http://") && !server.startsWith("https://")) {
-            serverInput.error = "URL должен начинаться с http:// или https://"
-            return
-        }
-
         // Очищаем ошибки
         serverInput.error = null
         usernameInput.error = null
@@ -233,8 +430,9 @@ class LoginActivity : AppCompatActivity() {
         // Сохраняем данные (кроме пароля)
         saveData(server, username, room)
 
-        // Сбрасываем счетчик попыток
-        connectionAttempts = 0
+        // Показываем прогресс
+        loginButton.isEnabled = false
+        loginButton.text = "Подключение..."
 
         // Передаем данные в MainActivity
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -247,21 +445,48 @@ class LoginActivity : AppCompatActivity() {
         finish()
     }
 
-    // Метод для возврата из MainActivity при неудачном подключении
-    fun handleConnectionFailure() {
-        runOnUiThread {
-            connectionAttempts++
+    private fun saveData(
+        server: String,
+        username: String,
+        room: String
+    ) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val editor = prefs.edit()
 
-            if (connectionAttempts >= MAX_CONNECTION_ATTEMPTS) {
-                AlertDialog.Builder(this)
-                    .setTitle("Ошибка подключения")
-                    .setMessage("Не удалось подключиться к серверу после $MAX_CONNECTION_ATTEMPTS попыток.\nПроверьте адрес сервера и подключение к сети.")
-                    .setPositiveButton("ОК") { dialog, _ ->
-                        dialog.dismiss()
-                        // Остаемся на этом экране
-                    }
-                    .show()
+        editor.putString(KEY_SERVER, server)
+        editor.putString(KEY_USERNAME, username)
+        editor.putString(KEY_ROOM, room)
+
+        editor.apply()
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        // Устанавливаем обработчики кнопок
+        loginButton.setOnClickListener {
+            performLogin()
+        }
+
+        // Обработка нажатия Enter в поле пароля
+        passwordInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                performLogin()
+                true
+            } else {
+                false
             }
         }
+
+        // Фокус на поле имени пользователя
+        if (usernameLayout.visibility == android.view.View.VISIBLE) {
+            usernameInput.requestFocus()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        serverCheckJob?.cancel()
+        coroutineScope.cancel()
     }
 }

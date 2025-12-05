@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/gradient_shape">
+
+    <target
+        android:name="gradient_background"
+        android:animation="@drawable/gradient_animation" />
+
+</animated-vector>

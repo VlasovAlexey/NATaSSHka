@@ -20,6 +20,7 @@ import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
 import android.util.Log
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
@@ -110,6 +111,20 @@ class MainActivity : AppCompatActivity() {
         requestPermissions()
     }
 
+    private fun setupEncryptionKeyField() {
+        // Обработчик клика на иконку очистки
+        binding.encryptionKeyInput.setOnTouchListener { v, event ->
+            val drawableEnd = 2 // CompoundDrawables[2] - справа
+            if (event.action == MotionEvent.ACTION_UP) {
+                if (event.rawX >= (binding.encryptionKeyInput.right - binding.encryptionKeyInput.compoundDrawables[drawableEnd].bounds.width())) {
+                    binding.encryptionKeyInput.text?.clear()
+                    return@setOnTouchListener true
+                }
+            }
+            false
+        }
+    }
+
     private fun setupUI() {
         // Настройка RecyclerView для сообщений
         messagesAdapter = MessagesAdapter()
@@ -120,6 +135,9 @@ class MainActivity : AppCompatActivity() {
 
         // Настройка поля ввода сообщения
         setupMessageInput()
+
+        // Настройка очистки для поля ключа шифрования
+        setupEncryptionKeyField()
 
         // Обработчики кнопок
         binding.sidebarToggleBtn.setOnClickListener {
@@ -150,10 +168,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Видеозвонки будут добавлены позже", Toast.LENGTH_SHORT).show()
         }
 
-        // Очистка поля ключа шифрования
-        binding.encryptionKeyLayout.setEndIconOnClickListener {
-            binding.encryptionKeyInput.text?.clear()
-        }
+
 
         // Показываем системное сообщение о запуске
         addSystemMessage("Приложение запущено. Подключаемся к серверу...")
@@ -575,15 +590,20 @@ class MainActivity : AppCompatActivity() {
                         ).show()
 
                         // Возвращаемся на экран входа
-                        AlertDialog.Builder(this@MainActivity)
-                            .setTitle("Ошибка подключения")
-                            .setMessage("Не удалось подключиться к серверу. Проверьте адрес сервера и подключение к сети.")
-                            .setPositiveButton("Вернуться") { dialog, _ ->
-                                dialog.dismiss()
-                                finish() // Возвращаемся на LoginActivity
-                            }
-                            .setCancelable(false)
-                            .show()
+                        runOnUiThread {
+                            AlertDialog.Builder(this@MainActivity)
+                                .setTitle("Ошибка подключения")
+                                .setMessage("Не удалось подключиться к серверу. Проверьте адрес сервера и подключение к сети.")
+                                .setPositiveButton("Вернуться к входу") { dialog, _ ->
+                                    dialog.dismiss()
+                                    val intent = Intent(this@MainActivity, LoginActivity::class.java)
+                                    intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                                    startActivity(intent)
+                                    finish()
+                                }
+                                .setCancelable(false)
+                                .show()
+                        }
                     } else {
                         Toast.makeText(
                             this@MainActivity,
@@ -683,8 +703,38 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this@MainActivity, "❌ Ошибка входа: $error", Toast.LENGTH_LONG).show()
                     socket?.disconnect()
                     addSystemMessage("Ошибка входа: $error")
-                    // Возвращаемся к LoginActivity
-                    finish()
+
+                    // Если ошибка связана с паролем, возвращаемся к LoginActivity
+                    if (error.contains("password", ignoreCase = true) ||
+                        error.contains("парол", ignoreCase = true)) {
+
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Ошибка входа")
+                            .setMessage("Неправильный пароль. Попробуйте снова.")
+                            .setPositiveButton("OK") { dialog, _ ->
+                                dialog.dismiss()
+                                val intent = Intent(this@MainActivity, LoginActivity::class.java)
+                                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                                startActivity(intent)
+                                finish()
+                            }
+                            .setCancelable(false)
+                            .show()
+                    } else {
+                        // Для других ошибок просто показываем сообщение
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Ошибка входа")
+                            .setMessage(error)
+                            .setPositiveButton("OK") { dialog, _ ->
+                                dialog.dismiss()
+                                val intent = Intent(this@MainActivity, LoginActivity::class.java)
+                                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                                startActivity(intent)
+                                finish()
+                            }
+                            .setCancelable(false)
+                            .show()
+                    }
                 }
             }
 
@@ -760,8 +810,12 @@ class MainActivity : AppCompatActivity() {
                     AlertDialog.Builder(this)
                         .setTitle("Превышено количество попыток")
                         .setMessage("Не удалось подключиться после $MAX_CONNECTION_ATTEMPTS попыток")
-                        .setPositiveButton("Вернуться") { d, _ ->
+                        .setPositiveButton("Вернуться к входу") { d, _ ->
                             d.dismiss()
+                            // Возвращаемся на LoginActivity
+                            val intent = Intent(this, LoginActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                            startActivity(intent)
                             finish()
                         }
                         .setCancelable(false)
@@ -781,6 +835,10 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton("Выйти") { dialog, _ ->
                 dialog.dismiss()
+                // Возвращаемся на экран входа
+                val intent = Intent(this, LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                startActivity(intent)
                 finish()
             }
             .setCancelable(false)
@@ -812,13 +870,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Проверка на системные команды
-        if (text == "kill" || text == "killall") {
+            /*if (text == "kill" || text == "killall") {
             Toast.makeText(this, "Системные команды не поддерживаются в клиенте", Toast.LENGTH_SHORT).show()
             binding.messageInput.text?.clear()
             hideKeyboard()
             return
         }
-
+        */
         val messageData = JSONObject().apply {
             put("text", text)
             put("isEncrypted", false)

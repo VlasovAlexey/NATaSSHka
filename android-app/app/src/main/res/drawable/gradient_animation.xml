@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <objectAnimator
+        android:duration="4000"
+        android:propertyName="fillColor"
+        android:valueFrom="#FF8ce0ff"
+        android:valueTo="#FF4CAF50"
+        android:valueType="colorType"
+        android:repeatCount="infinite"
+        android:repeatMode="reverse"
+        android:interpolator="@android:anim/accelerate_decelerate_interpolator" />
+
+    <objectAnimator
+        android:duration="6000"
+        android:propertyName="fillColor"
+        android:valueFrom="#FF4CAF50"
+        android:valueTo="#FF2196F3"
+        android:valueType="colorType"
+        android:repeatCount="infinite"
+        android:repeatMode="reverse"
+        android:startOffset="2000"
+        android:interpolator="@android:anim/accelerate_decelerate_interpolator" />
+
+</set>
