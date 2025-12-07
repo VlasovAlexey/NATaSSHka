@@ -21,4 +21,7 @@
     <!-- Новые цвета для полей ввода -->
     <color name="input_background_light">#FFEDEDED</color>
     <color name="input_text_light">#FF757575</color>
+
+    <color name="encryption_error">#FFD32F2F</color>
+    <color name="encryption_success">#FF388E3C</color>
 </resources>

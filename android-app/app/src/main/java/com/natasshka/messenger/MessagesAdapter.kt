@@ -1,3 +1,4 @@
+// app/src/main/java/com/natasshka/messenger/MessagesAdapter.kt
 package com.natasshka.messenger
 
 import android.view.LayoutInflater
@@ -10,6 +11,7 @@ import com.natasshka.messenger.databinding.ItemMessageBinding
 class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>() {
 
     private val messages = mutableListOf<ChatMessage>()
+    private var encryptionKey = ""
 
     fun addMessage(message: ChatMessage) {
         messages.add(message)
@@ -19,6 +21,33 @@ class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>(
     fun clearMessages() {
         messages.clear()
         notifyDataSetChanged()
+    }
+
+    fun reDecryptMessages(newKey: String) {
+        encryptionKey = newKey
+
+        for (i in messages.indices) {
+            val message = messages[i]
+            if (message.isEncrypted) {
+                // Обновляем текст сообщения в зависимости от наличия ключа
+                val newText = if (encryptionKey.isNotEmpty() && message.originalEncryptedText != null) {
+                    try {
+                        CryptoJSCompat.decryptText(message.originalEncryptedText, encryptionKey)
+                    } catch (e: Exception) {
+                        "🔒 Неверный ключ шифрования"
+                    }
+                } else if (message.isEncrypted) {
+                    "🔒 Зашифрованное сообщение"
+                } else {
+                    message.text
+                }
+
+                // Создаем обновленное сообщение
+                val updatedMessage = message.copy(text = newText)
+                messages[i] = updatedMessage
+                notifyItemChanged(i)
+            }
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
@@ -69,13 +98,13 @@ class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>(
                         // Сообщения текущего пользователя выравниваем справа
                         val layoutParams = messageCard.layoutParams as? ViewGroup.MarginLayoutParams
                         layoutParams?.let {
-                            it.marginStart = 80 // Отступ слева для выравнивания справа
-                            it.marginEnd = 8    // Стандартный отступ справа
+                            it.marginStart = 80
+                            it.marginEnd = 8
                             it.width = ViewGroup.LayoutParams.WRAP_CONTENT
                         }
                         // Выравниваем содержимое внутри карточки
                         val innerLayout = messageCard.getChildAt(0)
-                        if (innerLayout is androidx.constraintlayout.widget.ConstraintLayout) {
+                        if (innerLayout is ConstraintLayout) {
                             val params = innerLayout.layoutParams as ConstraintLayout.LayoutParams
                             params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
                             params.startToStart = ConstraintLayout.LayoutParams.UNSET
@@ -93,13 +122,13 @@ class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>(
                         // Сообщения других пользователей выравниваем слева
                         val layoutParams = messageCard.layoutParams as? ViewGroup.MarginLayoutParams
                         layoutParams?.let {
-                            it.marginStart = 8  // Стандартный отступ слева
-                            it.marginEnd = 80   // Отступ справа для выравнивания слева
+                            it.marginStart = 8
+                            it.marginEnd = 80
                             it.width = ViewGroup.LayoutParams.WRAP_CONTENT
                         }
                         // Выравниваем содержимое внутри карточки
                         val innerLayout = messageCard.getChildAt(0)
-                        if (innerLayout is androidx.constraintlayout.widget.ConstraintLayout) {
+                        if (innerLayout is ConstraintLayout) {
                             val params = innerLayout.layoutParams as ConstraintLayout.LayoutParams
                             params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
                             params.endToEnd = ConstraintLayout.LayoutParams.UNSET
@@ -112,23 +141,32 @@ class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>(
                 messageText.text = message.text
                 messageTime.text = message.timestamp
 
-                // Для зашифрованных сообщений меняем цвет текста
+                // Для зашифрованных сообщений меняем цвет и стиль текста
                 if (message.isEncrypted) {
-                    messageText.setTextColor(
-                        root.context.getColor(R.color.dark_gray)
-                    )
+                    if (message.text.contains("🔒")) {
+                        // Если не можем расшифровать - красный текст
+                        messageText.setTextColor(
+                            root.context.getColor(android.R.color.holo_red_dark)
+                        )
+                        messageText.textSize = 14f
+                    } else {
+                        // Если успешно расшифровали - темно-серый
+                        messageText.setTextColor(
+                            root.context.getColor(R.color.dark_gray)
+                        )
+                        messageText.textSize = 16f
+                    }
                 } else {
                     messageText.setTextColor(
                         root.context.getColor(R.color.black)
                     )
+                    messageText.textSize = 16f
                 }
 
                 // Выравниваем время в зависимости от типа сообщения
                 if (message.isMyMessage) {
-                    // Для своих сообщений - время справа
                     messageTime.gravity = android.view.Gravity.END
                 } else {
-                    // Для сообщений других - время слева
                     messageTime.gravity = android.view.Gravity.START
                 }
             }

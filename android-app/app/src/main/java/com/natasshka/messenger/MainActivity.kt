@@ -11,6 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -40,6 +41,8 @@ import org.json.JSONObject
 import java.net.URISyntaxException
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.Timer
+import java.util.TimerTask
 
 class MainActivity : AppCompatActivity() {
 
@@ -59,6 +62,11 @@ class MainActivity : AppCompatActivity() {
     private var connectionAttempts = 0
     private val MAX_CONNECTION_ATTEMPTS = 3
     private val RECONNECT_DELAY = 1000L // 1 секунда
+
+    // Шифрование
+    private var encryptionKey = ""
+    private var debounceTimer: Timer? = null
+    private val encryptionDebounceDelay = 500L // 0.5 секунды как в JS
 
     // Регистрируем запрос разрешений
     private val permissionLauncher = registerForActivityResult(
@@ -104,6 +112,7 @@ class MainActivity : AppCompatActivity() {
         pendingLoginData = Triple(username, room, password)
 
         setupUI()
+        setupEncryptionKeyHandler() // Добавляем обработчик ключа шифрования
         setupKeyboardBehavior()
         setupServiceMonitoring()
         setupBackgroundMonitoring()
@@ -123,6 +132,90 @@ class MainActivity : AppCompatActivity() {
             }
             false
         }
+    }
+
+    private fun setupEncryptionKeyHandler() {
+        // Обработчик изменения ключа шифрования
+        binding.encryptionKeyInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: Editable?) {
+                val newKey = s?.toString() ?: ""
+                encryptionKey = newKey
+
+                // Обновляем видимость кнопки очистки
+                updateEncryptionKeyClearButton()
+
+                // Дебаунс как в JS клиенте
+                debounceTimer?.cancel()
+                debounceTimer = Timer()
+                debounceTimer?.schedule(object : TimerTask() {
+                    override fun run() {
+                        runOnUiThread {
+                            reDecryptAllMessages()
+                        }
+                    }
+                }, encryptionDebounceDelay)
+            }
+        })
+
+        // Обработчик нажатия на иконку очистки - ВАЖНО: используем правильные координаты
+        binding.encryptionKeyInput.setOnTouchListener { v, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                val drawableRight = binding.encryptionKeyInput.compoundDrawables[2] // drawableEnd
+
+                if (drawableRight != null) {
+                    // Используем координаты относительно View, а не экрана
+                    val touchX = event.x
+                    val touchY = event.y
+
+                    // Вычисляем правую границу View (ширина минус отступы)
+                    val rightBoundary = binding.encryptionKeyInput.width -
+                            binding.encryptionKeyInput.paddingRight
+
+                    // Вычисляем левую границу иконки (правая граница минус ширина иконки)
+                    val iconLeftBoundary = rightBoundary - drawableRight.intrinsicWidth
+
+                    // Проверяем, находится ли касание в области иконки
+                    if (touchX >= iconLeftBoundary && touchX <= rightBoundary &&
+                        touchY >= 0 && touchY <= binding.encryptionKeyInput.height) {
+
+                        // Очищаем поле
+                        binding.encryptionKeyInput.text?.clear()
+                        encryptionKey = ""
+                        updateEncryptionKeyClearButton()
+                        reDecryptAllMessages()
+                        return@setOnTouchListener true
+                    }
+                }
+            }
+            false
+        }
+
+        // Инициализация видимости кнопки очистки
+        updateEncryptionKeyClearButton()
+    }
+
+    private fun updateEncryptionKeyClearButton() {
+        val hasText = binding.encryptionKeyInput.text?.isNotEmpty() == true
+        val drawable = if (hasText) {
+            ContextCompat.getDrawable(this, R.drawable.ic_clear)
+        } else {
+            null
+        }
+
+        // Устанавливаем drawable только справа (end)
+        binding.encryptionKeyInput.setCompoundDrawablesWithIntrinsicBounds(
+            null, null, drawable, null
+        )
+    }
+
+    private fun reDecryptAllMessages() {
+        // Перешифровываем все сообщения в адаптере
+        messagesAdapter.reDecryptMessages(encryptionKey)
+        // Прокручиваем вниз после обновления
+        scrollToBottom()
     }
 
     private fun setupUI() {
@@ -167,8 +260,6 @@ class MainActivity : AppCompatActivity() {
         binding.videoCallBtn.setOnClickListener {
             Toast.makeText(this, "Видеозвонки будут добавлены позже", Toast.LENGTH_SHORT).show()
         }
-
-
 
         // Показываем системное сообщение о запуске
         addSystemMessage("Приложение запущено. Подключаемся к серверу...")
@@ -869,17 +960,18 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Проверка на системные команды
-            /*if (text == "kill" || text == "killall") {
-            Toast.makeText(this, "Системные команды не поддерживаются в клиенте", Toast.LENGTH_SHORT).show()
-            binding.messageInput.text?.clear()
-            hideKeyboard()
-            return
+        // Шифруем сообщение если есть ключ
+        val encryptedText = if (encryptionKey.isNotEmpty()) {
+            CryptoJSCompat.encryptText(text, encryptionKey)
+        } else {
+            text
         }
-        */
+
+        val isEncrypted = encryptionKey.isNotEmpty()
+
         val messageData = JSONObject().apply {
-            put("text", text)
-            put("isEncrypted", false)
+            put("text", encryptedText)
+            put("isEncrypted", isEncrypted)
         }
 
         socket?.emit("send-message", messageData)
@@ -906,12 +998,26 @@ class MainActivity : AppCompatActivity() {
             val username = message.getString("username")
             val text = message.getString("text")
             val isSystem = message.optBoolean("isSystem", false)
+            val isEncrypted = message.optBoolean("isEncrypted", false)
 
             // Не показываем уведомления для системных сообщений
             if (isSystem) return
 
             // Не показываем уведомления для собственных сообщений
             if (username == currentUser) return
+
+            // Дешифровываем для уведомления если есть ключ
+            val displayText = if (isEncrypted && encryptionKey.isNotEmpty()) {
+                try {
+                    CryptoJSCompat.decryptText(text, encryptionKey)
+                } catch (e: Exception) {
+                    "🔒 Зашифрованное сообщение"
+                }
+            } else if (isEncrypted) {
+                "🔒 Зашифрованное сообщение"
+            } else {
+                text
+            }
 
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -943,7 +1049,7 @@ class MainActivity : AppCompatActivity() {
 
             val notification = NotificationCompat.Builder(this, "chat_messages")
                 .setContentTitle("💬 $username")
-                .setContentText(text)
+                .setContentText(displayText)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
@@ -968,17 +1074,36 @@ class MainActivity : AppCompatActivity() {
             val username = message.getString("username")
             val text = message.getString("text")
             val isSystem = message.optBoolean("isSystem", false)
-            val isEncrypted = message.optBoolean("isEncrypted", false)
             val timestamp = message.optString("timestamp", Date().toString())
+
+            // ВАЖНО: Проверяем, зашифровано ли сообщение
+            // 1. Сначала проверяем флаг isEncrypted
+            // 2. Если нет флага, проверяем формат CryptoJS
+            val isEncrypted = message.optBoolean("isEncrypted", false) ||
+                    CryptoJSCompat.isCryptoJSEncrypted(text)
+
+            // Дешифровываем сообщение если оно зашифровано и у нас есть ключ
+            val displayText = if (isEncrypted && encryptionKey.isNotEmpty()) {
+                try {
+                    CryptoJSCompat.decryptText(text, encryptionKey)
+                } catch (e: Exception) {
+                    "🔒 Неверный ключ шифрования"
+                }
+            } else if (isEncrypted) {
+                "🔒 Зашифрованное сообщение"
+            } else {
+                text
+            }
 
             val chatMessage = ChatMessage(
                 id = message.optString("id", System.currentTimeMillis().toString()),
                 username = username,
-                text = if (isEncrypted) "🔒 Зашифрованное сообщение" else text,
+                text = displayText,
                 timestamp = parseTimestamp(timestamp),
                 isMyMessage = username == currentUser,
                 isSystem = isSystem,
-                isEncrypted = isEncrypted
+                isEncrypted = isEncrypted,
+                originalEncryptedText = if (isEncrypted) text else null
             )
 
             messagesAdapter.addMessage(chatMessage)
@@ -1065,6 +1190,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+
+        // Отменяем таймер
+        debounceTimer?.cancel()
 
         // Отменяем регистрацию receiver
         try {

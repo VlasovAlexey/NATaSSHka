@@ -62,4 +62,14 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+
+    // Для шифрования совместимого с CryptoJS
+    implementation("org.bouncycastle:bcprov-jdk15to18:1.73")
+    implementation("commons-codec:commons-codec:1.16.0")
+
+    // Base64 для Android
+    implementation("androidx.core:core-ktx:1.12.0")
+
+    // Для PBKDF2 (генерирует ключ как CryptoJS)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }
