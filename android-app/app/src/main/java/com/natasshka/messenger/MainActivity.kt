@@ -6,16 +6,11 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
+import android.content.*
 import android.content.pm.PackageManager
-import android.graphics.Rect
 import android.net.Uri
-import android.os.Build
-import android.os.Bundle
-import android.os.PowerManager
+import android.os.*
+import android.provider.OpenableColumns
 import android.provider.Settings
 import android.text.Editable
 import android.text.InputType
@@ -32,17 +27,26 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.natasshka.messenger.databinding.ActivityMainBinding
 import io.socket.client.IO
 import io.socket.client.Socket
+import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.net.URISyntaxException
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Timer
 import java.util.TimerTask
+
+import android.content.ActivityNotFoundException
+import android.provider.DocumentsContract
+import android.provider.MediaStore
+import androidx.core.app.ActivityCompat
+import java.net.URL
 
 class MainActivity : AppCompatActivity() {
 
@@ -52,7 +56,7 @@ class MainActivity : AppCompatActivity() {
     private var currentUser: String = ""
     private var currentRoom: String = "Room_01"
     private var isConnected = false
-    private var pendingLoginData: Triple<String, String, String>? = null // username, room, password
+    private var pendingLoginData: Triple<String, String, String>? = null
 
     private var isAppInBackground = false
     private var isDeviceLocked = false
@@ -61,14 +65,69 @@ class MainActivity : AppCompatActivity() {
 
     private var connectionAttempts = 0
     private val MAX_CONNECTION_ATTEMPTS = 3
-    private val RECONNECT_DELAY = 1000L // 1 секунда
+    private val RECONNECT_DELAY = 1000L
 
-    // Шифрование
     private var encryptionKey = ""
     private var debounceTimer: Timer? = null
-    private val encryptionDebounceDelay = 500L // 0.5 секунды как в JS
+    private val encryptionDebounceDelay = 500L
 
-    // Регистрируем запрос разрешений
+    private lateinit var fileManager: FileManager
+    private lateinit var videoRecorder: VideoRecorder
+    private lateinit var audioRecorder: AudioRecorder
+
+    private val directoryPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                handleDirectorySelection(uri)
+            }
+        }
+    }
+
+    // Обновляем filePickerLauncher для работы с URI:
+    private val filePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                handleFileSelection(uri)
+            }
+        }
+    }
+
+    private val videoRecordLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                handleFileSelection(uri)
+            } ?: run {
+                videoRecorder.currentVideoUri?.let { uri ->
+                    handleFileSelection(uri)
+                }
+            }
+        }
+    }
+    companion object {
+        const val PERMISSION_REQUEST_STORAGE = 1001
+        const val PERMISSION_REQUEST_ANDROID_13 = 1002
+    }
+
+    private val audioRecordLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                handleFileSelection(uri)
+            } ?: run {
+                audioRecorder.currentAudioUri?.let { uri ->
+                    handleFileSelection(uri)
+                }
+            }
+        }
+    }
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -77,7 +136,6 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Некоторые разрешения не предоставлены", Toast.LENGTH_LONG).show()
         }
 
-        // После получения разрешений выполняем отложенный вход
         pendingLoginData?.let { (username, room, password) ->
             connectToServer(username, room, password)
         }
@@ -88,20 +146,20 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Сбрасываем счетчик попыток
+        fileManager = FileManager(this)
+        videoRecorder = VideoRecorder(this)
+        audioRecorder = AudioRecorder(this)
+
         connectionAttempts = 0
 
-        // Логируем информацию об устройстве
         logDeviceInfo()
 
-        // Получаем данные из LoginActivity
         val server = intent.getStringExtra("server") ?: ""
         val username = intent.getStringExtra("username") ?: ""
         val room = intent.getStringExtra("room") ?: "Room_01"
         val password = intent.getStringExtra("password") ?: ""
 
         if (server.isEmpty() || username.isEmpty() || password.isEmpty()) {
-            // Если данные не переданы, возвращаемся к LoginActivity
             Toast.makeText(this, "Данные для входа не получены", Toast.LENGTH_SHORT).show()
             finish()
             return
@@ -112,7 +170,8 @@ class MainActivity : AppCompatActivity() {
         pendingLoginData = Triple(username, room, password)
 
         setupUI()
-        setupEncryptionKeyHandler() // Добавляем обработчик ключа шифрования
+        setupFileHandling()
+        setupEncryptionKeyHandler()
         setupKeyboardBehavior()
         setupServiceMonitoring()
         setupBackgroundMonitoring()
@@ -120,10 +179,660 @@ class MainActivity : AppCompatActivity() {
         requestPermissions()
     }
 
+    private fun setupFileHandling() {
+        binding.attachFileBtn.setOnClickListener {
+            openFilePicker()
+        }
+
+        binding.recordVideoBtn.setOnClickListener {
+            recordVideo()
+        }
+
+        binding.recordAudioBtn.setOnClickListener {
+            recordAudio()
+        }
+    }
+
+    private fun openFilePicker() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ требует специальные разрешения
+            checkAndRequestAndroid13Permissions()
+        } else {
+            // Для Android до 13 используем старый способ
+            openFilePickerLegacy()
+        }
+    }
+    private fun openFilePickerForAndroid13() {
+        // Для Android 13+ используем ACTION_OPEN_DOCUMENT с конкретными типами
+        val mimeTypes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(
+                // Явно указываем ВСЕ нужные типы
+                "*/*",
+                "application/octet-stream", // Бинарные файлы
+                "text/*",                   // Все текстовые файлы
+                "text/html",                // HTML
+                "text/javascript",          // JS
+                "application/javascript",   // JS альтернативный
+                "application/x-javascript", // JS еще один
+                "text/css",                 // CSS
+                "text/xml",                 // XML
+                "application/xml",          // XML альтернативный
+                "application/json",         // JSON
+                "application/pdf",          // PDF
+                "application/msword",       // DOC
+                "application/vnd.ms-excel", // XLS
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/zip",          // ZIP
+                "application/x-rar-compressed", // RAR
+                "application/x-7z-compressed"   // 7z
+            )
+        } else {
+            arrayOf("*/*")
+        }
+
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            type = "*/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+            putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
+
+            // Флаги для Android 13+
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+
+            // Для показа всех файлов включая скрытые
+            putExtra("android.content.extra.SHOW_ADVANCED", true)
+            putExtra("android.content.extra.FANCY", true)
+        }
+
+        try {
+            val chooser = Intent.createChooser(intent, "Выберите файл")
+            filePickerLauncher.launch(chooser)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Ошибка открытия файлового менеджера", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Старый метод для Android до 13
+    private fun openFilePickerLegacy() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "*/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("*/*"))
+        }
+
+        try {
+            val chooser = Intent.createChooser(intent, "Выберите файл")
+            filePickerLauncher.launch(chooser)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+
+    private fun checkAndRequestAndroid13Permissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Проверяем разрешения для Android 13+
+            if (ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+            }
+
+            if (ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_VIDEO)
+            }
+
+            if (ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_AUDIO)
+            }
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            // Запрашиваем разрешения
+            ActivityCompat.requestPermissions(
+                this,
+                permissionsToRequest.toTypedArray(),
+                PERMISSION_REQUEST_ANDROID_13
+            )
+        } else {
+            // Разрешения уже есть, открываем файловый менеджер
+            openFilePickerForAndroid13()
+        }
+    }
+
+    private fun handleDirectorySelection(uri: Uri) {
+        // Для ACTION_OPEN_DOCUMENT_TREE нужно получить доступ к файлам внутри
+        contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION
+        )
+
+        // Теперь можно показывать диалог для выбора конкретного файла
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            type = "*/*"
+            putExtra(DocumentsContract.EXTRA_INITIAL_URI, uri)
+        }
+
+        try {
+            filePickerLauncher.launch(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Ошибка выбора файла", Toast.LENGTH_SHORT).show()
+        }
+    }
+    // Упрощенная версия без альтернативных файловых менеджеров
+    private fun openFilePickerSimple() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "*/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("*/*"))
+        }
+
+        try {
+            // Правильный вызов - передаем Intent в launcher
+            filePickerLauncher.launch(Intent.createChooser(intent, "Выберите файл"))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    private fun handleFileSelection(uri: Uri) {
+        try {
+            val contentResolver = contentResolver
+
+            // Получаем имя файла разными способами для надежности
+            var fileName: String? = null
+
+            // Способ 1: Через Cursor
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val displayNameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (displayNameIndex != -1) {
+                        fileName = cursor.getString(displayNameIndex)
+                    }
+                }
+            }
+
+            // Способ 2: Из URI (если через Cursor не получилось)
+            if (fileName == null || fileName.isNullOrEmpty()) {
+                fileName = uri.lastPathSegment?.substringAfterLast("/")
+            }
+
+            // Способ 3: Генерируем имя если все еще null
+            if (fileName == null || fileName.isNullOrEmpty()) {
+                fileName = "file_${System.currentTimeMillis()}"
+            }
+
+            val cleanFileName = fileName!!
+
+            // Получаем MIME тип
+            val mimeType = contentResolver.getType(uri) ?: "*/*"
+
+            // Проверяем размер файла
+            val fileSize: Long = try {
+                contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                    pfd.statSize
+                } ?: 0L
+            } catch (e: Exception) {
+                0L
+            }
+
+            val maxSize = 50 * 1024 * 1024 // 50 МБ
+            if (fileSize > maxSize) {
+                Toast.makeText(this, "Файл слишком большой. Максимальный размер: 50 МБ", Toast.LENGTH_LONG).show()
+                return
+            }
+
+            showFileUploadIndicator(cleanFileName)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val fileJson = fileManager.prepareFileForSending(
+                        uri = uri,
+                        fileName = cleanFileName,
+                        mimeType = mimeType,
+                        encryptionKey = encryptionKey
+                    )
+
+                    fileJson.put("room", currentRoom)
+
+                    socket?.emit("send-file", fileJson, io.socket.client.Ack { args ->
+                        runOnUiThread {
+                            hideFileUploadIndicator()
+                            if (args.isNotEmpty() && args[0] is JSONObject) {
+                                val response = args[0] as JSONObject
+                                if (response.has("error")) {
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Ошибка отправки файла: ${response.getString("error")}",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Файл отправлен",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
+                    })
+
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        hideFileUploadIndicator()
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Ошибка подготовки файла: ${e.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+
+        } catch (e: Exception) {
+            Toast.makeText(this, "Ошибка обработки файла: ${e.message}", Toast.LENGTH_LONG).show()
+            Log.e("MainActivity", "Ошибка обработки файла", e)
+        }
+    }
+
+
+    private fun showFileUploadIndicator(fileName: String) {
+        runOnUiThread {
+            binding.progressContainer.visibility = View.VISIBLE
+            binding.progressText.text = "Подготовка файла: $fileName"
+            binding.progressBar.isIndeterminate = true
+        }
+    }
+
+    private fun hideFileUploadIndicator() {
+        runOnUiThread {
+            binding.progressContainer.visibility = View.GONE
+        }
+    }
+
+    private fun showFileDownloadProgress(fileName: String, progress: Int) {
+        runOnUiThread {
+            binding.progressContainer.visibility = View.VISIBLE
+            binding.progressText.text = "Скачивание: $fileName ($progress%)"
+            binding.progressBar.isIndeterminate = false
+            binding.progressBar.progress = progress
+        }
+    }
+
+    private fun hideFileDownloadProgress() {
+        runOnUiThread {
+            binding.progressContainer.visibility = View.GONE
+        }
+    }
+
+    private fun recordVideo() {
+        videoRecorder.recordVideo(videoRecordLauncher)
+    }
+
+    private fun recordAudio() {
+        AlertDialog.Builder(this)
+            .setTitle("Запись аудио")
+            .setItems(arrayOf("Короткое сообщение (до 60 сек)", "Длинное сообщение")) { _, which ->
+                when (which) {
+                    0 -> recordShortAudio()
+                    1 -> recordLongAudio()
+                }
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
+    }
+
+    private fun recordShortAudio() {
+        audioRecorder.recordAudio(audioRecordLauncher)
+    }
+
+    private fun recordLongAudio() {
+        showAudioRecordingScreen()
+    }
+
+    private fun showAudioRecordingScreen() {
+        AlertDialog.Builder(this)
+            .setTitle("Запись аудио")
+            .setMessage("Нажмите кнопку для начала записи...")
+            .setPositiveButton("Начать запись") { dialog, _ ->
+                dialog.dismiss()
+                audioRecorder.startNativeRecording()
+                showRecordingControls()
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
+    }
+
+    private fun showRecordingControls() {
+        AlertDialog.Builder(this)
+            .setTitle("Запись...")
+            .setMessage("Идет запись аудио. Нажмите стоп для завершения.")
+            .setPositiveButton("Стоп") { dialog, _ ->
+                dialog.dismiss()
+                audioRecorder.stopNativeRecording()
+                audioRecorder.currentAudioUri?.let { uri ->
+                    handleFileSelection(uri)
+                }
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun onFileClicked(fileMessage: FileMessage) {
+        if (fileMessage.localPath != null) {
+            openFile(fileMessage)
+        } else {
+            downloadFile(fileMessage)
+        }
+    }
+
+    private fun openFile(fileMessage: FileMessage) {
+        val file = File(fileMessage.localPath!!)
+        if (!file.exists()) {
+            Toast.makeText(this, "Файл не найден", Toast.LENGTH_SHORT).show()
+            Log.e("MainActivity", "Файл не существует: ${fileMessage.localPath}")
+            return
+        }
+
+        Log.d("MainActivity", "Открытие файла: ${fileMessage.fileName}, путь: ${fileMessage.localPath}")
+
+        val uri = FileProvider.getUriForFile(
+            this,
+            "${packageName}.fileprovider",
+            file
+        )
+
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, fileMessage.fileType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        try {
+            startActivity(intent)
+            Log.d("MainActivity", "Файл успешно открыт")
+        } catch (e: ActivityNotFoundException) {
+            Log.e("MainActivity", "Не найдено приложение для открытия файла: ${fileMessage.fileType}")
+            Toast.makeText(this, "Не найдено приложение для открытия файла", Toast.LENGTH_SHORT).show()
+
+            val downloadIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "*/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            try {
+                startActivity(downloadIntent)
+            } catch (e2: ActivityNotFoundException) {
+                Toast.makeText(this, "Не найдено приложение для работы с файлами", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    private fun downloadFile(fileMessage: FileMessage) {
+        // Убираем проверку разрешений - сохраняем во внутреннее хранилище
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d("MainActivity", "Скачивание файла: ${fileMessage.fileName}")
+
+                if (fileMessage.fileData != null && fileMessage.fileData.isNotEmpty()) {
+                    Log.d("MainActivity", "Используем fileData для сохранения")
+                    saveFileFromData(fileMessage)
+                }
+                else if (fileMessage.fileUrl != null && fileMessage.fileUrl.isNotEmpty()) {
+                    Log.d("MainActivity", "Скачивание по URL: ${fileMessage.fileUrl}")
+                    downloadFileFromUrl(fileMessage)
+                } else {
+                    Log.w("MainActivity", "Нет данных для скачивания файла")
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Нет данных для загрузки файла",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Ошибка скачивания файла: ${e.message}")
+                e.printStackTrace()
+                runOnUiThread {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Ошибка загрузки файла: ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+    private fun showStoragePermissionDialog(fileMessage: FileMessage) {
+        AlertDialog.Builder(this)
+            .setTitle("Разрешение на запись")
+            .setMessage("Для сохранения файлов в папку Download необходимо разрешение на запись в хранилище")
+            .setPositiveButton("Предоставить") { dialog, _ ->
+                dialog.dismiss()
+                // Запрашиваем разрешение
+                ActivityCompat.requestPermissions(
+                    this@MainActivity,
+                    arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                    PERMISSION_REQUEST_STORAGE
+                )
+                // Сохраняем fileMessage для повторной попытки после получения разрешения
+                pendingFileDownload = fileMessage
+            }
+            .setNegativeButton("Отмена") { dialog, _ ->
+                dialog.dismiss()
+                Toast.makeText(this, "Файл не будет сохранен", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+    private var pendingFileDownload: FileMessage? = null
+
+    // Добавляем метод для начала загрузки
+    private fun startFileDownload(fileMessage: FileMessage) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d("MainActivity", "Скачивание файла: ${fileMessage.fileName}")
+
+                if (fileMessage.fileData != null && fileMessage.fileData.isNotEmpty()) {
+                    Log.d("MainActivity", "Используем fileData для сохранения")
+                    saveFileFromData(fileMessage)
+                }
+                else if (fileMessage.fileUrl != null && fileMessage.fileUrl.isNotEmpty()) {
+                    Log.d("MainActivity", "Скачивание по URL: ${fileMessage.fileUrl}")
+                    downloadFileFromUrl(fileMessage)
+                } else {
+                    Log.w("MainActivity", "Нет данных для скачивания файла")
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Нет данных для загрузки файла",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Ошибка скачивания файла: ${e.message}")
+                e.printStackTrace()
+                runOnUiThread {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Ошибка загрузки файла: ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+    private suspend fun saveFileFromData(fileMessage: FileMessage) {
+        try {
+            Log.d("MainActivity", "Сохранение файла из данных: ${fileMessage.fileName}")
+
+            val savedFile = fileManager.saveToDownloads(
+                fileMessage.fileData!!,
+                fileMessage.fileName,
+                fileMessage.isEncrypted,
+                encryptionKey
+            )
+
+            runOnUiThread {
+                // Обновляем путь в адаптере
+                messagesAdapter.updateFileLocalPath(fileMessage.id, savedFile.absolutePath)
+
+                // Показываем системное сообщение о сохранении файла
+                // БЕЗ прокрутки вниз
+                val path = savedFile.absolutePath
+                val fileName = savedFile.name
+                addSystemMessage("Файл сохранен: $path")
+
+                Toast.makeText(this, "Файл сохранен: $fileName", Toast.LENGTH_SHORT).show()
+
+                Log.d("MainActivity", "✅ Файл сохранен по пути: $path")
+
+                // НЕ вызываем scrollToBottom() - оставляем скролл как есть
+            }
+
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Ошибка сохранения файла из данных: ${e.message}")
+            runOnUiThread {
+                Toast.makeText(this, "Ошибка сохранения файла: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+            throw e
+        }
+    }
+
+    private fun updateFileMessageInAdapter(fileId: String, localPath: String) {
+        // Ищем сообщение с нужным fileId и обновляем его
+        for (i in messagesAdapter.itemCount - 1 downTo 0) {
+            // Получаем сообщение через адаптер
+            // Нужно добавить метод getMessage в MessagesAdapter
+        }
+
+        // Вместо поиска по адаптеру, просто обновляем весь адаптер
+        // так как мы обновляем только локальный путь одного сообщения
+        messagesAdapter.notifyDataSetChanged()
+
+        Log.d("MainActivity", "Файл сохранен по пути: $localPath для fileId: $fileId")
+    }
+    private suspend fun downloadFileFromUrl(fileMessage: FileMessage) {
+        try {
+            var fileUrl = fileMessage.fileUrl
+
+            if (fileUrl != null && !fileUrl.startsWith("http://") && !fileUrl.startsWith("https://")) {
+                val server = intent.getStringExtra("server") ?: "http://10.0.2.2:3000"
+                if (fileUrl.startsWith("/")) {
+                    fileUrl = server + fileUrl
+                } else {
+                    fileUrl = "$server/$fileUrl"
+                }
+                Log.d("MainActivity", "Исправленный URL файла: $fileUrl")
+            }
+
+            if (fileUrl == null) {
+                throw Exception("URL файла отсутствует")
+            }
+
+            val url = URL(fileUrl)
+            val connection = url.openConnection()
+            connection.connect()
+
+            val inputStream = connection.getInputStream()
+            val fileBytes = inputStream.readBytes()
+
+            // Используем saveToDownloads вместо saveReceivedFile
+            val savedFile = fileManager.saveToDownloads(
+                Base64.getEncoder().encodeToString(fileBytes),
+                fileMessage.fileName,
+                fileMessage.isEncrypted,
+                encryptionKey
+            )
+
+            runOnUiThread {
+                // Обновляем путь в сообщении
+                // Здесь вызываем правильный метод для обновления пути
+                // messagesAdapter.updateFileLocalPath(fileMessage.id, savedFile.absolutePath)
+                // Вместо updateFileMessagePath используем метод адаптера
+
+                // Просто обновляем адаптер
+                messagesAdapter.notifyDataSetChanged()
+
+                // Показываем системное сообщение
+                val path = savedFile.absolutePath
+                addSystemMessage("Файл сохранен: $path")
+
+                Toast.makeText(this, "Файл сохранен: ${savedFile.name}", Toast.LENGTH_SHORT).show()
+
+                // НЕ прокручиваем вниз
+            }
+
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Ошибка скачивания файла по URL: ${e.message}")
+            throw e
+        }
+    }
+
+    private fun fixFileUrl(fileUrl: String?): String? {
+        if (fileUrl == null) return null
+
+        if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+            return fileUrl
+        }
+
+        val server = intent.getStringExtra("server") ?: "http://10.0.2.2:3000"
+
+        val cleanUrl = if (fileUrl.startsWith("/")) fileUrl.substring(1) else fileUrl
+
+        return "$server/$cleanUrl"
+    }
+    private fun requestFileFromServer(fileMessage: FileMessage) {
+        val requestData = JSONObject().apply {
+            put("fileId", fileMessage.id)
+            put("messageId", fileMessage.messageId)
+        }
+
+        socket?.emit("request-file", requestData, io.socket.client.Ack { args ->
+            runOnUiThread {
+                if (args.isNotEmpty() && args[0] is JSONObject) {
+                    val response = args[0] as JSONObject
+                    if (response.has("fileData")) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                val savedFile = fileManager.saveReceivedFile(
+                                    response.getString("fileData"),
+                                    fileMessage.fileName,
+                                    fileMessage.isEncrypted,
+                                    encryptionKey
+                                )
+
+                                runOnUiThread {
+                                    updateFileMessagePath(fileMessage.id, savedFile.absolutePath)
+                                }
+                            } catch (e: Exception) {
+                                Log.e("MainActivity", "Ошибка сохранения файла: ${e.message}")
+                            }
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    private fun updateFileMessagePath(fileId: String, localPath: String) {
+        runOnUiThread {
+            // Просто обновляем адаптер без прокрутки
+            messagesAdapter.notifyDataSetChanged()
+            Log.d("MainActivity", "Файл сохранен по пути: $localPath для fileId: $fileId")
+
+            // Можно добавить системное сообщение здесь, если нужно
+             //addSystemMessage("Файл сохранен: $localPath")
+        }
+    }
+
     private fun setupEncryptionKeyField() {
-        // Обработчик клика на иконку очистки
         binding.encryptionKeyInput.setOnTouchListener { v, event ->
-            val drawableEnd = 2 // CompoundDrawables[2] - справа
+            val drawableEnd = 2
             if (event.action == MotionEvent.ACTION_UP) {
                 if (event.rawX >= (binding.encryptionKeyInput.right - binding.encryptionKeyInput.compoundDrawables[drawableEnd].bounds.width())) {
                     binding.encryptionKeyInput.text?.clear()
@@ -135,19 +844,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupEncryptionKeyHandler() {
-        // Обработчик изменения ключа шифрования
         binding.encryptionKeyInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-
             override fun afterTextChanged(s: Editable?) {
                 val newKey = s?.toString() ?: ""
                 encryptionKey = newKey
 
-                // Обновляем видимость кнопки очистки
                 updateEncryptionKeyClearButton()
 
-                // Дебаунс как в JS клиенте
                 debounceTimer?.cancel()
                 debounceTimer = Timer()
                 debounceTimer?.schedule(object : TimerTask() {
@@ -160,28 +865,22 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // Обработчик нажатия на иконку очистки - ВАЖНО: используем правильные координаты
         binding.encryptionKeyInput.setOnTouchListener { v, event ->
             if (event.action == MotionEvent.ACTION_UP) {
-                val drawableRight = binding.encryptionKeyInput.compoundDrawables[2] // drawableEnd
+                val drawableRight = binding.encryptionKeyInput.compoundDrawables[2]
 
                 if (drawableRight != null) {
-                    // Используем координаты относительно View, а не экрана
                     val touchX = event.x
                     val touchY = event.y
 
-                    // Вычисляем правую границу View (ширина минус отступы)
                     val rightBoundary = binding.encryptionKeyInput.width -
                             binding.encryptionKeyInput.paddingRight
 
-                    // Вычисляем левую границу иконки (правая граница минус ширина иконки)
                     val iconLeftBoundary = rightBoundary - drawableRight.intrinsicWidth
 
-                    // Проверяем, находится ли касание в области иконки
                     if (touchX >= iconLeftBoundary && touchX <= rightBoundary &&
                         touchY >= 0 && touchY <= binding.encryptionKeyInput.height) {
 
-                        // Очищаем поле
                         binding.encryptionKeyInput.text?.clear()
                         encryptionKey = ""
                         updateEncryptionKeyClearButton()
@@ -193,7 +892,6 @@ class MainActivity : AppCompatActivity() {
             false
         }
 
-        // Инициализация видимости кнопки очистки
         updateEncryptionKeyClearButton()
     }
 
@@ -205,34 +903,34 @@ class MainActivity : AppCompatActivity() {
             null
         }
 
-        // Устанавливаем drawable только справа (end)
         binding.encryptionKeyInput.setCompoundDrawablesWithIntrinsicBounds(
             null, null, drawable, null
         )
     }
 
     private fun reDecryptAllMessages() {
-        // Перешифровываем все сообщения в адаптере
         messagesAdapter.reDecryptMessages(encryptionKey)
-        // Прокручиваем вниз после обновления
         scrollToBottom()
     }
 
     private fun setupUI() {
-        // Настройка RecyclerView для сообщений
-        messagesAdapter = MessagesAdapter()
+        messagesAdapter = MessagesAdapter(
+            onFileClickListener = { fileMessage ->
+                onFileClicked(fileMessage)
+            },
+            onFileRetryClickListener = { fileMessage ->
+                downloadFile(fileMessage)
+            }
+        )
         binding.messagesRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = messagesAdapter
         }
 
-        // Настройка поля ввода сообщения
         setupMessageInput()
 
-        // Настройка очистки для поля ключа шифрования
         setupEncryptionKeyField()
 
-        // Обработчики кнопок
         binding.sidebarToggleBtn.setOnClickListener {
             toggleSidebar()
         }
@@ -242,15 +940,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.attachFileBtn.setOnClickListener {
-            Toast.makeText(this, "Отправка файлов будет добавлена позже", Toast.LENGTH_SHORT).show()
+            openFilePicker()
         }
 
         binding.recordAudioBtn.setOnClickListener {
-            Toast.makeText(this, "Запись аудио будет добавлена позже", Toast.LENGTH_SHORT).show()
+            recordAudio()
         }
 
         binding.recordVideoBtn.setOnClickListener {
-            Toast.makeText(this, "Запись видео будет добавлена позже", Toast.LENGTH_SHORT).show()
+            recordVideo()
         }
 
         binding.audioCallBtn.setOnClickListener {
@@ -260,28 +958,20 @@ class MainActivity : AppCompatActivity() {
         binding.videoCallBtn.setOnClickListener {
             Toast.makeText(this, "Видеозвонки будут добавлены позже", Toast.LENGTH_SHORT).show()
         }
-
-        // Показываем системное сообщение о запуске
-        addSystemMessage("Приложение запущено. Подключаемся к серверу...")
     }
 
     private fun setupKeyboardBehavior() {
-        // Настраиваем поведение клавиатуры как в Telegram
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
 
-        // Скрываем клавиатуру при клике вне поля ввода
         binding.root.setOnClickListener {
             hideKeyboard()
         }
 
-        // Но не скрываем при клике на само поле ввода
         binding.messageInput.setOnClickListener {
-            // Ничего не делаем - клавиатура должна остаться
         }
     }
 
     private fun setupServiceMonitoring() {
-        // Создаем BroadcastReceiver для отслеживания статуса сервиса
         serviceStatusReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == "com.natasshka.messenger.SERVICE_STATUS") {
@@ -289,22 +979,19 @@ class MainActivity : AppCompatActivity() {
 
                     runOnUiThread {
                         val statusText = if (isRunning) {
-                            "✅ Фоновый сервис успешно запущен"
+                           "✅ Фоновый сервис успешно запущен"
                         } else {
                             "❌ Фоновый сервис остановлен"
                         }
-                        addSystemMessage(statusText)
                         Log.d("MainActivity", "Service status: $statusText")
                     }
 
-                    // Сохраняем статус в SharedPreferences
                     val prefs = getSharedPreferences("ServiceStatus", Context.MODE_PRIVATE)
                     prefs.edit().putBoolean("isServiceRunning", isRunning).apply()
                 }
             }
         }
 
-        // Регистрируем receiver
         val filter = IntentFilter("com.natasshka.messenger.SERVICE_STATUS")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             registerReceiver(serviceStatusReceiver, filter, Context.RECEIVER_EXPORTED)
@@ -316,13 +1003,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupBackgroundMonitoring() {
         Log.d("MainActivity", "Setting up background monitoring...")
 
-        // Проверяем настройки устройства
-        if (isXiaomiDevice()) {
-            addSystemMessage("⚠️ Обнаружено устройство Xiaomi")
-            addSystemMessage("Для работы в фоне может потребоваться дополнительная настройка")
-        }
 
-        // Проверяем оптимизацию батареи
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             if (!pm.isIgnoringBatteryOptimizations(packageName)) {
@@ -330,18 +1011,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Запускаем foreground service с задержкой
         android.os.Handler(mainLooper).postDelayed({
-            //addSystemMessage("Запуск фонового сервиса...")
             ChatForegroundService.startService(this)
 
-            // Проверяем статус через 3 секунды
             android.os.Handler(mainLooper).postDelayed({
                 checkServiceStatus()
             }, 3000)
         }, 1000)
 
-        // Регистрируем слушатель изменений видимости приложения
         registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityResumed(activity: Activity) {
                 isAppInBackground = false
@@ -355,7 +1032,6 @@ class MainActivity : AppCompatActivity() {
                 Log.d("MainActivity", "App in background")
             }
 
-            // Остальные методы можно оставить пустыми
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
             override fun onActivityStarted(activity: Activity) {}
             override fun onActivityStopped(activity: Activity) {}
@@ -363,7 +1039,6 @@ class MainActivity : AppCompatActivity() {
             override fun onActivityDestroyed(activity: Activity) {}
         })
 
-        // Проверяем текущее состояние экрана
         checkScreenState()
     }
 
@@ -375,53 +1050,29 @@ class MainActivity : AppCompatActivity() {
         Log.d("MainActivity", "Device: ${Build.DEVICE}")
         Log.d("MainActivity", "SDK: ${Build.VERSION.SDK_INT}")
         Log.d("MainActivity", "Release: ${Build.VERSION.RELEASE}")
-
-        // Проверяем HyperOS
-        try {
-            val properties = System.getProperties()
-            val miuiVersion = properties.getProperty("ro.miui.ui.version.name", "")
-            Log.d("MainActivity", "MIUI Version: $miuiVersion")
-            if (miuiVersion.contains("hyper", ignoreCase = true)) {
-                Log.d("MainActivity", "HyperOS detected")
-                addSystemMessage("Обнаружен HyperOS ${Build.VERSION.RELEASE}")
-            }
-        } catch (e: Exception) {
-            Log.d("MainActivity", "Cannot get MIUI version: ${e.message}")
-        }
-    }
-
-    private fun isXiaomiDevice(): Boolean {
-        return Build.MANUFACTURER.equals("xiaomi", ignoreCase = true) ||
-                Build.MANUFACTURER.equals("redmi", ignoreCase = true) ||
-                Build.BRAND.equals("xiaomi", ignoreCase = true) ||
-                Build.BRAND.equals("redmi", ignoreCase = true)
     }
 
     private fun checkServiceStatus() {
-        // Проверяем статус сервиса через SharedPreferences
         val prefs = getSharedPreferences("ServiceStatus", Context.MODE_PRIVATE)
         val isServiceRunning = prefs.getBoolean("isServiceRunning", false)
 
         if (!isServiceRunning) {
             Log.w("MainActivity", "Service not running, attempting restart...")
-            addSystemMessage("⚠️ Фоновый сервис не запущен. Пытаемся перезапустить...")
+            //addSystemMessage("⚠️ Фоновый сервис не запущен. Пытаемся перезапустить...")
 
-            // Пробуем перезапустить сервис
             android.os.Handler(mainLooper).postDelayed({
                 ChatForegroundService.startService(this)
 
-                // Проверяем еще раз через 2 секунды
                 android.os.Handler(mainLooper).postDelayed({
                     val currentStatus = prefs.getBoolean("isServiceRunning", false)
                     if (!currentStatus) {
-                        addSystemMessage("❌ Не удалось запустить фоновый сервис")
-                        showServiceErrorDialog()
+                        //addSystemMessage("❌ Не удалось запустить фоновый сервис")
+                            //showServiceErrorDialog()
                     }
                 }, 2000)
             }, 1000)
         } else {
             Log.d("MainActivity", "Service is running")
-            //addSystemMessage("✅ Фоновый сервис активен")
         }
     }
 
@@ -464,13 +1115,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkBatteryOptimization() {
-        // Проверяем оптимизацию батареи для Android 6.0+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             val isIgnoringBatteryOptimizations = powerManager.isIgnoringBatteryOptimizations(packageName)
 
             if (!isIgnoringBatteryOptimizations) {
-                // Показываем информационное сообщение
                 android.os.Handler(mainLooper).postDelayed({
                     showBatteryOptimizationDialog()
                 }, 3000)
@@ -479,7 +1128,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showBatteryOptimizationDialog() {
-        // Показываем только если не показывали ранее
         val prefs = getSharedPreferences("AppSettings", Context.MODE_PRIVATE)
         val alreadyShown = prefs.getBoolean("battery_warning_shown", false)
 
@@ -523,7 +1171,6 @@ class MainActivity : AppCompatActivity() {
                 startActivity(intent)
             } catch (e: Exception) {
                 try {
-                    // Альтернативный способ
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                     intent.data = Uri.parse("package:$packageName")
                     startActivity(intent)
@@ -543,7 +1190,6 @@ class MainActivity : AppCompatActivity() {
         val isScreenOn = prefs.getBoolean("isScreenOn", true)
 
         if (!isScreenOn) {
-            //addSystemMessage("Приложение работает в фоновом режиме (экран выключен)")
         } else if (isDeviceLocked) {
             addSystemMessage("Приложение работает на заблокированном экране")
         }
@@ -554,17 +1200,15 @@ class MainActivity : AppCompatActivity() {
             isDeviceLocked && !isAppInBackground -> "Экран заблокирован, приложение активно"
             isDeviceLocked && isAppInBackground -> "Экран заблокирован, приложение в фоне"
             !isDeviceLocked && isAppInBackground -> "Приложение работает в фоновом режиме"
-            else -> "Приложение активно на переднем плане"
+            else -> "Приложение активное на переднем плане"
         }
 
-        // Обновляем информацию в UI если нужно
         runOnUiThread {
             Log.d("MainActivity", "App state: $state")
         }
     }
 
     private fun setupMessageInput() {
-        // Делаем поле ввода однострочным
         binding.messageInput.maxLines = 1
         binding.messageInput.isSingleLine = true
         binding.messageInput.imeOptions = EditorInfo.IME_ACTION_SEND
@@ -580,7 +1224,6 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // Отправка по Enter/нажатию кнопки отправки на клавиатуре
         binding.messageInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEND) {
                 sendMessage()
@@ -591,7 +1234,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Автоматически показываем клавиатуру при фокусе
         binding.messageInput.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
                 showKeyboard()
@@ -620,6 +1262,19 @@ class MainActivity : AppCompatActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
             }
+            // Для записи в Downloads
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                // Для Android 9 и ниже
+                add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // Для Android 13 и выше
+                add(Manifest.permission.READ_MEDIA_IMAGES)
+                add(Manifest.permission.READ_MEDIA_VIDEO)
+                add(Manifest.permission.READ_MEDIA_AUDIO)
+            }
         }.toTypedArray()
 
         val missingPermissions = requiredPermissions.filter {
@@ -627,13 +1282,126 @@ class MainActivity : AppCompatActivity() {
         }.toTypedArray()
 
         if (missingPermissions.isNotEmpty()) {
-            // Запрашиваем разрешения
             permissionLauncher.launch(missingPermissions)
         } else {
-            // Разрешения уже есть, выполняем отложенный вход
             pendingLoginData?.let { (username, room, password) ->
                 connectToServer(username, room, password)
             }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        when (requestCode) {
+            PERMISSION_REQUEST_STORAGE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // Разрешение предоставлено, продолжаем загрузку ожидающего файла
+                    pendingFileDownload?.let { fileMessage ->
+                        Toast.makeText(this, "Разрешение предоставлено. Сохраняю файл...", Toast.LENGTH_SHORT).show()
+                        startFileDownload(fileMessage)
+                        pendingFileDownload = null
+                    }
+                } else {
+                    // Разрешение отклонено
+                    Toast.makeText(this, "Разрешение отклонено. Файл не будет сохранен", Toast.LENGTH_SHORT).show()
+                    pendingFileDownload = null
+                }
+            }
+        }
+    }
+    private suspend fun saveFileViaMediaStore(fileMessage: FileMessage, fileData: ByteArray): Uri? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileMessage.fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, fileMessage.fileType)
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/NATaSSHka")
+
+                    // Для версий Android Q и выше
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        put(MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+                }
+
+                val resolver = applicationContext.contentResolver
+                val uri = resolver.insert(MediaStore.Files.getContentUri("external"), contentValues)
+
+                uri?.let {
+                    resolver.openOutputStream(it)?.use { outputStream ->
+                        outputStream.write(fileData)
+                    }
+
+                    // Для Android Q+ нужно обновить статус файла
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        contentValues.clear()
+                        contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                        resolver.update(uri, contentValues, null, null)
+                    }
+
+                    return@withContext uri
+                }
+
+                null
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Ошибка сохранения через MediaStore: ${e.message}")
+                null
+            }
+        }
+    }
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        when (requestCode) {
+            VideoRecorder.REQUEST_VIDEO_CAPTURE -> {
+                val videoUri = videoRecorder.onActivityResult(requestCode, resultCode, data)
+                videoUri?.let {
+                    handleFileSelection(it)
+                }
+            }
+            AudioRecorder.REQUEST_AUDIO_CAPTURE -> {
+                val audioUri = audioRecorder.onActivityResult(requestCode, resultCode, data)
+                audioUri?.let {
+                    handleFileSelection(it)
+                }
+            }
+        }
+    }
+
+    private fun handleFileMessageFromHistory(message: JSONObject) {
+        try {
+            Log.d("MainActivity", "Обработка файлового сообщения из истории")
+
+            val fileMessage = parseFileMessageFromServer(message)
+
+            val chatMessage = ChatMessage(
+                id = message.optString("id", System.currentTimeMillis().toString()),
+                username = message.optString("username", "unknown"),
+                text = getFileMessageText(fileMessage),
+                timestamp = parseTimestamp(message.optString("timestamp")),
+                isMyMessage = message.optString("username", "") == currentUser,
+                isSystem = message.optBoolean("isSystem", false),
+                isEncrypted = message.optBoolean("isEncrypted", false),
+                originalEncryptedText = if (message.optBoolean("isEncrypted", false)) {
+                    message.optString("text", "")
+                } else null,
+                attachedFile = fileMessage,
+                hasAttachment = true
+            )
+
+            Log.d("MainActivity", "Добавление файлового сообщения из истории: ${fileMessage.fileName}")
+            messagesAdapter.addMessage(chatMessage)
+
+            // УБИРАЕМ автоматическую загрузку файлов при входе
+            // Файлы будут загружаться только при клике
+
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Ошибка обработки файлового сообщения из истории: ${e.message}")
+            addMessageFromServer(message)
         }
     }
 
@@ -641,7 +1409,6 @@ class MainActivity : AppCompatActivity() {
         try {
             Log.d("MainActivity", "Connecting to server...")
 
-            // Получаем server из intent
             val server = intent.getStringExtra("server") ?: "http://10.0.2.2:3000"
             Log.d("MainActivity", "Server URL: $server")
 
@@ -651,8 +1418,7 @@ class MainActivity : AppCompatActivity() {
                 reconnectionDelay = 1000
                 reconnectionDelayMax = 5000
                 reconnectionAttempts = Int.MAX_VALUE
-                // Добавляем таймауты
-                timeout = 10000 // Увеличиваем таймаут до 10 секунд
+                timeout = 10000
             }
 
             socket = IO.socket(server, options)
@@ -660,7 +1426,6 @@ class MainActivity : AppCompatActivity() {
             socket?.on(Socket.EVENT_CONNECT) {
                 Log.d("MainActivity", "Socket connected")
                 runOnUiThread {
-                    // Сбрасываем счетчик при успешном подключении
                     connectionAttempts = 0
                     Toast.makeText(this@MainActivity, "✅ Подключено к серверу", Toast.LENGTH_SHORT).show()
                     isConnected = true
@@ -680,7 +1445,6 @@ class MainActivity : AppCompatActivity() {
                             Toast.LENGTH_LONG
                         ).show()
 
-                        // Возвращаемся на экран входа
                         runOnUiThread {
                             AlertDialog.Builder(this@MainActivity)
                                 .setTitle("Ошибка подключения")
@@ -704,7 +1468,6 @@ class MainActivity : AppCompatActivity() {
 
                         addSystemMessage("Попытка подключения $connectionAttempts/$MAX_CONNECTION_ATTEMPTS не удалась")
 
-                        // Пытаемся переподключиться через 3 секунды
                         android.os.Handler(mainLooper).postDelayed({
                             socket?.connect()
                         }, RECONNECT_DELAY)
@@ -718,7 +1481,6 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this@MainActivity, "📴 Отключено от сервера", Toast.LENGTH_SHORT).show()
                     isConnected = false
 
-                    // Попытка переподключения только если приложение активно
                     if (!isFinishing && isAppInForeground()) {
                         addSystemMessage("Потеряно соединение с сервером. Пытаемся переподключиться...")
                         android.os.Handler(mainLooper).postDelayed({
@@ -738,20 +1500,30 @@ class MainActivity : AppCompatActivity() {
 
                         Log.d("MainActivity", "User $joinedUser joined room $joinedRoom")
 
-                        // Обновляем информацию о комнате
                         binding.sidebarHeader.text = "Комната: $joinedRoom"
                         binding.userInfo.text = "✪ $username"
 
-                        // Загружаем историю сообщений
                         if (data.has("messageHistory")) {
                             val messageHistory = data.getJSONArray("messageHistory")
+                            Log.d("MainActivity", "Загружаем историю сообщений: ${messageHistory.length()} сообщений")
                             for (i in 0 until messageHistory.length()) {
                                 val message = messageHistory.getJSONObject(i)
-                                addMessageFromServer(message)
+                                Log.d("MainActivity", "Сообщение из истории: ${message.toString()}")
+
+                                val hasFile = message.has("isFile") && message.getBoolean("isFile")
+                                val hasFileData = message.has("fileData") && !message.isNull("fileData")
+                                val hasFileName = message.has("fileName") && !message.isNull("fileName")
+
+                                if (hasFile || hasFileData || hasFileName) {
+                                    Log.d("MainActivity", "Обработка файлового сообщения из истории")
+                                    handleFileMessageFromHistory(message)
+                                } else {
+                                    Log.d("MainActivity", "Обработка текстового сообщения из истории")
+                                    addMessageFromServer(message)
+                                }
                             }
                         }
 
-                        // Обновляем список пользователей
                         if (data.has("users")) {
                             updateUsersList(data.getJSONArray("users"))
                         }
@@ -760,18 +1532,79 @@ class MainActivity : AppCompatActivity() {
 
                     } catch (e: Exception) {
                         Log.e("MainActivity", "Error processing user-joined: ${e.message}")
+                        e.printStackTrace()
                     }
                 }
             }
 
             socket?.on("new-message") { args ->
-                Log.d("MainActivity", "new-message event received")
+                Log.d("MainActivity", "new-message event received, args count: ${args.size}")
+                runOnUiThread {
+                    try {
+                        if (args.isNotEmpty() && args[0] is JSONObject) {
+                            val message = args[0] as JSONObject
+                            Log.d("MainActivity", "Получено сообщение от: ${message.optString("username", "unknown")}")
+                            Log.d("MainActivity", "Тип сообщения: isFile=${message.optBoolean("isFile", false)}, hasFileData=${message.has("fileData")}")
+
+                            val hasFile = message.has("isFile") && message.getBoolean("isFile")
+                            val hasFileData = message.has("fileData") && !message.isNull("fileData")
+                            val hasFileName = message.has("fileName") && !message.isNull("fileName")
+
+                            if (hasFile || hasFileData || hasFileName) {
+                                Log.d("MainActivity", "Обработка как файловое сообщение")
+                                handleFileMessage(message)
+                            } else {
+                                Log.d("MainActivity", "Обработка как текстовое сообщение")
+                                handleBackgroundMessage(message)
+                            }
+
+                            if (isAppInBackground || isDeviceLocked) {
+                                showNotification(message)
+                            }
+                        } else {
+                            Log.w("MainActivity", "Пустой или неверный аргумент в new-message")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error processing new-message: ${e.message}")
+                        e.printStackTrace()
+                    }
+                }
+            }
+
+            socket?.on("file-message") { args ->
+                Log.d("MainActivity", "file-message event received")
                 runOnUiThread {
                     try {
                         val message = args[0] as JSONObject
-                        handleBackgroundMessage(message)
+                        handleFileMessage(message)
                     } catch (e: Exception) {
-                        Log.e("MainActivity", "Error processing new-message: ${e.message}")
+                        Log.e("MainActivity", "Error processing file-message: ${e.message}")
+                    }
+                }
+            }
+
+            socket?.on("file-upload-progress") { args ->
+                runOnUiThread {
+                    try {
+                        val data = args[0] as JSONObject
+                        val progress = data.getInt("progress")
+                        val fileName = data.getString("fileName")
+                        showFileUploadIndicator("$fileName ($progress%)")
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error processing file-upload-progress: ${e.message}")
+                    }
+                }
+            }
+
+            socket?.on("file-download-progress") { args ->
+                runOnUiThread {
+                    try {
+                        val data = args[0] as JSONObject
+                        val progress = data.getInt("progress")
+                        val fileName = data.getString("fileName")
+                        showFileDownloadProgress(fileName, progress)
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error processing file-download-progress: ${e.message}")
                     }
                 }
             }
@@ -795,7 +1628,6 @@ class MainActivity : AppCompatActivity() {
                     socket?.disconnect()
                     addSystemMessage("Ошибка входа: $error")
 
-                    // Если ошибка связана с паролем, возвращаемся к LoginActivity
                     if (error.contains("password", ignoreCase = true) ||
                         error.contains("парол", ignoreCase = true)) {
 
@@ -812,7 +1644,6 @@ class MainActivity : AppCompatActivity() {
                             .setCancelable(false)
                             .show()
                     } else {
-                        // Для других ошибок просто показываем сообщение
                         AlertDialog.Builder(this@MainActivity)
                             .setTitle("Ошибка входа")
                             .setMessage(error)
@@ -850,7 +1681,6 @@ class MainActivity : AppCompatActivity() {
                     try {
                         val data = args[0] as JSONObject
                         val messageId = data.getString("messageId")
-                        // TODO: Реализовать удаление сообщения из списка
                         Toast.makeText(this@MainActivity, "Сообщение удалено", Toast.LENGTH_SHORT).show()
                     } catch (e: Exception) {
                         Log.e("MainActivity", "Error processing message-deleted: ${e.message}")
@@ -897,13 +1727,11 @@ class MainActivity : AppCompatActivity() {
                 connectionAttempts++
 
                 if (connectionAttempts >= MAX_CONNECTION_ATTEMPTS) {
-                    // Возвращаемся на экран входа
                     AlertDialog.Builder(this)
                         .setTitle("Превышено количество попыток")
                         .setMessage("Не удалось подключиться после $MAX_CONNECTION_ATTEMPTS попыток")
                         .setPositiveButton("Вернуться к входу") { d, _ ->
                             d.dismiss()
-                            // Возвращаемся на LoginActivity
                             val intent = Intent(this, LoginActivity::class.java)
                             intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
                             startActivity(intent)
@@ -913,12 +1741,10 @@ class MainActivity : AppCompatActivity() {
                         .show()
                 } else {
                     addSystemMessage("Попытка повторного подключения $connectionAttempts/$MAX_CONNECTION_ATTEMPTS...")
-                    // Очищаем старый сокет
                     socket?.disconnect()
                     socket?.off()
                     socket = null
 
-                    // Пробуем подключиться заново через 3 секунды
                     android.os.Handler(mainLooper).postDelayed({
                         connectToServer(username, room, password)
                     }, RECONNECT_DELAY)
@@ -926,7 +1752,6 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton("Выйти") { dialog, _ ->
                 dialog.dismiss()
-                // Возвращаемся на экран входа
                 val intent = Intent(this, LoginActivity::class.java)
                 intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
                 startActivity(intent)
@@ -960,7 +1785,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Шифруем сообщение если есть ключ
         val encryptedText = if (encryptionKey.isNotEmpty()) {
             CryptoJSCompat.encryptText(text, encryptionKey)
         } else {
@@ -976,9 +1800,8 @@ class MainActivity : AppCompatActivity() {
 
         socket?.emit("send-message", messageData)
         binding.messageInput.text?.clear()
-        hideKeyboard() // Скрываем клавиатуру после отправки
+        hideKeyboard()
 
-        // Прокрутка к последнему сообщению
         scrollToBottom()
     }
 
@@ -986,10 +1809,175 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             addMessageFromServer(message)
 
-            // Если приложение в фоне - показываем уведомление
             if (isAppInBackground || isDeviceLocked) {
                 showNotification(message)
             }
+        }
+    }
+    private fun getFileMessageText(fileMessage: FileMessage): String {
+        return when (fileMessage.fileCategory) {
+            FileManager.FileType.IMAGE -> "📷 Изображение: ${fileMessage.fileName}"
+            FileManager.FileType.VIDEO -> {
+                if (fileMessage.duration > 0) {
+                    val minutes = fileMessage.duration / 1000 / 60
+                    val seconds = (fileMessage.duration / 1000) % 60
+                    "🎥 Видео (${minutes}:${String.format("%02d", seconds)}): ${fileMessage.fileName}"
+                } else {
+                    "🎥 Видео: ${fileMessage.fileName}"
+                }
+            }
+            FileManager.FileType.AUDIO -> {
+                if (fileMessage.duration > 0) {
+                    val minutes = fileMessage.duration / 1000 / 60
+                    val seconds = (fileMessage.duration / 1000) % 60
+                    "🎵 Аудио (${minutes}:${String.format("%02d", seconds)}): ${fileMessage.fileName}"
+                } else {
+                    "🎵 Аудио: ${fileMessage.fileName}"
+                }
+            }
+            FileManager.FileType.DOCUMENT -> "📄 Файл: ${fileMessage.fileName}"
+        }
+    }
+
+    private fun handleFileMessage(message: JSONObject) {
+        try {
+            Log.d("MainActivity", "Обработка файлового сообщения: ${message.toString()}")
+
+            val hasFile = message.has("isFile") && message.getBoolean("isFile")
+            val hasFileData = message.has("fileData") && !message.isNull("fileData")
+            val hasFileName = message.has("fileName") && !message.isNull("fileName")
+
+            if (hasFile || hasFileData || hasFileName) {
+                Log.d("MainActivity", "Это файловое сообщение")
+                val fileMessage = parseFileMessageFromServer(message)
+
+                val chatMessage = ChatMessage(
+                    id = message.optString("id", System.currentTimeMillis().toString()),
+                    username = message.optString("username", "unknown"),
+                    text = getFileMessageText(fileMessage),
+                    timestamp = parseTimestamp(message.optString("timestamp")),
+                    isMyMessage = message.optString("username", "") == currentUser,
+                    isSystem = message.optBoolean("isSystem", false),
+                    isEncrypted = message.optBoolean("isEncrypted", false),
+                    originalEncryptedText = if (message.optBoolean("isEncrypted", false)) {
+                        message.optString("text", "")
+                    } else null,
+                    attachedFile = fileMessage,
+                    hasAttachment = true
+                )
+
+                Log.d("MainActivity", "Добавление файлового сообщения в адаптер: ${fileMessage.fileName}")
+                messagesAdapter.addMessage(chatMessage)
+                scrollToBottom()
+
+                // УБИРАЕМ автоматическую загрузку файлов при получении
+                // Файлы будут загружаться только при клике
+            } else {
+                Log.d("MainActivity", "Это обычное текстовое сообщение")
+                addMessageFromServer(message)
+            }
+
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Ошибка обработки файлового сообщения: ${e.message}")
+            e.printStackTrace()
+            try {
+                addMessageFromServer(message)
+            } catch (e2: Exception) {
+                Log.e("MainActivity", "Не удалось обработать сообщение вообще: ${e2.message}")
+                addSystemMessage("Ошибка обработки сообщения: ${e.message}")
+            }
+        }
+    }
+
+    private fun parseFileMessageFromServer(message: JSONObject): FileMessage {
+        val fileManager = FileManager(this)
+
+        try {
+            val fileName = message.optString("fileName", "unknown_file")
+            val fileType = message.optString("fileType", "*/*")
+
+            var fileSize: Long = 0L
+            try {
+                val fileSizeStr = message.optString("fileSize", "0")
+                if (fileSizeStr.contains("МБ") || fileSizeStr.contains("KB") || fileSizeStr.contains("MB")) {
+                    fileSize = parseFileSizeString(fileSizeStr)
+                } else {
+                    fileSize = fileSizeStr.toLongOrNull() ?: 0L
+                }
+            } catch (e: Exception) {
+                Log.w("MainActivity", "Ошибка парсинга fileSize: ${e.message}")
+                fileSize = 0L
+            }
+
+            val isEncrypted = message.optBoolean("isEncrypted", false)
+
+            var fileUrl: String? = null
+            if (message.has("fileUrl")) {
+                fileUrl = message.optString("fileUrl", null)
+            }
+
+            var fileData: String? = null
+            if (message.has("fileData")) {
+                fileData = message.optString("fileData", null)
+            }
+
+            Log.d("MainActivity", "Парсинг файла: name=$fileName, type=$fileType, size=$fileSize")
+
+            return FileMessage(
+                id = message.optString("fileId", message.optString("id", System.currentTimeMillis().toString())),
+                messageId = message.optString("id", System.currentTimeMillis().toString()),
+                fileName = fileName,
+                fileType = fileType,
+                fileSize = fileSize,
+                fileUrl = fileUrl,
+                fileData = fileData,
+                localPath = null,
+                isEncrypted = isEncrypted,
+                fileCategory = fileManager.getFileType(fileType, fileName),
+                duration = message.optLong("duration", 0),
+                uploadProgress = 0,
+                isDownloading = false,
+                isUploading = false
+            )
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Ошибка парсинга файлового сообщения: ${e.message}")
+            return FileMessage(
+                id = System.currentTimeMillis().toString(),
+                messageId = message.optString("id", System.currentTimeMillis().toString()),
+                fileName = "error_file",
+                fileType = "*/*",
+                fileSize = 0L,
+                fileUrl = null,
+                fileData = null,
+                localPath = null,
+                isEncrypted = false,
+                fileCategory = FileManager.FileType.DOCUMENT,
+                duration = 0,
+                uploadProgress = 0,
+                isDownloading = false,
+                isUploading = false
+            )
+        }
+    }
+
+    private fun parseFileSizeString(sizeStr: String): Long {
+        return try {
+            val cleaned = sizeStr.replace("МБ", "")
+                .replace("MB", "")
+                .replace("KB", "")
+                .replace("КБ", "")
+                .replace(" ", "")
+                .trim()
+
+            val size = cleaned.toDoubleOrNull() ?: 0.0
+
+            when {
+                sizeStr.contains("МБ") || sizeStr.contains("MB") -> (size * 1024 * 1024).toLong()
+                sizeStr.contains("КБ") || sizeStr.contains("KB") -> (size * 1024).toLong()
+                else -> size.toLong()
+            }
+        } catch (e: Exception) {
+            0L
         }
     }
 
@@ -1000,13 +1988,10 @@ class MainActivity : AppCompatActivity() {
             val isSystem = message.optBoolean("isSystem", false)
             val isEncrypted = message.optBoolean("isEncrypted", false)
 
-            // Не показываем уведомления для системных сообщений
             if (isSystem) return
 
-            // Не показываем уведомления для собственных сообщений
             if (username == currentUser) return
 
-            // Дешифровываем для уведомления если есть ключ
             val displayText = if (isEncrypted && encryptionKey.isNotEmpty()) {
                 try {
                     CryptoJSCompat.decryptText(text, encryptionKey)
@@ -1021,7 +2006,6 @@ class MainActivity : AppCompatActivity() {
 
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            // Создаем канал уведомлений для Android Oreo и выше
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val channel = NotificationChannel(
                     "chat_messages",
@@ -1072,17 +2056,19 @@ class MainActivity : AppCompatActivity() {
     private fun addMessageFromServer(message: JSONObject) {
         try {
             val username = message.getString("username")
-            val text = message.getString("text")
+            val text = message.optString("text", "")
+
+            if (text.isEmpty() && !message.optBoolean("isSystem", false)) {
+                Log.w("MainActivity", "Пустое текстовое сообщение от $username, пропускаем")
+                return
+            }
+
             val isSystem = message.optBoolean("isSystem", false)
             val timestamp = message.optString("timestamp", Date().toString())
 
-            // ВАЖНО: Проверяем, зашифровано ли сообщение
-            // 1. Сначала проверяем флаг isEncrypted
-            // 2. Если нет флага, проверяем формат CryptoJS
             val isEncrypted = message.optBoolean("isEncrypted", false) ||
                     CryptoJSCompat.isCryptoJSEncrypted(text)
 
-            // Дешифровываем сообщение если оно зашифровано и у нас есть ключ
             val displayText = if (isEncrypted && encryptionKey.isNotEmpty()) {
                 try {
                     CryptoJSCompat.decryptText(text, encryptionKey)
@@ -1103,7 +2089,9 @@ class MainActivity : AppCompatActivity() {
                 isMyMessage = username == currentUser,
                 isSystem = isSystem,
                 isEncrypted = isEncrypted,
-                originalEncryptedText = if (isEncrypted) text else null
+                originalEncryptedText = if (isEncrypted) text else null,
+                attachedFile = null,
+                hasAttachment = false
             )
 
             messagesAdapter.addMessage(chatMessage)
@@ -1111,6 +2099,8 @@ class MainActivity : AppCompatActivity() {
 
         } catch (e: Exception) {
             Log.e("MainActivity", "Error parsing message: ${e.message}")
+            Log.e("MainActivity", "Message JSON: ${message.toString()}")
+            e.printStackTrace()
         }
     }
 
@@ -1122,10 +2112,13 @@ class MainActivity : AppCompatActivity() {
             timestamp = getCurrentTime(),
             isMyMessage = false,
             isSystem = true,
-            isEncrypted = false
+            isEncrypted = false,
+            originalEncryptedText = null,
+            attachedFile = null,
+            hasAttachment = false
         )
         messagesAdapter.addMessage(systemMessage)
-        scrollToBottom()
+            //scrollToBottom()
     }
 
     private fun updateUsersList(users: JSONArray) {
@@ -1135,8 +2128,6 @@ class MainActivity : AppCompatActivity() {
             usersList.add(user.getString("username"))
         }
 
-        // TODO: Обновить RecyclerView со списком пользователей
-        // Пока просто показываем количество
         val usersCount = usersList.size
         binding.userInfo.text = "✪ $currentUser (всего: $usersCount)"
     }
@@ -1191,21 +2182,22 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
 
-        // Отменяем таймер
         debounceTimer?.cancel()
 
-        // Отменяем регистрацию receiver
         try {
             unregisterReceiver(serviceStatusReceiver)
         } catch (e: Exception) {
             Log.e("MainActivity", "Error unregistering receiver: ${e.message}")
         }
 
-        // Отключаем сокет
         socket?.disconnect()
         socket?.off()
 
-        // Останавливаем сервисы только если выходим из приложения
+        // Исправляем вызов cleanupTempFiles
+        fileManager.cleanupTempFiles()  // Вместо cleanupTempFiles()
+
+        audioRecorder.stopNativeRecording()
+
         if (isFinishing) {
             ChatForegroundService.stopService(this)
         }

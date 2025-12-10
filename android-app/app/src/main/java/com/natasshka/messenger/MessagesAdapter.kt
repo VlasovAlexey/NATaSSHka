@@ -1,4 +1,3 @@
-// app/src/main/java/com/natasshka/messenger/MessagesAdapter.kt
 package com.natasshka.messenger
 
 import android.view.LayoutInflater
@@ -6,9 +5,19 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.RecyclerView
+import com.natasshka.messenger.databinding.ItemFileMessageBinding
 import com.natasshka.messenger.databinding.ItemMessageBinding
 
-class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>() {
+class MessagesAdapter(
+    private val onFileClickListener: (FileMessage) -> Unit = {},
+    private val onFileRetryClickListener: (FileMessage) -> Unit = {}
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+    companion object {
+        private const val VIEW_TYPE_MESSAGE = 1
+        private const val VIEW_TYPE_FILE = 2
+        private const val VIEW_TYPE_SYSTEM = 3
+    }
 
     private val messages = mutableListOf<ChatMessage>()
     private var encryptionKey = ""
@@ -29,7 +38,6 @@ class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>(
         for (i in messages.indices) {
             val message = messages[i]
             if (message.isEncrypted) {
-                // Обновляем текст сообщения в зависимости от наличия ключа
                 val newText = if (encryptionKey.isNotEmpty() && message.originalEncryptedText != null) {
                     try {
                         CryptoJSCompat.decryptText(message.originalEncryptedText, encryptionKey)
@@ -42,7 +50,6 @@ class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>(
                     message.text
                 }
 
-                // Создаем обновленное сообщение
                 val updatedMessage = message.copy(text = newText)
                 messages[i] = updatedMessage
                 notifyItemChanged(i)
@@ -50,17 +57,60 @@ class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>(
         }
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
-        val binding = ItemMessageBinding.inflate(
-            LayoutInflater.from(parent.context),
-            parent,
-            false
-        )
-        return MessageViewHolder(binding)
+    override fun getItemViewType(position: Int): Int {
+        val message = messages[position]
+        return when {
+            message.isSystem -> VIEW_TYPE_SYSTEM
+            message.attachedFile != null -> VIEW_TYPE_FILE
+            else -> VIEW_TYPE_MESSAGE
+        }
     }
 
-    override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
-        holder.bind(messages[position])
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        return when (viewType) {
+            VIEW_TYPE_FILE -> {
+                val binding = ItemFileMessageBinding.inflate(
+                    LayoutInflater.from(parent.context),
+                    parent,
+                    false
+                )
+                FileMessageViewHolder(
+                    binding,
+                    onFileClickListener,
+                    onFileRetryClickListener
+                )
+            }
+            VIEW_TYPE_SYSTEM -> {
+                val binding = ItemMessageBinding.inflate(
+                    LayoutInflater.from(parent.context),
+                    parent,
+                    false
+                )
+                SystemMessageViewHolder(binding)
+            }
+            else -> {
+                val binding = ItemMessageBinding.inflate(
+                    LayoutInflater.from(parent.context),
+                    parent,
+                    false
+                )
+                MessageViewHolder(binding)
+            }
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        val message = messages[position]
+
+        when (holder) {
+            is MessageViewHolder -> holder.bind(message)
+            is FileMessageViewHolder -> {
+                message.attachedFile?.let { fileMessage ->
+                    holder.bind(fileMessage)
+                }
+            }
+            is SystemMessageViewHolder -> holder.bind(message)
+        }
     }
 
     override fun getItemCount(): Int = messages.size
@@ -70,87 +120,60 @@ class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>(
 
         fun bind(message: ChatMessage) {
             with(binding) {
-                // Настройка внешнего вида в зависимости от типа сообщения
-                when {
-                    message.isSystem -> {
-                        messageCard.setCardBackgroundColor(
-                            root.context.getColor(R.color.system_message)
-                        )
-                        messageUsername.text = "Система"
-                        messageUsername.visibility = View.VISIBLE
+                if (message.isMyMessage) {
+                    messageCard.setCardBackgroundColor(
+                        root.context.getColor(R.color.my_message)
+                    )
+                    messageUsername.text = "Вы"
+                    messageUsername.visibility = View.VISIBLE
 
-                        // Системные сообщения по центру
-                        val layoutParams = messageCard.layoutParams as? ViewGroup.MarginLayoutParams
-                        layoutParams?.let {
-                            it.marginStart = 0
-                            it.marginEnd = 0
-                            it.width = ViewGroup.LayoutParams.MATCH_PARENT
-                        }
-                        messageCard.requestLayout()
+                    val layoutParams = messageCard.layoutParams as? ViewGroup.MarginLayoutParams
+                    layoutParams?.let {
+                        it.marginStart = 80
+                        it.marginEnd = 8
+                        it.width = ViewGroup.LayoutParams.WRAP_CONTENT
                     }
-                    message.isMyMessage -> {
-                        messageCard.setCardBackgroundColor(
-                            root.context.getColor(R.color.my_message)
-                        )
-                        messageUsername.text = "Вы"
-                        messageUsername.visibility = View.VISIBLE
+                    val innerLayout = messageCard.getChildAt(0)
+                    if (innerLayout is ConstraintLayout) {
+                        val params = innerLayout.layoutParams as ConstraintLayout.LayoutParams
+                        params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+                        params.startToStart = ConstraintLayout.LayoutParams.UNSET
+                        innerLayout.layoutParams = params
+                    }
+                    messageCard.requestLayout()
+                } else {
+                    messageCard.setCardBackgroundColor(
+                        root.context.getColor(R.color.other_message)
+                    )
+                    messageUsername.text = message.username
+                    messageUsername.visibility = View.VISIBLE
 
-                        // Сообщения текущего пользователя выравниваем справа
-                        val layoutParams = messageCard.layoutParams as? ViewGroup.MarginLayoutParams
-                        layoutParams?.let {
-                            it.marginStart = 80
-                            it.marginEnd = 8
-                            it.width = ViewGroup.LayoutParams.WRAP_CONTENT
-                        }
-                        // Выравниваем содержимое внутри карточки
-                        val innerLayout = messageCard.getChildAt(0)
-                        if (innerLayout is ConstraintLayout) {
-                            val params = innerLayout.layoutParams as ConstraintLayout.LayoutParams
-                            params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
-                            params.startToStart = ConstraintLayout.LayoutParams.UNSET
-                            innerLayout.layoutParams = params
-                        }
-                        messageCard.requestLayout()
+                    val layoutParams = messageCard.layoutParams as? ViewGroup.MarginLayoutParams
+                    layoutParams?.let {
+                        it.marginStart = 8
+                        it.marginEnd = 80
+                        it.width = ViewGroup.LayoutParams.WRAP_CONTENT
                     }
-                    else -> {
-                        messageCard.setCardBackgroundColor(
-                            root.context.getColor(R.color.other_message)
-                        )
-                        messageUsername.text = message.username
-                        messageUsername.visibility = View.VISIBLE
-
-                        // Сообщения других пользователей выравниваем слева
-                        val layoutParams = messageCard.layoutParams as? ViewGroup.MarginLayoutParams
-                        layoutParams?.let {
-                            it.marginStart = 8
-                            it.marginEnd = 80
-                            it.width = ViewGroup.LayoutParams.WRAP_CONTENT
-                        }
-                        // Выравниваем содержимое внутри карточки
-                        val innerLayout = messageCard.getChildAt(0)
-                        if (innerLayout is ConstraintLayout) {
-                            val params = innerLayout.layoutParams as ConstraintLayout.LayoutParams
-                            params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
-                            params.endToEnd = ConstraintLayout.LayoutParams.UNSET
-                            innerLayout.layoutParams = params
-                        }
-                        messageCard.requestLayout()
+                    val innerLayout = messageCard.getChildAt(0)
+                    if (innerLayout is ConstraintLayout) {
+                        val params = innerLayout.layoutParams as ConstraintLayout.LayoutParams
+                        params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+                        params.endToEnd = ConstraintLayout.LayoutParams.UNSET
+                        innerLayout.layoutParams = params
                     }
+                    messageCard.requestLayout()
                 }
 
                 messageText.text = message.text
                 messageTime.text = message.timestamp
 
-                // Для зашифрованных сообщений меняем цвет и стиль текста
                 if (message.isEncrypted) {
                     if (message.text.contains("🔒")) {
-                        // Если не можем расшифровать - красный текст
                         messageText.setTextColor(
                             root.context.getColor(android.R.color.holo_red_dark)
                         )
                         messageText.textSize = 14f
                     } else {
-                        // Если успешно расшифровали - темно-серый
                         messageText.setTextColor(
                             root.context.getColor(R.color.dark_gray)
                         )
@@ -163,7 +186,6 @@ class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>(
                     messageText.textSize = 16f
                 }
 
-                // Выравниваем время в зависимости от типа сообщения
                 if (message.isMyMessage) {
                     messageTime.gravity = android.view.Gravity.END
                 } else {
@@ -171,5 +193,51 @@ class MessagesAdapter : RecyclerView.Adapter<MessagesAdapter.MessageViewHolder>(
                 }
             }
         }
+    }
+
+    inner class SystemMessageViewHolder(private val binding: ItemMessageBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+
+        fun bind(message: ChatMessage) {
+            with(binding) {
+                messageCard.setCardBackgroundColor(
+                    root.context.getColor(R.color.system_message)
+                )
+                messageUsername.text = "Система"
+                messageUsername.visibility = View.VISIBLE
+
+                val layoutParams = messageCard.layoutParams as? ViewGroup.MarginLayoutParams
+                layoutParams?.let {
+                    it.marginStart = 0
+                    it.marginEnd = 0
+                    it.width = ViewGroup.LayoutParams.MATCH_PARENT
+                }
+                messageCard.requestLayout()
+
+                messageText.text = message.text
+                messageTime.text = message.timestamp
+                messageText.setTextColor(root.context.getColor(R.color.black))
+                messageText.textSize = 14f
+                messageTime.gravity = android.view.Gravity.CENTER
+            }
+        }
+    }
+    fun updateFileLocalPath(fileId: String, localPath: String) {
+        for (i in messages.indices) {
+            val message = messages[i]
+            if (message.attachedFile?.id == fileId) {
+                // Создаем обновленное сообщение с новым путем
+                val updatedFileMessage = message.attachedFile.copy(localPath = localPath)
+                val updatedMessage = message.copy(attachedFile = updatedFileMessage)
+                messages[i] = updatedMessage
+                notifyItemChanged(i)
+                break
+            }
+        }
+    }
+
+    // Метод для получения сообщения по индексу (опционально)
+    fun getMessage(position: Int): ChatMessage {
+        return messages[position]
     }
 }

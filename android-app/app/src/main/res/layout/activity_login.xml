@@ -134,6 +134,7 @@
             android:layout_height="56dp"
             android:inputType="text"
             android:maxLines="1"
+            android:maxLength="16"
             android:text="Room_01"
             android:textColor="@color/white"
             android:gravity="center"

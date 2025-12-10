@@ -28,17 +28,5 @@ object DeviceUtils {
         }
     }
 
-    fun isXiaomiDevice(): Boolean {
-        return Build.MANUFACTURER.equals("xiaomi", ignoreCase = true) ||
-                Build.MANUFACTURER.equals("redmi", ignoreCase = true)
-    }
 
-    fun isHyperOS(): Boolean {
-        return try {
-            val properties = System.getProperties()
-            properties.getProperty("ro.miui.ui.version.name", "").contains("hyper", ignoreCase = true)
-        } catch (e: Exception) {
-            false
-        }
-    }
 }

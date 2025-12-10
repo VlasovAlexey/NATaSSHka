@@ -15,8 +15,14 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Для Android 10+ Scoped Storage
+        manifestPlaceholders["usesCleartextTraffic"] = "true"
     }
-
+// Для работы с файлами на Android 10+
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -39,6 +45,21 @@ android {
 }
 
 dependencies {
+    // Для работы с изображениями
+    implementation("com.github.bumptech.glide:glide:4.14.2")
+        //kapt("com.github.bumptech.glide:compiler:4.14.2")
+
+    // Для работы с видео
+    implementation("com.google.android.exoplayer:exoplayer:2.18.7")
+
+    // Для работы с файлами
+    implementation("commons-io:commons-io:2.11.0")
+    // Для обработки MIME типов
+    implementation("org.apache.tika:tika-core:2.9.1")
+
+    // Для работы с URI и файлами
+    implementation("androidx.documentfile:documentfile:1.0.1")
+
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")

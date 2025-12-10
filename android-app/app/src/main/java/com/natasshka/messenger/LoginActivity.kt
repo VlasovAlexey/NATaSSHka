@@ -416,6 +416,25 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
+        // Валидация названия комнаты
+        if (room.isEmpty()) {
+            roomInput.error = "Введите название комнаты"
+            return
+        }
+
+        // Проверка длины названия комнаты
+        if (room.length > 16) {
+            roomInput.error = "Название комнаты не должно превышать 16 символов"
+            return
+        }
+
+        // Проверка на латинские символы, цифры и нижнее подчеркивание для комнаты
+        val roomRegex = "^[a-zA-Z0-9_]+$".toRegex()
+        if (!room.matches(roomRegex)) {
+            roomInput.error = "Только латинские буквы, цифры и _ (без пробелов)"
+            return
+        }
+
         // Проверка пароля
         if (password.isEmpty()) {
             passwordInput.error = "Введите пароль"
@@ -425,6 +444,7 @@ class LoginActivity : AppCompatActivity() {
         // Очищаем ошибки
         serverInput.error = null
         usernameInput.error = null
+        roomInput.error = null
         passwordInput.error = null
 
         // Сохраняем данные (кроме пароля)
@@ -438,7 +458,7 @@ class LoginActivity : AppCompatActivity() {
         val intent = Intent(this, MainActivity::class.java).apply {
             putExtra("server", server)
             putExtra("username", username)
-            putExtra("room", if (room.isEmpty()) "Room_01" else room)
+            putExtra("room", room) // Используем введенное значение, а не по умолчанию
             putExtra("password", password)
         }
         startActivity(intent)

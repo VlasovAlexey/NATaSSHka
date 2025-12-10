@@ -1,4 +1,3 @@
-// app/src/main/java/com/natasshka/messenger/ChatMessage.kt
 package com.natasshka.messenger
 
 data class ChatMessage(
@@ -9,5 +8,7 @@ data class ChatMessage(
     val isMyMessage: Boolean,
     val isSystem: Boolean = false,
     val isEncrypted: Boolean = false,
-    val originalEncryptedText: String? = null // Для перешифровки
+    val originalEncryptedText: String? = null, // Для перешифровки
+    val attachedFile: FileMessage? = null, // Прикрепленный файл
+    val hasAttachment: Boolean = false // Флаг наличия вложения
 )
