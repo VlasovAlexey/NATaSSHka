@@ -102,7 +102,7 @@
             android:exported="true"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize|stateHidden"
-            android:theme="@style/Theme.NATaSSHka">
+            android:theme="@style/Theme.NATaSSHka.Launcher">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

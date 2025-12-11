@@ -10,6 +10,14 @@
         <item name="android:windowTranslucentStatus">true</item>
         <item name="android:windowTranslucentNavigation">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+
+    </style>
+    <!-- Тема для splash screen -->
+    <style name="Theme.NATaSSHka.Launcher" parent="Theme.NATaSSHka">
+        <item name="android:windowBackground">@drawable/login_gradient</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowContentOverlay">@null</item>
     </style>
 
     <!-- Стиль для центрированного текста подсказок -->
@@ -19,8 +27,9 @@
         <item name="android:textColor">@color/white</item>
         <item name="android:textSize">14sp</item>
         <item name="android:shadowColor">@color/black</item>
-        <item name="android:shadowDx">1</item>
-        <item name="android:shadowDy">1</item>
-        <item name="android:shadowRadius">2</item>
+        <item name="android:shadowColor">@color/black</item>
+        <item name="android:shadowDx">0</item>
+        <item name="android:shadowDy">0</item>
+        <item name="android:shadowRadius">0</item>
     </style>
 </resources>

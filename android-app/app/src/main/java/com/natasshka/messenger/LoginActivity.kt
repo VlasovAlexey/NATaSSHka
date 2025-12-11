@@ -69,6 +69,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.Theme_NATaSSHka)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 

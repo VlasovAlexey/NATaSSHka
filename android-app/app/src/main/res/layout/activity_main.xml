@@ -49,6 +49,7 @@
             android:paddingTop="11dp"
             android:paddingBottom="11dp"
             android:textColor="#757575"
+            android:textColorHint="@color/input_text_light"
             android:textCursorDrawable="@drawable/cursor_color"
             android:drawableEnd="@drawable/ic_clear" />
 
@@ -143,6 +144,7 @@
             android:paddingTop="11dp"
             android:paddingBottom="11dp"
             android:textColor="#757575"
+            android:textColorHint="@color/input_text_light"
             android:textCursorDrawable="@drawable/cursor_color" />
 
         <!-- Контейнер для кнопок записи -->
