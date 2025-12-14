@@ -1,5 +1,6 @@
-// [file name]: FileMessage.kt
 package com.natasshka.messenger
+
+import java.io.Serializable
 
 data class FileMessage(
     val id: String,
@@ -8,7 +9,7 @@ data class FileMessage(
     val fileType: String,
     val fileSize: Long,
     val fileUrl: String? = null,
-    val fileData: String? = null, // Добавляем поле для данных файла в base64
+    val fileData: String? = null,
     val localPath: String? = null,
     val isEncrypted: Boolean = false,
     val fileCategory: FileManager.FileType,
@@ -17,4 +18,4 @@ data class FileMessage(
     val uploadProgress: Int = 0,
     val isDownloading: Boolean = false,
     val isUploading: Boolean = false
-)
+) : Serializable // Добавьте это

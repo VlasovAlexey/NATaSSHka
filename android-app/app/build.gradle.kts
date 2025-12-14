@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+
 }
 
 android {
@@ -46,8 +47,8 @@ android {
 
 dependencies {
     // Для работы с изображениями
-    implementation("com.github.bumptech.glide:glide:4.14.2")
-        //kapt("com.github.bumptech.glide:compiler:4.14.2")
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+
 
     // Для работы с видео
     implementation("com.google.android.exoplayer:exoplayer:2.18.7")
@@ -93,5 +94,6 @@ dependencies {
 
     // Для PBKDF2 (генерирует ключ как CryptoJS)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
-    
+
+    implementation("com.github.chrisbanes.photoview:library:1.2.4")
 }

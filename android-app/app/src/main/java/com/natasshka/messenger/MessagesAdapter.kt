@@ -10,7 +10,9 @@ import com.natasshka.messenger.databinding.ItemMessageBinding
 
 class MessagesAdapter(
     private val onFileClickListener: (FileMessage) -> Unit = {},
-    private val onFileRetryClickListener: (FileMessage) -> Unit = {}
+    private val onFileRetryClickListener: (FileMessage) -> Unit = {},
+    private val serverBaseUrl: String = "http://10.0.2.2:3000",
+    private var encryptionKey: String = "" // Добавляем поле для ключа шифрования
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -20,7 +22,6 @@ class MessagesAdapter(
     }
 
     private val messages = mutableListOf<ChatMessage>()
-    private var encryptionKey = ""
 
     fun addMessage(message: ChatMessage) {
         messages.add(message)
@@ -37,6 +38,8 @@ class MessagesAdapter(
 
         for (i in messages.indices) {
             val message = messages[i]
+
+            // Перешифровка текстовых сообщений
             if (message.isEncrypted) {
                 val newText = if (encryptionKey.isNotEmpty() && message.originalEncryptedText != null) {
                     try {
@@ -52,6 +55,14 @@ class MessagesAdapter(
 
                 val updatedMessage = message.copy(text = newText)
                 messages[i] = updatedMessage
+                notifyItemChanged(i)
+            }
+
+            // Для файловых сообщений с изображениями, если изменился ключ, нужно перерисовать
+            if (message.attachedFile != null &&
+                message.attachedFile.isEncrypted &&
+                message.attachedFile.fileCategory == FileManager.FileType.IMAGE) {
+
                 notifyItemChanged(i)
             }
         }
@@ -77,7 +88,9 @@ class MessagesAdapter(
                 FileMessageViewHolder(
                     binding,
                     onFileClickListener,
-                    onFileRetryClickListener
+                    onFileRetryClickListener,
+                    serverBaseUrl, // Передаем serverBaseUrl
+                    encryptionKey
                 )
             }
             VIEW_TYPE_SYSTEM -> {
@@ -105,6 +118,8 @@ class MessagesAdapter(
         when (holder) {
             is MessageViewHolder -> holder.bind(message)
             is FileMessageViewHolder -> {
+                // Обновляем ключ шифрования в ViewHolder
+                holder.updateEncryptionKey(encryptionKey)
                 message.attachedFile?.let { fileMessage ->
                     holder.bind(fileMessage)
                 }
@@ -114,6 +129,15 @@ class MessagesAdapter(
     }
 
     override fun getItemCount(): Int = messages.size
+
+    override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
+        super.onViewRecycled(holder)
+
+        // Очищаем ресурсы при переиспользовании ViewHolder для изображений
+        if (holder is FileMessageViewHolder) {
+            holder.clear()
+        }
+    }
 
     inner class MessageViewHolder(private val binding: ItemMessageBinding) :
         RecyclerView.ViewHolder(binding.root) {
@@ -222,6 +246,7 @@ class MessagesAdapter(
             }
         }
     }
+
     fun updateFileLocalPath(fileId: String, localPath: String) {
         for (i in messages.indices) {
             val message = messages[i]

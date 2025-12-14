@@ -202,6 +202,7 @@ class MainActivity : AppCompatActivity() {
             openFilePickerLegacy()
         }
     }
+
     private fun openFilePickerForAndroid13() {
         // Для Android 13+ используем ACTION_OPEN_DOCUMENT с конкретными типами
         val mimeTypes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -523,14 +524,73 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onFileClicked(fileMessage: FileMessage) {
-        if (fileMessage.localPath != null) {
-            openFile(fileMessage)
+        // Для всех файлов вызываем openFile, который решит что делать
+        openFile(fileMessage)
+    }
+
+    private fun openFile(fileMessage: FileMessage) {
+        // Проверяем тип файла
+        val isImage = fileMessage.fileCategory == FileManager.FileType.IMAGE
+
+        if (isImage) {
+            // Для изображений открываем полноэкранный просмотр
+            openImageFullscreen(fileMessage)
+        } else if (fileMessage.localPath != null) {
+            // Для других файлов, если есть локальный путь
+            openLocalFile(fileMessage)
         } else {
+            // Если файл не скачан, скачиваем его
+            Toast.makeText(this, "Файл не скачан. Скачиваем...", Toast.LENGTH_SHORT).show()
             downloadFile(fileMessage)
         }
     }
 
-    private fun openFile(fileMessage: FileMessage) {
+
+    private fun openImageFullscreen(fileMessage: FileMessage) {
+        val intent = Intent(this, FullscreenImageActivity::class.java).apply {
+            // Получаем URL сервера
+            val server = getIntent().getStringExtra("server") ?: "http://10.0.2.2:3000"
+
+            // Передаем данные в зависимости от того, что есть
+            when {
+                fileMessage.localPath != null -> {
+                    // Есть локальный файл
+                    putExtra(FullscreenImageActivity.EXTRA_IMAGE_PATH, fileMessage.localPath)
+                }
+                fileMessage.fileUrl != null -> {
+                    // Есть URL - преобразуем в полный URL
+                    val fullUrl = if (fileMessage.fileUrl!!.startsWith("http")) {
+                        fileMessage.fileUrl
+                    } else {
+                        if (fileMessage.fileUrl!!.startsWith("/")) {
+                            "$server${fileMessage.fileUrl}"
+                        } else {
+                            "$server/${fileMessage.fileUrl}"
+                        }
+                    }
+                    putExtra(FullscreenImageActivity.EXTRA_IMAGE_URL, fullUrl)
+                }
+                fileMessage.fileData != null -> {
+                    // Есть данные в base64
+                    putExtra(FullscreenImageActivity.EXTRA_IMAGE_BASE64, fileMessage.fileData)
+                }
+            }
+
+            // Передаем данные файла отдельными полями
+            putExtra(FullscreenImageActivity.EXTRA_FILE_NAME, fileMessage.fileName)
+            putExtra(FullscreenImageActivity.EXTRA_IS_ENCRYPTED, fileMessage.isEncrypted)
+            putExtra(FullscreenImageActivity.EXTRA_ENCRYPTION_KEY, encryptionKey)
+
+            // Важно: передаем fileData для сохранения
+            if (fileMessage.fileData != null) {
+                putExtra(FullscreenImageActivity.EXTRA_FILE_DATA, fileMessage.fileData)
+            }
+        }
+
+        startActivity(intent)
+    }
+
+    private fun openLocalFile(fileMessage: FileMessage) {
         val file = File(fileMessage.localPath!!)
         if (!file.exists()) {
             Toast.makeText(this, "Файл не найден", Toast.LENGTH_SHORT).show()
@@ -719,6 +779,7 @@ class MainActivity : AppCompatActivity() {
     private suspend fun downloadFileFromUrl(fileMessage: FileMessage) {
         try {
             var fileUrl = fileMessage.fileUrl
+            Log.d("MainActivity", "Скачивание файла: ${fileMessage.fileName}, зашифрован: ${fileMessage.isEncrypted}")
 
             if (fileUrl != null && !fileUrl.startsWith("http://") && !fileUrl.startsWith("https://")) {
                 val server = intent.getStringExtra("server") ?: "http://10.0.2.2:3000"
@@ -740,22 +801,18 @@ class MainActivity : AppCompatActivity() {
 
             val inputStream = connection.getInputStream()
             val fileBytes = inputStream.readBytes()
+            val fileBase64 = android.util.Base64.encodeToString(fileBytes, android.util.Base64.DEFAULT)
 
-            // Используем saveToDownloads вместо saveReceivedFile
+            // Сохраняем файл с учетом шифрования
             val savedFile = fileManager.saveToDownloads(
-                Base64.getEncoder().encodeToString(fileBytes),
+                fileBase64,
                 fileMessage.fileName,
                 fileMessage.isEncrypted,
                 encryptionKey
             )
 
             runOnUiThread {
-                // Обновляем путь в сообщении
-                // Здесь вызываем правильный метод для обновления пути
-                // messagesAdapter.updateFileLocalPath(fileMessage.id, savedFile.absolutePath)
-                // Вместо updateFileMessagePath используем метод адаптера
-
-                // Просто обновляем адаптер
+                // Обновляем адаптер
                 messagesAdapter.notifyDataSetChanged()
 
                 // Показываем системное сообщение
@@ -763,8 +820,6 @@ class MainActivity : AppCompatActivity() {
                 addSystemMessage("Файл сохранен: $path")
 
                 Toast.makeText(this, "Файл сохранен: ${savedFile.name}", Toast.LENGTH_SHORT).show()
-
-                // НЕ прокручиваем вниз
             }
 
         } catch (e: Exception) {
@@ -780,6 +835,7 @@ class MainActivity : AppCompatActivity() {
             return fileUrl
         }
 
+        // Используем реальный URL сервера из интента
         val server = intent.getStringExtra("server") ?: "http://10.0.2.2:3000"
 
         val cleanUrl = if (fileUrl.startsWith("/")) fileUrl.substring(1) else fileUrl
@@ -914,13 +970,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
+        val serverUrl = intent.getStringExtra("server") ?: "http://10.0.2.2:3000"
         messagesAdapter = MessagesAdapter(
             onFileClickListener = { fileMessage ->
                 onFileClicked(fileMessage)
             },
             onFileRetryClickListener = { fileMessage ->
                 downloadFile(fileMessage)
-            }
+            },
+            serverBaseUrl = serverUrl // Передаем реальный URL сервера
         )
         binding.messagesRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -2058,6 +2116,8 @@ class MainActivity : AppCompatActivity() {
             val username = message.getString("username")
             val text = message.optString("text", "")
 
+            Log.d("MainActivity", "addMessageFromServer: username=$username, text length=${text.length}")
+
             if (text.isEmpty() && !message.optBoolean("isSystem", false)) {
                 Log.w("MainActivity", "Пустое текстовое сообщение от $username, пропускаем")
                 return
@@ -2098,6 +2158,7 @@ class MainActivity : AppCompatActivity() {
             scrollToBottom()
 
         } catch (e: Exception) {
+            Log.e("MainActivity", "Error parsing message: ${e.message}")
             Log.e("MainActivity", "Error parsing message: ${e.message}")
             Log.e("MainActivity", "Message JSON: ${message.toString()}")
             e.printStackTrace()
