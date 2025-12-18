@@ -75,6 +75,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var videoRecorder: VideoRecorder
     private lateinit var audioRecorder: AudioRecorder
 
+    private var isRecordingAudio = false
+    private var recordingStartTime: Long = 0
+    private var recordingTimer: Timer? = null
+    private val recordingUpdateInterval = 100L // 100ms для обновления UI
+    private var recordedAudioUri: Uri? = null // Сохраняем URI записанного аудио
+
     private val directoryPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -112,6 +118,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val PERMISSION_REQUEST_STORAGE = 1001
         const val PERMISSION_REQUEST_ANDROID_13 = 1002
+        const val PERMISSION_REQUEST_RECORD_AUDIO = 1003 // Добавляем новую константу
     }
 
     private val audioRecordLauncher = registerForActivityResult(
@@ -188,8 +195,31 @@ class MainActivity : AppCompatActivity() {
             recordVideo()
         }
 
-        binding.recordAudioBtn.setOnClickListener {
-            recordAudio()
+        // Устанавливаем обработчик для записи при зажатии с отладкой
+        binding.recordAudioBtn.setOnTouchListener { v, event ->
+            Log.d("AudioRecording", "OnTouch event: ${event.action}")
+
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    Log.d("AudioRecording", "Кнопка зажата (ACTION_DOWN)")
+                    startAudioRecording()
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    Log.d("AudioRecording", "Кнопка отпущена (ACTION_UP)")
+                    stopAudioRecording()
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    Log.d("AudioRecording", "Кнопка отменена (ACTION_CANCEL)")
+                    stopAudioRecording()
+                    true
+                }
+                else -> {
+                    Log.d("AudioRecording", "Другое событие: ${event.action}")
+                    false
+                }
+            }
         }
     }
 
@@ -344,10 +374,8 @@ class MainActivity : AppCompatActivity() {
         try {
             val contentResolver = contentResolver
 
-            // Получаем имя файла разными способами для надежности
+            // Получаем имя файла
             var fileName: String? = null
-
-            // Способ 1: Через Cursor
             contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     val displayNameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -357,20 +385,34 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // Способ 2: Из URI (если через Cursor не получилось)
+            // Если имя не получили, генерируем
             if (fileName == null || fileName.isNullOrEmpty()) {
                 fileName = uri.lastPathSegment?.substringAfterLast("/")
             }
 
-            // Способ 3: Генерируем имя если все еще null
-            if (fileName == null || fileName.isNullOrEmpty()) {
-                fileName = "file_${System.currentTimeMillis()}"
+            // Убеждаемся в правильном расширении для аудио
+            val cleanFileName = when {
+                fileName == null || fileName.isNullOrEmpty() -> {
+                    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                    "audio_message_${timeStamp}.webm"
+                }
+                fileName!!.endsWith(".3gp") -> {
+                    // Заменяем .3gp на .webm
+                    fileName!!.replace(".3gp", ".webm")
+                }
+                !fileName!!.endsWith(".webm") && !fileName!!.contains(".") -> {
+                    // Добавляем расширение если его нет
+                    "$fileName.webm"
+                }
+                else -> fileName!!
             }
 
-            val cleanFileName = fileName!!
-
-            // Получаем MIME тип
-            val mimeType = contentResolver.getType(uri) ?: "*/*"
+            // Определяем MIME тип
+            val mimeType = if (cleanFileName.endsWith(".webm")) {
+                "audio/webm"
+            } else {
+                contentResolver.getType(uri) ?: "audio/webm"
+            }
 
             // Проверяем размер файла
             val fileSize: Long = try {
@@ -391,14 +433,33 @@ class MainActivity : AppCompatActivity() {
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    // Получаем длительность для аудиофайлов
+                    var duration = 0.0
+                    if (mimeType.startsWith("audio/")) {
+                        try {
+                            val durationMs = fileManager.getMediaDuration(uri, mimeType)
+                            duration = durationMs / 1000.0 // Конвертируем в секунды
+                            Log.d("MainActivity", "Длительность аудиофайла: $duration секунд")
+                        } catch (e: Exception) {
+                            Log.w("MainActivity", "Не удалось получить длительность аудио: ${e.message}")
+                        }
+                    }
+
                     val fileJson = fileManager.prepareFileForSending(
                         uri = uri,
                         fileName = cleanFileName,
                         mimeType = mimeType,
-                        encryptionKey = encryptionKey
+                        encryptionKey = encryptionKey,
+                        duration = duration
                     )
 
+                    // Добавляем дополнительные поля если это аудио
+                    if (mimeType.startsWith("audio/")) {
+                        fileJson.put("isAudio", true)
+                    }
+
                     fileJson.put("room", currentRoom)
+                    fileJson.put("isFile", true)
 
                     socket?.emit("send-file", fileJson, io.socket.client.Ack { args ->
                         runOnUiThread {
@@ -473,61 +534,243 @@ class MainActivity : AppCompatActivity() {
     private fun recordVideo() {
         videoRecorder.recordVideo(videoRecordLauncher)
     }
+    private fun startAudioRecording() {
+        Log.d("AudioRecording", "Начинаем запись аудио")
 
-    private fun recordAudio() {
-        AlertDialog.Builder(this)
-            .setTitle("Запись аудио")
-            .setItems(arrayOf("Короткое сообщение (до 60 сек)", "Длинное сообщение")) { _, which ->
-                when (which) {
-                    0 -> recordShortAudio()
-                    1 -> recordLongAudio()
-                }
-            }
-            .setNegativeButton("Отмена", null)
-            .show()
+        if (isRecordingAudio) {
+            Log.d("AudioRecording", "Уже идет запись")
+            return
+        }
+
+        // Простая проверка разрешений
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            Log.d("AudioRecording", "Нет разрешения на запись аудио")
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                PERMISSION_REQUEST_RECORD_AUDIO
+            )
+            return
+        }
+
+        val started = audioRecorder.startNativeRecording()
+        Log.d("AudioRecording", "Запись начата: $started")
+
+        if (started) {
+            isRecordingAudio = true
+            recordingStartTime = System.currentTimeMillis()
+            showRecordingIndicator()
+            startRecordingTimer()
+        }
     }
 
-    private fun recordShortAudio() {
-        audioRecorder.recordAudio(audioRecordLauncher)
-    }
+    private fun stopAudioRecording() {
+        Log.d("AudioRecording", "Останавливаем запись аудио")
 
-    private fun recordLongAudio() {
-        showAudioRecordingScreen()
-    }
+        if (!isRecordingAudio) {
+            Log.d("AudioRecording", "Запись не активна")
+            return
+        }
 
-    private fun showAudioRecordingScreen() {
-        AlertDialog.Builder(this)
-            .setTitle("Запись аудио")
-            .setMessage("Нажмите кнопку для начала записи...")
-            .setPositiveButton("Начать запись") { dialog, _ ->
-                dialog.dismiss()
-                audioRecorder.startNativeRecording()
-                showRecordingControls()
-            }
-            .setNegativeButton("Отмена", null)
-            .show()
-    }
+        isRecordingAudio = false
+        stopRecordingTimer()
+        hideRecordingIndicator()
 
-    private fun showRecordingControls() {
-        AlertDialog.Builder(this)
-            .setTitle("Запись...")
-            .setMessage("Идет запись аудио. Нажмите стоп для завершения.")
-            .setPositiveButton("Стоп") { dialog, _ ->
-                dialog.dismiss()
-                audioRecorder.stopNativeRecording()
+        val stopped = audioRecorder.stopNativeRecording()
+        Log.d("AudioRecording", "Запись остановлена: $stopped")
+
+        if (stopped) {
+            // Небольшая задержка чтобы файл точно записался
+            Handler(Looper.getMainLooper()).postDelayed({
                 audioRecorder.currentAudioUri?.let { uri ->
-                    handleFileSelection(uri)
+                    Log.d("AudioRecording", "Отправляем аудиофайл webm: $uri")
+                    sendAudioFileWithMetadata(uri)
+                } ?: run {
+                    Log.e("AudioRecording", "URI файла null")
+                    Toast.makeText(this, "Ошибка: файл записи не создан", Toast.LENGTH_SHORT).show()
+                }
+            }, 300)
+        }
+    }
+
+    // Новый метод для отправки аудиофайла с метаданными
+    private fun sendAudioFileWithMetadata(audioUri: Uri) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val contentResolver = applicationContext.contentResolver
+
+                // Получаем имя файла
+                var fileName: String? = null
+                contentResolver.query(audioUri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val displayNameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (displayNameIndex != -1) {
+                            fileName = cursor.getString(displayNameIndex)
+                        }
+                    }
+                }
+
+                // Если имя не получили из cursor, генерируем
+                if (fileName == null || fileName!!.endsWith(".3gp")) {
+                    // Генерируем имя с правильным расширением .webm
+                    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                    fileName = "audio_message_${timeStamp}.webm"
+                }
+
+                val cleanFileName = if (fileName!!.endsWith(".webm")) {
+                    fileName!!
+                } else {
+                    val nameWithoutExt = fileName!!.substringBeforeLast(".")
+                    "$nameWithoutExt.webm"
+                }
+
+                val mimeType = "audio/webm"
+
+                // Получаем длительность
+                val durationSeconds = audioRecorder.getDurationInSeconds()
+                Log.d("AudioDebug", "Длительность аудио: $durationSeconds секунд")
+                Log.d("AudioDebug", "Имя файла: $cleanFileName")
+                Log.d("AudioDebug", "MIME тип: $mimeType")
+                Log.d("AudioDebug", "Ключ шифрования: ${encryptionKey.isNotEmpty()}")
+
+                // Подготавливаем файл
+                val fileJson = fileManager.prepareFileForSending(
+                    uri = audioUri,
+                    fileName = cleanFileName,
+                    mimeType = mimeType,
+                    encryptionKey = encryptionKey
+                )
+
+                // ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ
+                Log.d("AudioDebug", "Отправляемые данные:")
+                Log.d("AudioDebug", "fileName: ${fileJson.optString("fileName")}")
+                Log.d("AudioDebug", "fileType: ${fileJson.optString("fileType")}")
+                Log.d("AudioDebug", "fileSize: ${fileJson.optString("fileSize")}")
+                Log.d("AudioDebug", "isEncrypted: ${fileJson.optBoolean("isEncrypted")}")
+                Log.d("AudioDebug", "isAudio: ${fileJson.optBoolean("isAudio")}")
+                Log.d("AudioDebug", "isFile: ${fileJson.optBoolean("isFile")}")
+                Log.d("AudioDebug", "duration: ${fileJson.optString("duration")}")
+
+                // Проверяем fileData
+                val fileData = fileJson.optString("fileData", "")
+                Log.d("AudioDebug", "fileData длина: ${fileData.length}")
+                Log.d("AudioDebug", "fileData первые 200 символов: ${fileData.take(200)}")
+                Log.d("AudioDebug", "fileData последние 200 символов: ${fileData.takeLast(200)}")
+
+                // Проверяем формат шифрования
+                if (encryptionKey.isNotEmpty()) {
+                    val isCryptoJSFormat = CryptoJSCompat.isCryptoJSEncrypted(fileData)
+                    Log.d("AudioDebug", "CryptoJS формат: $isCryptoJSFormat")
+                }
+
+                // Добавляем обязательные поля
+                fileJson.put("room", currentRoom)
+                fileJson.put("isFile", true)
+                fileJson.put("isAudio", true)
+
+                Log.d("AudioDebug", "Финальный JSON для отправки: ${fileJson.toString()}")
+
+                // Отправляем на сервер
+                socket?.emit("send-file", fileJson, io.socket.client.Ack { args ->
+                    runOnUiThread {
+                        hideFileUploadIndicator()
+                        if (args.isNotEmpty() && args[0] is JSONObject) {
+                            val response = args[0] as JSONObject
+                            if (response.has("error")) {
+                                Log.e("AudioDebug", "Ошибка отправки: ${response.getString("error")}")
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "Ошибка отправки аудиофайла: ${response.getString("error")}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                Log.d("AudioDebug", "✅ Аудио успешно отправлено")
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "Аудиосообщение отправлено (${String.format("%.1f", durationSeconds)} сек)",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    }
+                })
+
+            } catch (e: Exception) {
+                Log.e("AudioDebug", "Ошибка отправки аудио", e)
+                runOnUiThread {
+                    hideFileUploadIndicator()
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Ошибка подготовки аудиофайла: ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
-            .setCancelable(false)
-            .show()
+        }
     }
+    // Обновляем анимации с 0.5 на 0.2 секунды
+    private fun showRecordingIndicator() {
+        binding.recordingOverlay.visibility = View.VISIBLE
+        binding.recordingOverlay.animate()
+            .alpha(1f)
+            .setDuration(200) // Изменено с 500 на 200
+            .start()
+    }
+
+    private fun hideRecordingIndicator() {
+        binding.recordingOverlay.animate()
+            .alpha(0f)
+            .setDuration(200) // Изменено с 500 на 200
+            .withEndAction {
+                binding.recordingOverlay.visibility = View.GONE
+                // Сбрасываем размер круга
+                binding.recordingCircle.scaleX = 1.0f
+                binding.recordingCircle.scaleY = 1.0f
+            }
+            .start()
+    }
+
+    private fun startRecordingTimer() {
+        recordingTimer = Timer()
+        recordingTimer?.scheduleAtFixedRate(object : TimerTask() {
+            override fun run() {
+                runOnUiThread {
+                    updateRecordingUI()
+                }
+            }
+        }, 0, recordingUpdateInterval)
+    }
+
+    private fun stopRecordingTimer() {
+        recordingTimer?.cancel()
+        recordingTimer = null
+    }
+
+    // Обновляем метод для отображения времени с миллисекундами
+    private fun updateRecordingUI() {
+        if (isRecordingAudio) {
+            val elapsedTime = System.currentTimeMillis() - recordingStartTime
+            val seconds = (elapsedTime / 1000) % 60
+            val minutes = (elapsedTime / (1000 * 60)) % 60
+            val milliseconds = (elapsedTime % 1000) / 10
+
+            binding.recordingTime.text = String.format("%02d:%02d:%02d", minutes, seconds, milliseconds)
+
+            // Простая анимация круга без getAmplitude
+            val baseSize = 1.0f
+            val pulseSize = 1.1f + (Math.sin(System.currentTimeMillis() / 200.0) * 0.1).toFloat()
+
+            binding.recordingCircle.scaleX = pulseSize
+            binding.recordingCircle.scaleY = pulseSize
+        }
+    }
+
 
     private fun onFileClicked(fileMessage: FileMessage) {
         // Для всех файлов вызываем openFile, который решит что делать
         openFile(fileMessage)
     }
-
     private fun openFile(fileMessage: FileMessage) {
         // Проверяем тип файла
         val isImage = fileMessage.fileCategory == FileManager.FileType.IMAGE
@@ -1001,8 +1244,18 @@ class MainActivity : AppCompatActivity() {
             openFilePicker()
         }
 
-        binding.recordAudioBtn.setOnClickListener {
-            recordAudio()
+        binding.recordAudioBtn.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    startAudioRecording()
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    stopAudioRecording()
+                    true
+                }
+                else -> false
+            }
         }
 
         binding.recordVideoBtn.setOnClickListener {
@@ -1348,6 +1601,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -1370,7 +1624,26 @@ class MainActivity : AppCompatActivity() {
                     pendingFileDownload = null
                 }
             }
+            PERMISSION_REQUEST_RECORD_AUDIO -> {
+                Log.d("AudioRecording", "onRequestPermissionsResult for RECORD_AUDIO")
+                Log.d("AudioRecording", "Разрешения: ${permissions.joinToString()}")
+                Log.d("AudioRecording", "Результаты: ${grantResults.joinToString()}")
+
+                val allGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+                Log.d("AudioRecording", "Все разрешения предоставлены: $allGranted")
+
+                if (allGranted) {
+                    // Если разрешения предоставлены, можно начать запись
+                    Log.d("AudioRecording", "Разрешения предоставлены, можно начинать запись")
+                    // Не начинаем автоматически, пользователь должен снова нажать кнопку
+                    Toast.makeText(this, "Разрешения предоставлены. Нажмите кнопку записи снова.", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Для записи аудио нужны все разрешения", Toast.LENGTH_LONG).show()
+                }
+            }
         }
+
+
     }
     private suspend fun saveFileViaMediaStore(fileMessage: FileMessage, fileData: ByteArray): Uri? {
         return withContext(Dispatchers.IO) {

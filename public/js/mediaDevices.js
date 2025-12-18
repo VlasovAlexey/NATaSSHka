@@ -8,7 +8,7 @@
     async requestMediaAccess(video = true, audio = true) {
         try {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                throw new Error('Ваш браузер не поддерживает доступ к медиаустройствам');
+                throw new Error(window.t('ERROR_MEDIA_NOT_SUPPORTED'));
             }
 
             this.localStream = await navigator.mediaDevices.getUserMedia({
@@ -53,7 +53,7 @@
     async getAvailableDevices() {
         try {
             if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-                throw new Error('Ваш браузер не поддерживает получение списка устройств');
+                throw new Error(window.t('ERROR_MEDIA_NOT_SUPPORTED'));
             }
 
             const devices = await navigator.mediaDevices.enumerateDevices();
@@ -63,7 +63,6 @@
                 audioOutput: devices.filter(device => device.kind === 'audiooutput')
             };
         } catch (error) {
-            console.error('Ошибка получения списка устройств:', error);
             throw error;
         }
     }
@@ -73,10 +72,8 @@ window.mediaDevicesManager = new MediaDevicesManager();
 
 async function initializeMediaDevices() {
     if (!window.mediaDevicesManager.isSecureContext()) {
-        console.warn('Страница загружена в небезопасном контексте. Доступ к медиаустройствам может быть ограничен.');
-        
         const warningEvent = new CustomEvent('mediaInsecureContext', {
-            detail: { message: 'Для работы голосовой и видео связи рекомендуется использовать HTTPS или localhost.' }
+            detail: { message: window.t('ERROR_INSECURE_CONTEXT') }
         });
         window.dispatchEvent(warningEvent);
     }

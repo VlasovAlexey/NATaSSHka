@@ -284,4 +284,56 @@
             android:progressTint="@color/button_background" />
 
     </LinearLayout>
+    <!-- Индикатор записи аудио -->
+    <FrameLayout
+        android:id="@+id/recordingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:visibility="gone"
+        android:elevation="100dp"
+        android:alpha="0"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <RelativeLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center">
+
+            <!-- Красный круг -->
+            <ImageView
+                android:id="@+id/recordingCircle"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:src="@drawable/circle_red"
+                android:scaleType="fitCenter"
+                android:layout_centerInParent="true"
+                android:shadowColor="#ff0000"
+                android:shadowRadius="5"
+                android:padding="20dp" />
+
+            <!-- Время в центре круга -->
+            <TextView
+                android:id="@+id/recordingTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="00:00:00"
+                android:textColor="#FFFFFF"
+                android:textSize="32dp"
+                android:textStyle="bold"
+                android:layout_centerInParent="true"
+                android:shadowColor="#ffffff"
+                android:shadowRadius="20"
+                android:shadowDx="0"
+                android:shadowDy="0"
+                android:padding="20dp"/>
+
+        </RelativeLayout>
+
+    </FrameLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

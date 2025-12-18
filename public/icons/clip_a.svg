@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="800px"
+   height="800px"
+   viewBox="0 0 24 24"
+   aria-labelledby="clipIconTitle"
+   stroke="#bbbbbb"
+   stroke-width="2"
+   stroke-linecap="round"
+   stroke-linejoin="round"
+   fill="none"
+   color="#bbbbbb"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="clip_a.svg"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="1.00875"
+     inkscape:cx="400"
+     inkscape:cy="400"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="1912"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <title
+     id="clipIconTitle">Attachment (paper clip)</title>
+  <path
+     d="M 7.6718528,13.951503 15.533269,6.0900535 c 0.954593,-0.953755 2.506418,-0.953755 3.46101,0 0.954484,0.954571 0.954484,2.5071793 0,3.4617503 L 8.1785104,20.226359 c -1.5933921,1.593381 -4.1748175,1.593381 -5.7682095,0 -1.59340284,-1.59262 -1.59340284,-4.175623 0,-5.768242 L 13.109311,3.8978082 c 2.230646,-2.2305921 5.848199,-2.2305921 8.075582,0 2.23217,2.2314081 2.23217,5.8457191 0.0016,8.0763008 l -7.744875,7.745636"
+     id="path1"
+     style="stroke-width:2.17571" />
+  <metadata
+     id="metadata1">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>Attachment (paper clip)</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>

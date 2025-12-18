@@ -247,6 +247,69 @@ class MessagesAdapter(
         }
     }
 
+    // Метод для получения текста файлового сообщения (используется в MainActivity)
+    fun getFileMessageText(fileMessage: FileMessage): String {
+        // Форматируем имя файла
+        val formattedName = formatFileName(fileMessage.fileName)
+
+        return when (fileMessage.fileCategory) {
+            FileManager.FileType.IMAGE -> "📷 Изображение: $formattedName"
+            FileManager.FileType.VIDEO -> {
+                if (fileMessage.duration > 0) {
+                    val minutes = fileMessage.duration / 1000 / 60
+                    val seconds = (fileMessage.duration / 1000) % 60
+                    "🎥 Видео (${minutes}:${String.format("%02d", seconds)}): $formattedName"
+                } else {
+                    "🎥 Видео: $formattedName"
+                }
+            }
+            FileManager.FileType.AUDIO -> {
+                if (fileMessage.duration > 0) {
+                    val minutes = fileMessage.duration / 1000 / 60
+                    val seconds = (fileMessage.duration / 1000) % 60
+                    "🎵 Аудио (${minutes}:${String.format("%02d", seconds)}): $formattedName"
+                } else {
+                    "🎵 Аудио: $formattedName"
+                }
+            }
+            FileManager.FileType.DOCUMENT -> "📄 Файл: $formattedName"
+        }
+    }
+
+    // Метод для форматирования имени файла
+    private fun formatFileName(fileName: String): String {
+        val maxLength = 16
+
+        // Если имя файла с расширением короче 16 символов, показываем все
+        if (fileName.length <= maxLength) {
+            return fileName
+        }
+
+        // Разделяем имя и расширение
+        val lastDotIndex = fileName.lastIndexOf('.')
+
+        return if (lastDotIndex != -1 && lastDotIndex > 0) {
+            // Есть расширение
+            val name = fileName.substring(0, lastDotIndex)
+            val extension = fileName.substring(lastDotIndex + 1)
+
+            // Если имя слишком длинное: первые 6 символов + ... + последние 2 символа + . + расширение
+            if (name.length > 6) {
+                "${name.take(6)}...${name.takeLast(2)}.$extension"
+            } else {
+                // Имя короткое, но с длинным расширением или общая длина больше 16
+                fileName
+            }
+        } else {
+            // Нет расширения
+            if (fileName.length > maxLength) {
+                "${fileName.take(6)}...${fileName.takeLast(2)}"
+            } else {
+                fileName
+            }
+        }
+    }
+
     fun updateFileLocalPath(fileId: String, localPath: String) {
         for (i in messages.indices) {
             val message = messages[i]

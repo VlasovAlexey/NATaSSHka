@@ -13,8 +13,9 @@ object CryptoJSCompat {
     private const val SIGNATURE = "NATASSSHKA_VALID"
 
     /**
-     * ПРАВИЛЬНОЕ ШИФРОВАНИЕ ФАЙЛОВ (совместимо с JS-клиентом)
-     * Последовательность: data → base64 → шифрование с сигнатурой → зашифрованный base64
+     * ШИФРОВАНИЕ ФАЙЛОВ КАК НА JS-КЛИЕНТЕ
+     * Последовательность: data → base64 → сигнатура + base64 → шифрование AES → зашифрованный base64
+     * ТОЧНО ТАК ЖЕ КАК В JS: signatureBase64 + base64Data → шифрование
      */
     fun encryptFileToBase64(data: ByteArray, password: String): String {
         Log.d(TAG, "encryptFileToBase64: размер данных=${data.size}, есть пароль=${password.isNotEmpty()}")
@@ -28,15 +29,16 @@ object CryptoJSCompat {
             val base64Data = Base64.encodeToString(data, Base64.NO_WRAP)
             Log.d(TAG, "Шаг 1: Данные преобразованы в base64, длина: ${base64Data.length}")
 
-            // 2. Добавляем сигнатуру как в JS-клиенте
+            // 2. Добавляем сигнатуру КАК В JS-КЛИЕНТЕ: signatureBase64 = btoa(signature)
             val signatureBase64 = Base64.encodeToString(
                 SIGNATURE.toByteArray(StandardCharsets.UTF_8),
                 Base64.NO_WRAP
             )
+            // В JS: const dataWithSignature = signatureBase64 + base64Data;
             val dataWithSignature = signatureBase64 + base64Data
             Log.d(TAG, "Шаг 2: Добавлена сигнатура, общая длина: ${dataWithSignature.length}")
 
-            // 3. Шифруем как текст (CryptoJS.AES.encrypt в JS)
+            // 3. Шифруем КАК В JS: CryptoJS.AES.encrypt(dataWithSignature, encryptionKey).toString()
             val encryptedText = encryptText(dataWithSignature, password)
             Log.d(TAG, "Шаг 3: Зашифровано, длина результата: ${encryptedText.length}")
 
@@ -75,7 +77,6 @@ object CryptoJSCompat {
             val encrypted = cipher.doFinal(message.toByteArray(StandardCharsets.UTF_8))
 
             // Формируем результат в формате CryptoJS: Salted__ + salt + encrypted data
-            // CryptoJS НЕ включает IV отдельно, он генерируется из пароля и salt
             val result = ByteArray(8 + 8 + encrypted.size).apply {
                 // "Salted__" префикс
                 System.arraycopy("Salted__".toByteArray(StandardCharsets.UTF_8), 0, this, 0, 8)
@@ -97,7 +98,8 @@ object CryptoJSCompat {
     }
 
     /**
-     * ДЕШИФРОВАНИЕ ФАЙЛОВ (не меняем - работает правильно)
+     * ДЕШИФРОВАНИЕ ФАЙЛОВ КАК НА JS-КЛИЕНТЕ
+     * Обратный процесс: encryptedBase64 → дешифрование → проверка сигнатуры → извлечение base64 → декодирование
      */
     fun decryptFileCompatibleJS(encryptedBase64: String, password: String): ByteArray {
         Log.d(TAG, "decryptFileCompatibleJS: длина base64=${encryptedBase64.length}, есть пароль=${password.isNotEmpty()}")
@@ -107,11 +109,11 @@ object CryptoJSCompat {
         }
 
         return try {
-            // 1. Дешифруем текст
+            // 1. Дешифруем текст (CryptoJS.AES.decrypt на JS)
             val decryptedText = decryptText(encryptedBase64, password)
             Log.d(TAG, "Дешифрованный текст длина: ${decryptedText.length}")
 
-            // 2. Проверяем сигнатуру
+            // 2. Проверяем сигнатуру КАК В JS: const signatureBase64 = btoa("NATASSSHKA_VALID")
             val signatureBase64 = Base64.encodeToString(
                 SIGNATURE.toByteArray(StandardCharsets.UTF_8),
                 Base64.NO_WRAP
@@ -123,7 +125,7 @@ object CryptoJSCompat {
                 throw Exception("Неверный ключ шифрования или формат данных")
             }
 
-            // 3. Извлекаем base64 данных (после сигнатуры)
+            // 3. Извлекаем base64 данных (после сигнатуры) КАК В JS
             val base64Data = decryptedText.substring(signatureBase64.length)
             Log.d(TAG, "Base64 данных длина: ${base64Data.length}")
 
@@ -140,7 +142,7 @@ object CryptoJSCompat {
     }
 
     /**
-     * ДЕШИФРОВАНИЕ ТЕКСТА (не меняем - работает правильно)
+     * ДЕШИФРОВАНИЕ ТЕКСТА (совместимо с JS CryptoJS.AES.decrypt)
      */
     fun decryptText(encryptedBase64: String, password: String): String {
         Log.d(TAG, "decryptText: длина base64=${encryptedBase64.length}, есть пароль=${password.isNotEmpty()}")
@@ -180,7 +182,7 @@ object CryptoJSCompat {
 
         } catch (e: Exception) {
             Log.e(TAG, "Ошибка дешифрования текста: ${e.message}")
-            return "🔒 Неверный ключ шифрования"
+            throw e
         }
     }
 
@@ -239,29 +241,6 @@ object CryptoJSCompat {
         } catch (e: Exception) {
             Log.e(TAG, "isCryptoJSEncrypted error: ${e.message}")
             return false
-        }
-    }
-
-    /**
-     * Анализ формата данных
-     */
-    fun analyzeEncryptedFormat(encryptedBase64: String): String {
-        return try {
-            val decoded = Base64.decode(encryptedBase64, Base64.NO_WRAP)
-
-            val analysis = StringBuilder()
-            analysis.append("=== АНАЛИЗ ЗАШИФРОВАННЫХ ДАННЫХ ===\n")
-            analysis.append("Размер: ${decoded.size} байт\n")
-            analysis.append("isCryptoJSEncrypted: ${isCryptoJSEncrypted(encryptedBase64)}\n")
-
-            if (decoded.size >= 8) {
-                val prefix = String(decoded.copyOfRange(0, 8), StandardCharsets.UTF_8)
-                analysis.append("Префикс: '$prefix'\n")
-            }
-
-            analysis.toString()
-        } catch (e: Exception) {
-            "Ошибка анализа: ${e.message}"
         }
     }
 }

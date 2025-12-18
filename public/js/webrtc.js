@@ -2,7 +2,6 @@
 class WebRTCManager {
 	constructor(socket) {
 		if (!socket) {
-			console.error('WebRTCManager: Socket is required');
 			return;
 		}
 		this.socket = socket;
@@ -16,62 +15,65 @@ class WebRTCManager {
 		this.setupSocketListeners();
 		this.setupUI();
 	}
+	
 	setupSocketListeners() {
 		this.socket.on('webrtc-offer', async (data) => {
 			if (this.isCallActive) {
-				this.sendCallRejected(data.from, 'Уже в звонке');
+				this.sendCallRejected(data.from, window.t('MODAL_ALREADY_IN_CALL'));
 				return;
 			}
 			this.showIncomingCallModal(data);
 		});
+		
 		this.socket.on('webrtc-answer', async (data) => {
 			if (!this.peerConnection) return;
 			try {
 				await this.peerConnection.setRemoteDescription(data.answer);
-			} catch (error) {
-				console.error('Ошибка при установке ответа:', error);
-			}
+			} catch (error) {}
 		});
+		
 		this.socket.on('webrtc-ice-candidate', async (data) => {
 			if (!this.peerConnection) return;
 			try {
 				await this.peerConnection.addIceCandidate(data.candidate);
-			} catch (error) {
-				console.error('Ошибка при добавлении ICE кандидата:', error);
-			}
+			} catch (error) {}
 		});
+		
 		this.socket.on('webrtc-reject', (data) => {
 			this.hideCallModal();
 			if (window.showMessage) {
-				window.showMessage('Звонок', `Пользователь ${data.fromUsername} отклонил звонок`);
+				window.showMessage(window.t('MODAL_CALL'), window.t('MODAL_CALL_REJECTED', { username: data.fromUsername }));
 			} else {
-				alert(`Пользователь ${data.fromUsername} отклонил звонок`);
+				alert(window.t('MODAL_CALL_REJECTED', { username: data.fromUsername }));
 			}
 		});
+		
 		this.socket.on('webrtc-hangup', (data) => {
 			this.endCall();
 			if (window.showMessage) {
-				window.showMessage('Звонок', `Пользователь ${data.fromUsername} завершил звонок`);
+				window.showMessage(window.t('MODAL_CALL'), window.t('MODAL_CALL_ENDED', { username: data.fromUsername }));
 			} else {
-				alert(`Пользователь ${data.fromUsername} завершил звонок`);
+				alert(window.t('MODAL_CALL_ENDED', { username: data.fromUsername }));
 			}
 		});
 	}
+	
 	setupUI() {
 		this.createUserSelectionModal();
 		this.createIncomingCallModal();
 		this.createCallInterface();
 	}
+	
 	createUserSelectionModal() {
 		const modal = document.createElement('div');
 		modal.id = 'userSelectionModal';
 		modal.className = 'modal hidden';
 		modal.innerHTML = `
     <div class="modal-content">
-        <h2>Выберите пользователя для звонка</h2>
+        <h2>${window.t('MODAL_SELECT_USER')}</h2>
         <div id="availableUsersList"></div>
         <div class="modal-buttons-container">
-            <button id="cancelCallBtn" class="modal-call-btn">Отмена</button>
+            <button id="cancelCallBtn" class="modal-call-btn">${window.t('CANCEL')}</button>
         </div>
     </div>
 `;
@@ -80,17 +82,18 @@ class WebRTCManager {
 			this.hideUserSelectionModal();
 		});
 	}
+	
 	createIncomingCallModal() {
 		const modal = document.createElement('div');
 		modal.id = 'incomingCallModal';
 		modal.className = 'modal hidden';
 		modal.innerHTML = `
     <div class="modal-content">
-        <h2>Входящий звонок</h2>
+        <h2>${window.t('MODAL_INCOMING_CALL')}</h2>
         <p id="incomingCallInfo"></p>
         <div class="call-buttons">
-            <button id="acceptCallBtn" class="modal-call-btn">Принять</button>
-            <button id="rejectCallBtn" class="modal-call-btn">Отклонить</button>
+            <button id="acceptCallBtn" class="modal-call-btn">${window.t('MODAL_ACCEPT_CALL')}</button>
+            <button id="rejectCallBtn" class="modal-call-btn">${window.t('MODAL_REJECT_CALL')}</button>
         </div>
     </div>
 `;
@@ -102,6 +105,7 @@ class WebRTCManager {
 			this.rejectIncomingCall();
 		});
 	}
+	
 	createCallInterface() {
 		const callInterface = document.createElement('div');
 		callInterface.id = 'callInterface';
@@ -112,7 +116,7 @@ class WebRTCManager {
         <video id="remoteVideo" autoplay></video>
     </div>
     <div class="call-controls">
-        <button id="endCallBtn" class="call-end-btn">Завершить звонок</button>
+        <button id="endCallBtn" class="call-end-btn">${window.t('END_CALL')}</button>
     </div>
 `;
 		document.body.appendChild(callInterface);
@@ -120,6 +124,7 @@ class WebRTCManager {
 			this.endCall();
 		});
 	}
+	
 	showUserSelectionModal(type) {
 		this.callType = type;
 		const modal = document.getElementById('userSelectionModal');
@@ -134,9 +139,9 @@ class WebRTCManager {
 			.filter(username => username !== currentUsername);
 		if (roomUsers.length === 0) {
 			if (window.showMessage) {
-				window.showMessage('Информация', 'В комнате нет других пользователей');
+				window.showMessage(window.t('MODAL_INFO'), window.t('MODAL_NO_USERS'));
 			} else {
-				alert('В комнате нет других пользователей');
+				alert(window.t('MODAL_NO_USERS'));
 			}
 			return;
 		}
@@ -152,28 +157,35 @@ class WebRTCManager {
 		});
 		modal.classList.remove('hidden');
 	}
+	
 	hideUserSelectionModal() {
 		document.getElementById('userSelectionModal').classList.add('hidden');
 	}
+	
 	showIncomingCallModal(data) {
 		this.incomingCallData = data;
 		const modal = document.getElementById('incomingCallModal');
 		const callInfo = document.getElementById('incomingCallInfo');
-		callInfo.textContent = `Пользователь ${data.fromUsername} звонит вам (${data.type === 'video' ? 'видео' : 'аудио'})`;
+		const typeText = data.type === 'video' ? window.t('VIDEO_CALL') : window.t('AUDIO_CALL');
+		callInfo.textContent = window.t('MODAL_INCOMING_CALL_INFO', { username: data.fromUsername, type: typeText });
 		modal.classList.remove('hidden');
 	}
+	
 	hideIncomingCallModal() {
 		document.getElementById('incomingCallModal').classList.add('hidden');
 	}
+	
 	showCallInterface() {
 		document.getElementById('callInterface').classList.remove('hidden');
 	}
+	
 	hideCallInterface() {
 		document.getElementById('callInterface').classList.add('hidden');
 	}
+	
 	async startCall(targetUsername) {
 		this.targetUser = targetUsername;
-		this.room = document.getElementById('roomInfo').textContent.replace('Комната: ', '');
+		this.room = document.getElementById('roomInfo').textContent.replace('Комната: ', '').replace('Room: ', '').replace('Sala: ', '').replace('房间：', '');
 		this.hideUserSelectionModal();
 		try {
 			this.localStream = await window.mediaDevicesManager.requestMediaAccess(
@@ -204,21 +216,21 @@ class WebRTCManager {
 				if (this.isCallActive && !this.peerConnection.remoteDescription) {
 					this.endCall();
 					if (window.showMessage) {
-						window.showMessage('Звонок', 'Пользователь не ответил на звонок');
+						window.showMessage(window.t('MODAL_CALL'), window.t('MODAL_CALL_NO_ANSWER'));
 					} else {
-						alert('Пользователь не ответил на звонок');
+						alert(window.t('MODAL_CALL_NO_ANSWER'));
 					}
 				}
 			}, 30000);
 		} catch (error) {
-			console.error('Ошибка начала звонка:', error);
 			if (window.showMessage) {
-				window.showMessage('Ошибка', 'Не удалось начать звонок: ' + error.message);
+				window.showMessage(window.t('MODAL_ERROR'), window.t('ERROR_CALL_START', { error: error.message }));
 			} else {
-				alert('Не удалось начать звонок: ' + error.message);
+				alert(window.t('ERROR_CALL_START', { error: error.message }));
 			}
 		}
 	}
+	
 	async acceptIncomingCall() {
 		if (!this.incomingCallData) return;
 		this.callType = this.incomingCallData.type;
@@ -249,14 +261,14 @@ class WebRTCManager {
 			this.isCallActive = true;
 			this.showCallInterface();
 		} catch (error) {
-			console.error('Ошибка при принятии звонка:', error);
 			if (window.showMessage) {
-				window.showMessage('Ошибка', 'Не удалось принять звонок: ' + error.message);
+				window.showMessage(window.t('MODAL_ERROR'), window.t('ERROR_CALL_ACCEPT', { error: error.message }));
 			} else {
-				alert('Не удалось принять звонок: ' + error.message);
+				alert(window.t('ERROR_CALL_ACCEPT', { error: error.message }));
 			}
 		}
 	}
+	
 	rejectIncomingCall() {
 		if (!this.incomingCallData) return;
 		this.socket.emit('webrtc-reject', {
@@ -265,12 +277,14 @@ class WebRTCManager {
 		this.hideIncomingCallModal();
 		this.incomingCallData = null;
 	}
+	
 	sendCallRejected(targetUsername, reason) {
 		this.socket.emit('webrtc-reject', {
 			targetUsername: targetUsername,
 			reason: reason
 		});
 	}
+	
 	createPeerConnection() {
 		const iceServers = window.rtcConfig?.iceServers || [{
 				urls: 'stun:stun.l.google.com:19302'
@@ -283,7 +297,6 @@ class WebRTCManager {
 			iceServers: iceServers,
 			iceTransportPolicy: 'all'
 		};
-		console.log('Создание PeerConnection с ICE серверами:', iceServers);
 		this.peerConnection = new RTCPeerConnection(config);
 		this.peerConnection.ontrack = (event) => {
 			this.remoteStream = event.streams[0];
@@ -298,20 +311,17 @@ class WebRTCManager {
 			}
 		};
 		this.peerConnection.onconnectionstatechange = () => {
-			console.log('Состояние соединения:', this.peerConnection.connectionState);
 			if (this.peerConnection.connectionState === 'disconnected' ||
 				this.peerConnection.connectionState === 'failed') {
 				this.endCall();
 			}
 		};
 		this.peerConnection.oniceconnectionstatechange = () => {
-			console.log('Состояние ICE соединения:', this.peerConnection.iceConnectionState);
 			if (this.peerConnection.iceConnectionState === 'disconnected' ||
-				this.peerConnection.iceConnectionState === 'failed') {
-				console.log('Проблемы с ICE соединением, возможно нужен TURN сервер');
-			}
+				this.peerConnection.iceConnectionState === 'failed') {}
 		};
 	}
+	
 	endCall() {
 		if (this.callTimeout) {
 			clearTimeout(this.callTimeout);

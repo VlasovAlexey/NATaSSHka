@@ -1,5 +1,4 @@
-﻿// messageInputAnimations.js - Управление анимациями поля ввода сообщений
-class MessageInputAnimations {
+﻿class MessageInputAnimations {
     constructor() {
         this.messageInput = document.getElementById('messageInput');
         this.messageInputContainer = document.querySelector('.message-input-container');
@@ -149,11 +148,11 @@ class MessageInputAnimations {
         if (hasText) {
             this.sendMessageBtn.disabled = false;
             this.sendMessageBtn.style.cursor = 'pointer';
-            this.sendMessageBtn.title = 'Отправить сообщение';
+            this.sendMessageBtn.title = window.t('SEND_MESSAGE');
         } else {
             this.sendMessageBtn.disabled = true;
             this.sendMessageBtn.style.cursor = 'not-allowed';
-            this.sendMessageBtn.title = 'Введите сообщение для отправки';
+            this.sendMessageBtn.title = window.t('SEND_MESSAGE_TOOLTIP');
         }
     }
     

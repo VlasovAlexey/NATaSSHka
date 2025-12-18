@@ -96,4 +96,6 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     implementation("com.github.chrisbanes.photoview:library:1.2.4")
+
+    implementation("androidx.core:core-animation:1.0.0")
 }

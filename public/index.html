@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -64,13 +65,24 @@
     <div class="modal" id="loginModal">
         <div class="modal-content">
             <h2>Вход в чат</h2>
+            
+            <select id="languageSelect" class="language-selector-input">
+                <option value="en">English</option>
+                <option value="ru">Русский</option>
+                <option value="es">Español</option>
+                <option value="zh">中文</option>
+            </select>
+            
             <input type="text" id="usernameInput" placeholder="Имя пользователя" 
                    pattern="[a-zA-Z0-9_-]{1,64}" 
                    title="Только латинские буквы, цифры, дефис и нижнее подчеркивание (макс. 64 символа)">
+            
             <input type="text" id="roomInput" placeholder="Название комнаты" value="Room_01"
                    pattern="[a-zA-Z0-9_-]{1,64}"
                    title="Только латинские буквы, цифры, дефис и нижнее подчеркивание (макс. 64 символа)">
+            
             <input type="password" id="passwordInput" placeholder="Пароль">
+            
             <button id="joinChatBtn">Войти</button>
             <div class="error-message" id="loginError"></div>
         </div>
@@ -78,12 +90,12 @@
     
     <div class="recording-indicator hidden" id="recordingIndicator">
         <div class="recording-dot"></div>
-        Запись аудио...
+        <span id="recordingText">Запись аудио...</span>
     </div>
     
     <div class="recording-indicator hidden" id="videoRecordingIndicator">
         <div class="recording-dot"></div>
-        Запись...
+        <span id="videoRecordingText">Запись...</span>
     </div>
     
     <div class="modal hidden" id="cameraPreviewModal">
@@ -93,7 +105,7 @@
     
     <div class="modal hidden" id="preparingModal">
         <div class="modal-content">
-            <h2>Подготовка устройства для записи. Ждите...</h2>
+            <h2 id="preparingModalTitle">Подготовка устройства для записи. Ждите...</h2>
         </div>
     </div>
     
@@ -123,6 +135,7 @@
     </div>
 </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <script src="js/lng.js"></script>
     <script src="js/crypto.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/cookie.js"></script>
