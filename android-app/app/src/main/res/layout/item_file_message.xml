@@ -14,149 +14,164 @@
     android:clickable="true"
     android:focusable="true">
 
-<LinearLayout
-android:id="@+id/rootLayout"
-android:layout_width="wrap_content"
-android:layout_height="wrap_content"
-android:orientation="vertical"
-android:padding="12dp"
-    android:minWidth="200dp"
-    android:maxWidth="280dp">
-
-    <!-- Миниатюра для изображений -->
-<ImageView
-android:id="@+id/thumbnailImage"
-android:layout_width="match_parent"
-android:layout_height="wrap_content"
-android:scaleType="fitCenter"
-android:visibility="gone"
-android:background="@color/light_gray"
-android:contentDescription="Миниатюра файла"
-android:adjustViewBounds="true" />
-
-    <!-- Для видео - миниатюра -->
-<ImageView
-android:id="@+id/videoThumbnail"
-android:layout_width="match_parent"
-android:layout_height="wrap_content"
-android:scaleType="fitCenter"
-android:visibility="gone"
-android:background="@color/light_gray"
-android:contentDescription="Миниатюра видео"
-android:adjustViewBounds="true" />
-
-    <!-- Основная информация о файле (скрывается для изображений) -->
-<LinearLayout
-android:id="@+id/fileInfoLayout"
-android:layout_width="match_parent"
-android:layout_height="wrap_content"
-android:orientation="horizontal"
-android:gravity="center_vertical"
-android:layout_marginTop="8dp">
-
-<!-- Иконка типа файла -->
-<ImageView
-    android:id="@+id/fileIcon"
-    android:layout_width="40dp"
-    android:layout_height="40dp"
-    android:layout_marginEnd="12dp"
-    android:src="@drawable/ic_document"
-    android:contentDescription="Тип файла" />
-
-<!-- Информация о файле -->
-<LinearLayout
-    android:layout_width="0dp"
-    android:layout_height="wrap_content"
-    android:layout_weight="1"
-    android:orientation="vertical">
-
-    <!-- Название файла -->
-    <TextView
-        android:id="@+id/fileName"
-        android:layout_width="match_parent"
+    <LinearLayout
+        android:id="@+id/rootLayout"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Имя файла"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:textColor="@color/black"
-        android:maxLines="2"
-        android:ellipsize="end" />
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:minWidth="200dp"
+        android:maxWidth="280dp">
 
-    <!-- Размер файла -->
-    <TextView
-        android:id="@+id/fileSize"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="0 KB"
-        android:textSize="12sp"
-        android:textColor="@color/gray"
-        android:layout_marginTop="2dp" />
+        <!-- Контейнер для миниатюр (изображения и видео) -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp">
 
-    <!-- Длительность для видео/аудио -->
-    <TextView
-        android:id="@+id/durationText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="00:00"
-        android:textSize="12sp"
-        android:textColor="@color/gray"
-        android:visibility="gone" />
+            <!-- Миниатюра для изображений -->
+            <ImageView
+                android:id="@+id/thumbnailImage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scaleType="fitCenter"
+                android:visibility="gone"
+                android:background="@color/light_gray"
+                android:contentDescription="Миниатюра файла"
+                android:adjustViewBounds="true" />
 
-    <!-- Статус типа файла -->
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="12sp"
-        android:textColor="@color/dark_gray"
-        android:layout_marginTop="4dp" />
+            <!-- Для видео - миниатюра с кнопкой воспроизведения -->
+            <RelativeLayout
+                android:id="@+id/videoThumbnailContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:background="@color/light_gray">
 
-</LinearLayout>
+                <ImageView
+                    android:id="@+id/videoThumbnail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:scaleType="fitCenter"
+                    android:contentDescription="Миниатюра видео"
+                    android:adjustViewBounds="true" />
 
-<!-- Кнопка воспроизведения для видео -->
-<ImageButton
-    android:id="@+id/playButton"
-    android:layout_width="36dp"
-    android:layout_height="36dp"
-    android:src="@drawable/ic_play"
-    android:background="?selectableItemBackgroundBorderless"
-    android:visibility="gone"
-    android:contentDescription="Воспроизвести" />
+                <!-- Кнопка воспроизведения поверх миниатюры -->
+                <ImageView
+                    android:id="@+id/videoPlayOverlay"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_centerInParent="true"
+                    android:src="@drawable/ic_play_circle"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="Воспроизвести видео" />
 
-<!-- Индикатор шифрования -->
-<ImageView
-    android:id="@+id/encryptionIndicator"
-    android:layout_width="20dp"
-    android:layout_height="20dp"
-    android:src="@drawable/ic_lock"
-    android:layout_marginStart="8dp"
-    android:visibility="gone"
-    android:contentDescription="Зашифровано" />
+            </RelativeLayout>
 
-</LinearLayout>
+        </RelativeLayout>
 
-    <!-- Прогресс загрузки -->
-<ProgressBar
-android:id="@+id/uploadProgress"
-style="?android:attr/progressBarStyleHorizontal"
-android:layout_width="match_parent"
-android:layout_height="4dp"
-android:layout_marginTop="8dp"
-android:visibility="gone"
-android:progressTint="@color/button_background" />
+        <!-- Основная информация о файле -->
+        <LinearLayout
+            android:id="@+id/fileInfoLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="8dp">
 
-    <!-- Кнопка повторной попытки -->
-<Button
-android:id="@+id/retryButton"
-android:layout_width="match_parent"
-android:layout_height="wrap_content"
-android:text="Повторить"
-android:textSize="12sp"
-android:layout_marginTop="8dp"
-android:visibility="gone"
-android:backgroundTint="@color/button_background" />
+            <!-- Иконка типа файла -->
+            <ImageView
+                android:id="@+id/fileIcon"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="12dp"
+                android:src="@drawable/ic_document"
+                android:contentDescription="Тип файла" />
+
+            <!-- Информация о файле -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <!-- Название файла -->
+                <TextView
+                    android:id="@+id/fileName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Имя файла"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/black"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+
+                <!-- Размер файла -->
+                <TextView
+                    android:id="@+id/fileSize"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="0 KB"
+                    android:textSize="12sp"
+                    android:textColor="@color/gray"
+                    android:layout_marginTop="2dp" />
+
+                <!-- Длительность для видео/аудио -->
+                <TextView
+                    android:id="@+id/durationText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textSize="12sp"
+                    android:textColor="@color/gray"
+                    android:visibility="gone" />
+
+                <!-- Статус типа файла -->
+                <TextView
+                    android:id="@+id/statusText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textSize="12sp"
+                    android:textColor="@color/dark_gray"
+                    android:layout_marginTop="4dp" />
+
+            </LinearLayout>
+
+            <!-- Индикатор шифрования -->
+            <ImageView
+                android:id="@+id/encryptionIndicator"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_lock"
+                android:layout_marginStart="8dp"
+                android:visibility="gone"
+                android:contentDescription="Зашифровано" />
+
+        </LinearLayout>
+
+        <!-- Прогресс загрузки -->
+        <ProgressBar
+            android:id="@+id/uploadProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            android:progressTint="@color/button_background" />
+
+        <!-- Кнопка повторной попытки -->
+        <Button
+            android:id="@+id/retryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Повторить"
+            android:textSize="12sp"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            android:backgroundTint="@color/button_background" />
 
     </LinearLayout>
 
-    </com.google.android.material.card.MaterialCardView>
+</com.google.android.material.card.MaterialCardView>

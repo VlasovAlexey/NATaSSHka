@@ -100,6 +100,11 @@
             android:exported="false"
             android:theme="@style/Theme.AppCompat.Translucent.NoTitleBar"
             android:windowSoftInputMode="stateHidden|adjustPan" />
+        <activity
+            android:name=".FullscreenVideoActivity"
+            android:theme="@style/Theme.AppCompat.Translucent.NoTitleBar"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <!-- File Provider -->
         <provider

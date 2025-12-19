@@ -42,6 +42,7 @@ import java.util.*
 import java.util.Timer
 import java.util.TimerTask
 
+import com.natasshka.messenger.FullscreenVideoActivity
 import android.content.ActivityNotFoundException
 import android.provider.DocumentsContract
 import android.provider.MediaStore
@@ -768,8 +769,22 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun onFileClicked(fileMessage: FileMessage) {
-        // Для всех файлов вызываем openFile, который решит что делать
-        openFile(fileMessage)
+        when (fileMessage.fileCategory) {
+            FileManager.FileType.IMAGE -> {
+                openImageFullscreen(fileMessage)
+            }
+            FileManager.FileType.VIDEO -> {
+                openVideoFullscreen(fileMessage)
+            }
+            else -> {
+                if (fileMessage.localPath != null) {
+                    openLocalFile(fileMessage)
+                } else {
+                    Toast.makeText(this, "Файл не скачан. Скачиваем...", Toast.LENGTH_SHORT).show()
+                    downloadFile(fileMessage)
+                }
+            }
+        }
     }
     private fun openFile(fileMessage: FileMessage) {
         // Проверяем тип файла
@@ -833,6 +848,49 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
+
+    private fun openVideoFullscreen(fileMessage: FileMessage) {
+        val intent = Intent(this, FullscreenVideoActivity::class.java).apply {
+            // Получаем URL сервера
+            val server = getIntent().getStringExtra("server") ?: "http://10.0.2.2:3000"
+
+            when {
+                fileMessage.localPath != null -> {
+                    // Есть локальный файл
+                    putExtra(FullscreenVideoActivity.EXTRA_VIDEO_PATH, fileMessage.localPath)
+                }
+                fileMessage.fileUrl != null -> {
+                    // Есть URL - преобразуем в полный URL
+                    val fullUrl = if (fileMessage.fileUrl!!.startsWith("http")) {
+                        fileMessage.fileUrl
+                    } else {
+                        if (fileMessage.fileUrl!!.startsWith("/")) {
+                            "$server${fileMessage.fileUrl}"
+                        } else {
+                            "$server/${fileMessage.fileUrl}"
+                        }
+                    }
+                    putExtra(FullscreenVideoActivity.EXTRA_VIDEO_URL, fullUrl)
+                }
+                fileMessage.fileData != null -> {
+                    // Есть данные в base64
+                    putExtra(FullscreenVideoActivity.EXTRA_VIDEO_BASE64, fileMessage.fileData)
+                }
+            }
+
+            // Передаем данные файла отдельными полями
+            putExtra(FullscreenVideoActivity.EXTRA_FILE_NAME, fileMessage.fileName)
+            putExtra(FullscreenVideoActivity.EXTRA_IS_ENCRYPTED, fileMessage.isEncrypted)
+            putExtra(FullscreenVideoActivity.EXTRA_ENCRYPTION_KEY, encryptionKey)
+
+            // Важно: передаем fileData для сохранения
+            if (fileMessage.fileData != null) {
+                putExtra(FullscreenVideoActivity.EXTRA_FILE_DATA, fileMessage.fileData)
+            }
+        }
+
+        startActivity(intent)
+    }
     private fun openLocalFile(fileMessage: FileMessage) {
         val file = File(fileMessage.localPath!!)
         if (!file.exists()) {
