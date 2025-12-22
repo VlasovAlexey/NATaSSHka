@@ -1522,3 +1522,24 @@ padding-right:30px;
 outline:none;
 border-color:#2d3e50;
 }
+
+.message-link {
+    color: #0066cc;
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.message-link:hover {
+    text-decoration: underline;
+    text-decoration-color: #0066cc;
+}
+
+.message-text {
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+.message-text a.message-link {
+    color: #0066cc;
+}

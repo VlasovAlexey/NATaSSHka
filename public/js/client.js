@@ -103,90 +103,129 @@
     }
 
     function showMessageNotification(message) {
-        if (!pushConfig.enabled || notificationPermission !== 'granted') {
-            return;
-        }
+    if (!pushConfig.enabled || notificationPermission !== 'granted') {
+        return;
+    }
 
-        if (message.userId === socket.id) {
-            return;
-        }
+    if (message.userId === socket.id) {
+        return;
+    }
 
-        if (message.isSystem || message.isKillAll) {
-            return;
-        }
+    if (message.isSystem || message.isKillAll) {
+        return;
+    }
 
-        let title = window.t('NOTIFICATION_NEW_MESSAGE', { username: message.username });
-        let body = '';
-        let icon = '/icons/icon-192x192.png';
+    let title = window.t('NOTIFICATION_NEW_MESSAGE', { username: message.username });
+    let body = '';
+    let icon = '/icons/icon-192x192.png';
 
-        if (message.isFile) {
-            if (message.isAudio) {
-                title = window.t('NOTIFICATION_VOICE_MESSAGE', { username: message.username });
-                body = window.t('NOTIFICATION_VOICE_DURATION', { duration: message.duration });
-                icon = '/icons/mic.svg';
-            } else if (message.fileType.startsWith('image/')) {
-                title = window.t('NOTIFICATION_IMAGE_MESSAGE', { username: message.username });
-                body = window.t('NOTIFICATION_IMAGE_FILE', { filename: message.fileName });
-                icon = '/icons/image.svg';
-            } else if (message.fileType.startsWith('video/')) {
-                title = window.t('NOTIFICATION_VIDEO_MESSAGE', { username: message.username });
-                body = window.t('NOTIFICATION_VIDEO_DURATION', { duration: message.duration });
-                icon = '/icons/video.svg';
-            } else {
-                title = window.t('NOTIFICATION_FILE_MESSAGE', { username: message.username });
-                body = window.t('NOTIFICATION_FILE_INFO', { filename: message.fileName, size: message.fileSize });
-                icon = '/icons/clip.svg';
-            }
+    if (message.isFile) {
+        if (message.isAudio) {
+            title = window.t('NOTIFICATION_VOICE_MESSAGE', { username: message.username });
+            body = window.t('NOTIFICATION_VOICE_DURATION', { duration: message.duration });
+            icon = '/icons/mic.svg';
+        } else if (message.fileType.startsWith('image/')) {
+            title = window.t('NOTIFICATION_IMAGE_MESSAGE', { username: message.username });
+            body = window.t('NOTIFICATION_IMAGE_FILE', { filename: message.fileName });
+            icon = '/icons/image.svg';
+        } else if (message.fileType.startsWith('video/')) {
+            title = window.t('NOTIFICATION_VIDEO_MESSAGE', { username: message.username });
+            body = window.t('NOTIFICATION_VIDEO_DURATION', { duration: message.duration });
+            icon = '/icons/video.svg';
         } else {
-            let text = message.text;
-            if (message.isEncrypted) {
-                if (window.encryptionManager && window.encryptionManager.encryptionKey) {
-                    try {
-                        text = window.encryptionManager.decryptMessage(message.text);
-                    } catch (error) {
-                        text = window.t('NOTIFICATION_ENCRYPTED_MESSAGE');
-                    }
-                } else {
+            title = window.t('NOTIFICATION_FILE_MESSAGE', { username: message.username });
+            body = window.t('NOTIFICATION_FILE_INFO', { filename: message.fileName, size: message.fileSize });
+            icon = '/icons/clip.svg';
+        }
+    } else {
+        let text = message.text;
+        if (message.isEncrypted) {
+            if (window.encryptionManager && window.encryptionManager.encryptionKey) {
+                try {
+                    text = window.encryptionManager.decryptMessage(message.text);
+                } catch (error) {
                     text = window.t('NOTIFICATION_ENCRYPTED_MESSAGE');
                 }
+            } else {
+                text = window.t('NOTIFICATION_ENCRYPTED_MESSAGE');
             }
-
-            if (text.length > 100) {
-                text = text.substring(0, 100) + '...';
+        } else {
+            // Парсим ссылки, телефоны и email для отображения в чате,
+            // но для уведомления извлекаем только текст
+            try {
+                if (window.Autolinker) {
+                    // Преобразуем ссылки, но затем извлекаем только текст
+                    const linkedText = Autolinker.link(text, {
+                        urls: true,
+                        email: true,
+                        phone: true,
+                        newWindow: true,
+                        className: 'message-link'
+                    });
+                    
+                    // Удаляем HTML теги, оставляя только текст
+                    // Но сохраняем URL-адреса для отображения
+                    text = linkedText.replace(/<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g, (match, href, linkText) => {
+                        // Если текст ссылки отличается от URL, показываем URL
+                        if (linkText !== href && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+                            return href;
+                        }
+                        // Для mailto и tel показываем текст ссылки
+                        return linkText;
+                    });
+                }
+            } catch (error) {
+                console.warn('Autolinker error in notification:', error);
             }
-
-            body = text;
+        }
+        
+        // Очищаем от оставшихся HTML-тегов (на всякий случай)
+        text = text.replace(/<[^>]*>/g, '');
+        
+        // Декодируем HTML-сущности
+        text = text.replace(/&amp;/g, '&')
+                  .replace(/&lt;/g, '<')
+                  .replace(/&gt;/g, '>')
+                  .replace(/&quot;/g, '"')
+                  .replace(/&#039;/g, "'");
+        
+        // Ограничиваем длину для уведомления
+        if (text.length > 100) {
+            text = text.substring(0, 100) + '...';
         }
 
-        const notification = new Notification(title, {
-            body: body,
-            icon: icon,
-            tag: `message-${message.id}`,
-            requireInteraction: false,
-            silent: !pushConfig.playSound
-        });
-
-        if (pushConfig.playSound && notificationSound) {
-            notificationSound.play().catch(e => {});
-        }
-
-        setTimeout(() => {
-            notification.close();
-        }, pushConfig.displayTime);
-
-        notification.onclick = function() {
-            window.focus();
-            notification.close();
-            const messageElement = document.querySelector(`[data-message-id="${message.id}"]`);
-            if (messageElement) {
-                messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                messageElement.style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
-                setTimeout(() => {
-                    messageElement.style.backgroundColor = '';
-                }, 2000);
-            }
-        };
+        body = text;
     }
+
+    const notification = new Notification(title, {
+        body: body,
+        icon: icon,
+        tag: `message-${message.id}`,
+        requireInteraction: false,
+        silent: !pushConfig.playSound
+    });
+
+    if (pushConfig.playSound && notificationSound) {
+        notificationSound.play().catch(e => {});
+    }
+
+    setTimeout(() => {
+        notification.close();
+    }, pushConfig.displayTime);
+
+    notification.onclick = function() {
+        window.focus();
+        notification.close();
+        const messageElement = document.querySelector(`[data-message-id="${message.id}"]`);
+        if (messageElement) {
+            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            messageElement.style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
+            setTimeout(() => {
+                messageElement.style.backgroundColor = '';
+            }, 2000);
+        }
+    };
+}
 
     socket.on('push-config', (config) => {
         pushConfig = { ...pushConfig, ...config };
@@ -785,32 +824,85 @@
     `;
 
         if (message.quote) {
-            let quoteText = message.quote.text;
-            let quoteUsername = message.quote.username;
+    let quoteText = message.quote.text;
+    let quoteUsername = message.quote.username;
 
-            if (message.quote.isEncrypted) {
-                if (window.encryptionManager && window.encryptionManager.encryptionKey) {
-                    try {
-                        quoteText = window.encryptionManager.decryptMessage(quoteText);
-                    } catch (error) {
-                        quoteText = window.t('ERROR_WRONG_ENCRYPTION_KEY');
-                    }
-                } else {
-                    quoteText = window.t('ERROR_WRONG_ENCRYPTION_KEY');
+    if (message.quote.isEncrypted) {
+        if (window.encryptionManager && window.encryptionManager.encryptionKey) {
+            try {
+                quoteText = window.encryptionManager.decryptMessage(quoteText);
+                
+                // Парсим ссылки в цитате
+                try {
+                    quoteText = Autolinker.link(quoteText, {
+                        newWindow: true,
+                        truncate: { length: 30, location: 'smart' },
+                        className: 'message-link'
+                    });
+                } catch (error) {
+                    console.warn('Autolinker error in quote:', error);
                 }
+                
+            } catch (error) {
+                quoteText = window.t('ERROR_WRONG_ENCRYPTION_KEY');
             }
-
-            messageContent += `
-            <div class="message-quote">
-                <div class="quote-username">${quoteUsername}</div>
-                <div class="quote-text">${quoteText}</div>
-            </div>
-        `;
+        } else {
+            quoteText = window.t('ERROR_WRONG_ENCRYPTION_KEY');
         }
+    } else {
+        // Парсим ссылки в незашифрованных цитатах
+        try {
+            quoteText = Autolinker.link(quoteText, {
+                newWindow: true,
+                truncate: { length: 30, location: 'smart' },
+                className: 'message-link'
+            });
+        } catch (error) {
+            console.warn('Autolinker error in quote:', error);
+        }
+    }
+
+    messageContent += `
+    <div class="message-quote">
+        <div class="quote-username">${quoteUsername}</div>
+        <div class="quote-text">${quoteText}</div>
+    </div>
+    `;
+}
 
         let messageText = message.text;
         let isEncryptedMessage = message.isEncrypted;
 
+            if (!message.isSystem && !message.isKillAll && !message.isWarning) {
+            // Проверяем, является ли сообщение зашифрованным и не ошибкой
+            if (!(isEncryptedMessage && messageText === window.t('ERROR_WRONG_ENCRYPTION_KEY'))) {
+                try {
+                    // Используем Autolinker для преобразования ссылок
+                    messageText = Autolinker.link(messageText, {
+                        urls: {
+                            schemeMatches: true,
+                            wwwMatches: true,
+                            tldMatches: true
+                        },
+                        email: true,
+                        phone: true,
+                        mention: false,
+                        hashtag: false,
+                        stripPrefix: false,
+                        stripTrailingSlash: false,
+                        newWindow: true,
+                        truncate: {
+                            length: 50,
+                            location: 'smart'
+                        },
+                        className: 'message-link'
+                    });
+                } catch (error) {
+                    console.warn('Autolinker error:', error);
+                    // В случае ошибки оставляем текст как есть
+                }
+            }
+        }
         if (isEncryptedMessage) {
             if (window.encryptionManager && window.encryptionManager.encryptionKey) {
                 try {
