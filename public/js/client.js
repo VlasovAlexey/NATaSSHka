@@ -37,6 +37,166 @@
         toggleCallButtons(rtcConfig.useTurnServers);
     });
 
+    // Функция для безопасного парсинга ссылок с поддержкой шифрования
+// Функция для безопасного парсинга ссылок с поддержкой шифрования
+function linkifyMessageText(text, isEncrypted = false, isSystem = false) {
+    if (!text || typeof text !== 'string') {
+        return text;
+    }
+    
+    // Если это системное сообщение или сообщение killall, не парсим ссылки
+    if (isSystem) {
+        return text;
+    }
+    
+    let processedText = text;
+    
+    // Если сообщение зашифровано, пытаемся расшифровать
+    if (isEncrypted) {
+        if (window.encryptionManager && window.encryptionManager.encryptionKey) {
+            try {
+                processedText = window.encryptionManager.decryptMessage(text);
+                // Успешно расшифровали, можно парсить ссылки
+            } catch (error) {
+                // Ошибка расшифровки - возвращаем текст ошибки
+                return window.t('ERROR_WRONG_ENCRYPTION_KEY');
+            }
+        } else {
+            // Нет ключа - возвращаем сообщение о необходимости ключа
+            return window.t('ERROR_WRONG_ENCRYPTION_KEY');
+        }
+    }
+    
+    // Парсим ссылки, телефоны и email с использованием Autolinker
+    try {
+        if (window.Autolinker) {
+            return Autolinker.link(processedText, {
+                urls: {
+                    schemeMatches: true,
+                    wwwMatches: true,
+                    tldMatches: true
+                },
+                email: true,
+                phone: true,
+                stripPrefix: false,
+                stripTrailingSlash: false,
+                newWindow: true,
+                truncate: {
+                    length: 50,
+                    location: 'smart'
+                },
+                className: 'message-link',
+                sanitizeHtml: true
+            });
+        }
+    } catch (error) {
+        console.warn('Autolinker error:', error);
+        // В случае ошибки парсинга возвращаем исходный текст
+        return processedText;
+    }
+    
+    return processedText;
+}
+
+// Функция для добавления классов и атрибутов к ссылкам после их создания
+function enhanceMessageLinks(messageElement) {
+    if (!messageElement) return;
+    
+    const links = messageElement.querySelectorAll('a.message-link');
+    
+    links.forEach(link => {
+        const href = link.getAttribute('href') || '';
+        
+        // Определяем тип ссылки по href и добавляем соответствующий класс
+        if (href.startsWith('mailto:')) {
+            link.classList.add('email');
+            link.setAttribute('title', window.t('EMAIL_CLICK_TO_SEND', { email: href.replace('mailto:', '') }));
+        } else if (href.startsWith('tel:')) {
+            link.classList.add('phone');
+            link.setAttribute('title', window.t('PHONE_CLICK_TO_CALL', { phone: href.replace('tel:', '') }));
+        } else if (href.startsWith('http://') || href.startsWith('https://')) {
+            // Добавляем атрибуты безопасности для внешних ссылок
+            link.setAttribute('rel', 'noopener noreferrer');
+            link.setAttribute('title', window.t('LINK_CLICK_TO_OPEN'));
+        }
+        
+        // Останавливаем всплытие, чтобы не срабатывал клик на сообщение
+        link.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    });
+}
+
+// Функция для получения чистого текста из сообщения (для уведомлений)
+function getPlainTextForNotification(text, isEncrypted = false) {
+    if (!text || typeof text !== 'string') {
+        return text;
+    }
+    
+    let processedText = text;
+    
+    // Расшифровываем если нужно
+    if (isEncrypted) {
+        if (window.encryptionManager && window.encryptionManager.encryptionKey) {
+            try {
+                processedText = window.encryptionManager.decryptMessage(text);
+            } catch (error) {
+                return window.t('NOTIFICATION_ENCRYPTED_MESSAGE');
+            }
+        } else {
+            return window.t('NOTIFICATION_ENCRYPTED_MESSAGE');
+        }
+    }
+    
+    // Удаляем HTML теги
+    processedText = processedText.replace(/<[^>]*>/g, '');
+    
+    // Декодируем HTML-сущности
+    processedText = processedText.replace(/&amp;/g, '&')
+                               .replace(/&lt;/g, '<')
+                               .replace(/&gt;/g, '>')
+                               .replace(/&quot;/g, '"')
+                               .replace(/&#039;/g, "'")
+                               .replace(/&#39;/g, "'");
+    
+    return processedText;
+}
+
+// Функция для получения чистого текста из сообщения (для уведомлений)
+function getPlainTextForNotification(text, isEncrypted = false) {
+    if (!text || typeof text !== 'string') {
+        return text;
+    }
+    
+    let processedText = text;
+    
+    // Расшифровываем если нужно
+    if (isEncrypted) {
+        if (window.encryptionManager && window.encryptionManager.encryptionKey) {
+            try {
+                processedText = window.encryptionManager.decryptMessage(text);
+            } catch (error) {
+                return window.t('NOTIFICATION_ENCRYPTED_MESSAGE');
+            }
+        } else {
+            return window.t('NOTIFICATION_ENCRYPTED_MESSAGE');
+        }
+    }
+    
+    // Удаляем HTML теги
+    processedText = processedText.replace(/<[^>]*>/g, '');
+    
+    // Декодируем HTML-сущности
+    processedText = processedText.replace(/&amp;/g, '&')
+                               .replace(/&lt;/g, '<')
+                               .replace(/&gt;/g, '>')
+                               .replace(/&quot;/g, '"')
+                               .replace(/&#039;/g, "'")
+                               .replace(/&#39;/g, "'");
+    
+    return processedText;
+}
+
     function toggleCallButtons(useTurnServers) {
         const audioCallBtn = document.getElementById('audioCallBtn');
         const videoCallBtn = document.getElementById('videoCallBtn');
@@ -79,6 +239,7 @@
         }
     }
 
+
     function requestNotificationPermission() {
         Notification.requestPermission().then(permission => {
             notificationPermission = permission;
@@ -101,6 +262,74 @@
             }, 3000);
         }
     }
+
+    // Функция для безопасного парсинга ссылок, телефонов и email
+function linkifyText(text, isEncrypted = false, encryptionKey = null) {
+    if (!text || typeof text !== 'string') {
+        return text;
+    }
+    
+    // Если текст - это ошибка расшифровки, не парсим
+    if (isEncrypted && text === window.t('ERROR_WRONG_ENCRYPTION_KEY')) {
+        return text;
+    }
+    
+    // Если сообщение зашифровано и есть ключ, пытаемся расшифровать
+    if (isEncrypted && encryptionKey) {
+        try {
+            text = window.encryptionManager.decryptMessage(text);
+        } catch (error) {
+            return window.t('ERROR_WRONG_ENCRYPTION_KEY');
+        }
+    } else if (isEncrypted && !encryptionKey) {
+        return window.t('ERROR_WRONG_ENCRYPTION_KEY');
+    }
+    
+    try {
+        if (window.Autolinker) {
+            return Autolinker.link(text, {
+                urls: {
+                    schemeMatches: true,
+                    wwwMatches: true,
+                    tldMatches: true
+                },
+                email: true,
+                phone: true,
+                stripPrefix: false,
+                stripTrailingSlash: false,
+                newWindow: true,
+                truncate: {
+                    length: 50,
+                    location: 'smart'
+                },
+                className: 'message-link',
+                sanitizeHtml: true,
+                
+                // Дополнительные настройки для телефонов
+                phoneUrlScheme: 'tel:',
+                replaceFn: function(autolinker, match) {
+                    const tag = match.buildTag();
+                    
+                    if (match.getType() === 'email') {
+                        tag.addClass('email');
+                        tag.setAttr('title', window.t('EMAIL_CLICK_TO_SEND', { email: match.getEmail() }));
+                    }
+                    
+                    if (match.getType() === 'phone') {
+                        tag.addClass('phone');
+                        tag.setAttr('title', window.t('PHONE_CLICK_TO_CALL', { phone: match.getNumber() }));
+                    }
+                    
+                    return tag;
+                }
+            });
+        }
+    } catch (error) {
+        console.warn('Linkify error:', error);
+    }
+    
+    return text;
+}
 
     function showMessageNotification(message) {
     if (!pushConfig.enabled || notificationPermission !== 'granted') {
@@ -138,63 +367,13 @@
             icon = '/icons/clip.svg';
         }
     } else {
-        let text = message.text;
-        if (message.isEncrypted) {
-            if (window.encryptionManager && window.encryptionManager.encryptionKey) {
-                try {
-                    text = window.encryptionManager.decryptMessage(message.text);
-                } catch (error) {
-                    text = window.t('NOTIFICATION_ENCRYPTED_MESSAGE');
-                }
-            } else {
-                text = window.t('NOTIFICATION_ENCRYPTED_MESSAGE');
-            }
-        } else {
-            // Парсим ссылки, телефоны и email для отображения в чате,
-            // но для уведомления извлекаем только текст
-            try {
-                if (window.Autolinker) {
-                    // Преобразуем ссылки, но затем извлекаем только текст
-                    const linkedText = Autolinker.link(text, {
-                        urls: true,
-                        email: true,
-                        phone: true,
-                        newWindow: true,
-                        className: 'message-link'
-                    });
-                    
-                    // Удаляем HTML теги, оставляя только текст
-                    // Но сохраняем URL-адреса для отображения
-                    text = linkedText.replace(/<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g, (match, href, linkText) => {
-                        // Если текст ссылки отличается от URL, показываем URL
-                        if (linkText !== href && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
-                            return href;
-                        }
-                        // Для mailto и tel показываем текст ссылки
-                        return linkText;
-                    });
-                }
-            } catch (error) {
-                console.warn('Autolinker error in notification:', error);
-            }
+        // Используем getPlainTextForNotification для всех типов сообщений
+        body = getPlainTextForNotification(message.text, message.isEncrypted || false);
+        
+        // Ограничиваем длину текста для уведомления
+        if (body.length > 100) {
+            body = body.substring(0, 100) + '...';
         }
-        
-        // Очищаем от оставшихся HTML-тегов (на всякий случай)
-        text = text.replace(/<[^>]*>/g, '');
-        
-        // Декодируем HTML-сущности
-        text = text.replace(/&amp;/g, '&')
-                  .replace(/&lt;/g, '<')
-                  .replace(/&gt;/g, '>')
-                  .replace(/&quot;/g, '"')
-                  .replace(/&#039;/g, "'");
-        
-        // Ограничиваем длину для уведомления
-        if (text.length > 100) {
-            text = text.substring(0, 100) + '...';
-        }
-
-        body = text;
     }
 
     const notification = new Notification(title, {
@@ -778,149 +957,79 @@
     }
 
     function addMessageToChat(message) {
-        const messageElement = document.createElement('div');
-        messageElement.classList.add('message');
-        messageElement.dataset.messageId = message.id;
-        messageElement.dataset.messageUsername = message.username;
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message');
+    messageElement.dataset.messageId = message.id;
+    messageElement.dataset.messageUsername = message.username;
+    messageElement.dataset.messageEncrypted = message.isEncrypted ? 'true' : 'false';
 
-        if (message.isSystem) {
-            messageElement.classList.add('system-message');
-        }
+    if (message.isSystem) {
+        messageElement.classList.add('system-message');
+    }
 
-        if (message.isKillAll) {
-            messageElement.classList.add('killall-message');
-        }
+    if (message.isKillAll) {
+        messageElement.classList.add('killall-message');
+    }
 
-        if (message.isWarning) {
-            messageElement.classList.add('warning-message');
-        }
+    if (message.isWarning) {
+        messageElement.classList.add('warning-message');
+    }
 
-        if (message.isFile || message.isAudio) {
-            messageElement.dataset.hasFile = 'true';
-        }
+    if (message.isFile || message.isAudio) {
+        messageElement.dataset.hasFile = 'true';
+    }
 
-        const isMyMessage = message.userId === socket.id;
-        if (!message.isSystem && !message.isKillAll && !message.isWarning) {
-            if (window.reactionsManager) {
-                window.reactionsManager.addReactionButton(messageElement);
-                window.reactionsManager.updateMessageReactions(messageElement, message.reactions);
+    const isMyMessage = message.userId === socket.id;
+    if (!message.isSystem && !message.isKillAll && !message.isWarning) {
+        if (window.reactionsManager) {
+            window.reactionsManager.addReactionButton(messageElement);
+            window.reactionsManager.updateMessageReactions(messageElement, message.reactions);
 
-                if (message.reactions && Object.keys(message.reactions).length > 0) {
-                    if (!window.reactionUsersData) {
-                        window.reactionUsersData = new Map();
-                    }
+            if (message.reactions && Object.keys(message.reactions).length > 0) {
+                if (!window.reactionUsersData) {
+                    window.reactionUsersData = new Map();
                 }
             }
-            messageElement.classList.add(isMyMessage ? 'my-message' : 'other-message');
         }
+        messageElement.classList.add(isMyMessage ? 'my-message' : 'other-message');
+    }
 
-        const time = new Date(message.timestamp).toLocaleTimeString();
+    const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        let messageContent = `
+    let messageContent = `
         <div class="message-info">
             <span class="message-sender">${message.username}</span>
             <span class="message-time">${time}</span>
         </div>
     `;
 
-        if (message.quote) {
-    let quoteText = message.quote.text;
-    let quoteUsername = message.quote.username;
+    // Обработка цитаты с парсингом ссылок
+    if (message.quote) {
+        let quoteText = message.quote.text;
+        let quoteUsername = message.quote.username;
+        
+        // Используем linkifyMessageText для цитат
+        quoteText = linkifyMessageText(
+            quoteText, 
+            message.quote.isEncrypted || false,
+            false
+        );
 
-    if (message.quote.isEncrypted) {
-        if (window.encryptionManager && window.encryptionManager.encryptionKey) {
-            try {
-                quoteText = window.encryptionManager.decryptMessage(quoteText);
-                
-                // Парсим ссылки в цитате
-                try {
-                    quoteText = Autolinker.link(quoteText, {
-                        newWindow: true,
-                        truncate: { length: 30, location: 'smart' },
-                        className: 'message-link'
-                    });
-                } catch (error) {
-                    console.warn('Autolinker error in quote:', error);
-                }
-                
-            } catch (error) {
-                quoteText = window.t('ERROR_WRONG_ENCRYPTION_KEY');
-            }
-        } else {
-            quoteText = window.t('ERROR_WRONG_ENCRYPTION_KEY');
-        }
-    } else {
-        // Парсим ссылки в незашифрованных цитатах
-        try {
-            quoteText = Autolinker.link(quoteText, {
-                newWindow: true,
-                truncate: { length: 30, location: 'smart' },
-                className: 'message-link'
-            });
-        } catch (error) {
-            console.warn('Autolinker error in quote:', error);
-        }
+        messageContent += `
+            <div class="message-quote">
+                <div class="quote-username">${quoteUsername}</div>
+                <div class="quote-text">${quoteText}</div>
+            </div>
+        `;
     }
 
-    messageContent += `
-    <div class="message-quote">
-        <div class="quote-username">${quoteUsername}</div>
-        <div class="quote-text">${quoteText}</div>
-    </div>
-    `;
-}
-
-        let messageText = message.text;
-        let isEncryptedMessage = message.isEncrypted;
-
-            if (!message.isSystem && !message.isKillAll && !message.isWarning) {
-            // Проверяем, является ли сообщение зашифрованным и не ошибкой
-            if (!(isEncryptedMessage && messageText === window.t('ERROR_WRONG_ENCRYPTION_KEY'))) {
-                try {
-                    // Используем Autolinker для преобразования ссылок
-                    messageText = Autolinker.link(messageText, {
-                        urls: {
-                            schemeMatches: true,
-                            wwwMatches: true,
-                            tldMatches: true
-                        },
-                        email: true,
-                        phone: true,
-                        mention: false,
-                        hashtag: false,
-                        stripPrefix: false,
-                        stripTrailingSlash: false,
-                        newWindow: true,
-                        truncate: {
-                            length: 50,
-                            location: 'smart'
-                        },
-                        className: 'message-link'
-                    });
-                } catch (error) {
-                    console.warn('Autolinker error:', error);
-                    // В случае ошибки оставляем текст как есть
-                }
-            }
-        }
-        if (isEncryptedMessage) {
-            if (window.encryptionManager && window.encryptionManager.encryptionKey) {
-                try {
-                    messageText = window.encryptionManager.decryptMessage(messageText);
-                } catch (error) {
-                    messageText = window.t('ERROR_WRONG_ENCRYPTION_KEY');
-                }
-            } else {
-                messageText = window.t('ERROR_WRONG_ENCRYPTION_KEY');
-            }
-        }
-
-        if (message.isFile) {
-            if (message.isEncrypted) {
-                messageContent += `
+    // Обработка файловых сообщений
+    if (message.isFile) {
+        if (message.isEncrypted) {
+            messageContent += `
             <div class="message-file">
                 <button class="encrypted-file-btn" 
-                        onclick="decryptAndDisplayFile('${message.fileUrl}', '${message.fileType}', '${message.fileName}', '${message.id}', this)"
+                        onclick="window.decryptAndDisplayFile('${message.fileUrl}', '${message.fileType}', '${message.fileName}', '${message.id}', this)"
                         data-file-url="${message.fileUrl}"
                         data-file-type="${message.fileType}"
                         data-file-name="${message.fileName}"
@@ -930,9 +1039,9 @@
                 <div class="file-info">${message.fileName} (${message.fileSize})</div>
             </div>
             `;
-            } else {
-                if (message.isAudio) {
-                    messageContent += `
+        } else {
+            if (message.isAudio) {
+                messageContent += `
                     <div class="message-audio">
                         <button class="audio-play-btn" onclick="window.audioRecorder.playAudioMessage('${message.fileUrl}', this)">
                             
@@ -940,16 +1049,16 @@
                         <span class="audio-duration">${window.t('FILE_DURATION_SIZE', { duration: message.duration, size: message.fileSize })}</span>
                     </div>
                 `;
-                } else if (message.fileType.startsWith('image/')) {
-                    messageContent += `
+            } else if (message.fileType.startsWith('image/')) {
+                messageContent += `
                     <div class="message-file">
                         <img src="${message.fileUrl}" alt="${message.fileName}" 
                              onclick="window.expandImage('${message.fileUrl}', '${message.fileType}')">
                         <div class="file-size">${message.fileSize}</div>
                     </div>
                 `;
-                } else if (message.fileType.startsWith('video/')) {
-                    messageContent += `
+            } else if (message.fileType.startsWith('video/')) {
+                messageContent += `
                     <div class="message-file">
                         <video src="${message.fileUrl}" controls muted 
                                onclick="window.expandVideoWithSound('${message.fileUrl}', this)">
@@ -958,42 +1067,75 @@
                         <div class="file-size">${window.t('FILE_DURATION_SIZE', { duration: message.duration, size: message.fileSize })}</div>
                     </div>
                 `;
-                } else {
-                    messageContent += `
+            } else {
+                messageContent += `
                     <div class="message-file">
-                        <a href="${message.fileUrl}" download="${message.fileName}">
+                        <a href="${message.fileUrl}" download="${message.fileName}" class="file-download-link">
                             📄 ${message.fileName}
                         </a>
                         <div class="file-size">${message.fileSize}</div>
                     </div>
                 `;
-                }
-            }
-        } else {
-            messageContent += `<div class="message-text">${messageText}</div>`;
-        }
-
-        messageElement.innerHTML = messageContent;
-        messagesContainer.appendChild(messageElement);
-
-        if (!message.isSystem && !message.isKillAll && !message.isWarning) {
-            if (window.reactionsManager) {
-                window.reactionsManager.addReactionButton(messageElement);
-                window.reactionsManager.updateMessageReactions(messageElement, message.reactions);
-
-                if (message.reactions && Object.keys(message.reactions).length > 0) {
-                }
             }
         }
-
-        messagesContainer.appendChild(messageElement);
-
-        setTimeout(() => {
-            addDeleteButton(messageElement, message);
-        }, 0);
-
-        scrollToBottom();
+    } else {
+        // Текстовые сообщения - всегда парсим ссылки
+        let messageText = message.text;
+        
+        // Используем linkifyMessageText для всех типов сообщений
+        // Для системных сообщений isSystem=true, для остальных false
+        messageText = linkifyMessageText(
+            messageText,
+            message.isEncrypted || false,
+            message.isSystem || message.isKillAll || message.isWarning
+        );
+        
+        messageContent += `<div class="message-text">${messageText}</div>`;
     }
+
+    messageElement.innerHTML = messageContent;
+    
+    // Добавляем улучшения для ссылок после вставки
+    setTimeout(() => {
+        enhanceMessageLinks(messageElement);
+    }, 0);
+
+    if (!message.isSystem && !message.isKillAll && !message.isWarning) {
+        if (window.reactionsManager) {
+            window.reactionsManager.addReactionButton(messageElement);
+            window.reactionsManager.updateMessageReactions(messageElement, message.reactions);
+        }
+    }
+
+    messagesContainer.appendChild(messageElement);
+
+    setTimeout(() => {
+        addDeleteButton(messageElement, message);
+    }, 0);
+
+    scrollToBottom();
+}
+
+// Функция для добавления обработчиков клика на ссылки
+function addClickHandlersToLinks(messageElement) {
+    const links = messageElement.querySelectorAll('a.message-link');
+    links.forEach(link => {
+        // Уже есть обработка через Autolinker, но добавляем дополнительные атрибуты для безопасности
+        if (link.href && !link.href.startsWith('mailto:') && !link.href.startsWith('tel:')) {
+            if (!link.hasAttribute('rel')) {
+                link.setAttribute('rel', 'noopener noreferrer');
+            }
+            if (!link.hasAttribute('target')) {
+                link.setAttribute('target', '_blank');
+            }
+        }
+        
+        // Останавливаем всплытие, чтобы не срабатывал клик на сообщение
+        link.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    });
+}
 
     function updateMessageReactions(messageElement, message) {
         if (window.reactionsManager) {
@@ -1584,42 +1726,50 @@
     }
 
     function setupMessageQuoting() {
-        messagesContainer.addEventListener('click', (e) => {
-            const messageElement = e.target.closest('.message');
-            if (!messageElement ||
-                messageElement.classList.contains('system-message') ||
-                messageElement.classList.contains('killall-message')) {
-                return;
-            }
+    messagesContainer.addEventListener('click', (e) => {
+        const messageElement = e.target.closest('.message');
+        if (!messageElement ||
+            messageElement.classList.contains('system-message') ||
+            messageElement.classList.contains('killall-message')) {
+            return;
+        }
 
-            const hasFile = messageElement.querySelector('.message-file, .message-audio');
-            if (hasFile) {
-                return;
-            }
+        const hasFile = messageElement.querySelector('.message-file, .message-audio');
+        if (hasFile) {
+            return;
+        }
 
-            const messageId = messageElement.dataset.messageId;
-            const messageUsername = messageElement.dataset.messageUsername;
-            const messageTextElement = messageElement.querySelector('.message-text');
+        const messageId = messageElement.dataset.messageId;
+        const messageUsername = messageElement.dataset.messageUsername;
+        const messageTextElement = messageElement.querySelector('.message-text');
 
-            if (!messageTextElement) {
-                return;
-            }
+        if (!messageTextElement) {
+            return;
+        }
 
-            let messageText = messageTextElement.textContent;
+        // Извлекаем текст без HTML-тегов для цитаты
+        let messageText = messageTextElement.innerHTML;
+        
+        // Удаляем HTML-теги, но сохраняем текст
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = messageText;
+        messageText = tempDiv.textContent || tempDiv.innerText || '';
 
-            const originalMessage = messageHistory.find(msg => msg.id === messageId);
-            if (!originalMessage) {
-                return;
-            }
+        const originalMessage = messageHistory.find(msg => msg.id === messageId);
+        if (!originalMessage) {
+            return;
+        }
 
-            setQuotedMessage(messageElement, {
-                id: messageId,
-                username: messageUsername,
-                text: messageText,
-                originalMessage: originalMessage
-            });
+        setQuotedMessage(messageElement, {
+            id: messageId,
+            username: messageUsername,
+            text: messageText,
+            originalMessage: originalMessage
         });
-    }
+    });
+}
+
+
 
     function addCallButtons() {
         const callButtonsContainer = document.querySelector('.call-buttons-container');
@@ -1659,99 +1809,83 @@
     }
 
     function setupEncryptionKeyHandler() {
-        if (!encryptionKeyInput) return;
+    if (!encryptionKeyInput) return;
 
-        function updateClearButtonVisibility() {
-            if (clearEncryptionKeyBtn) {
-                if (encryptionKeyInput.value) {
-                    clearEncryptionKeyBtn.style.display = 'flex';
-                } else {
-                    clearEncryptionKeyBtn.style.display = 'none';
-                }
-            }
-        }
-
-        updateClearButtonVisibility();
-
-        encryptionKeyInput.addEventListener('input', (e) => {
-            const key = e.target.value;
-            if (window.encryptionManager) {
-                window.encryptionManager.setEncryptionKey(key);
-
-                window.decryptedFilesCache = {};
-
-                updateClearButtonVisibility();
-
-                const encryptedFileButtons = document.querySelectorAll('.encrypted-file-btn.error');
-                encryptedFileButtons.forEach(button => {
-                    button.classList.remove('error');
-                    button.textContent = window.t('FILE_ENCRYPTED_CLICK');
-
-                    const fileUrl = button.dataset.fileUrl;
-                    const fileType = button.dataset.fileType;
-                    const fileName = button.dataset.fileName;
-                    const messageId = button.dataset.messageId;
-
-                    button.onclick = function() {
-                        window.decryptAndDisplayFile(fileUrl, fileType, fileName, messageId, this);
-                    };
-                });
-
-                shouldAutoScroll = false;
-
-                if (window.encryptionManager.debounce) {
-                    window.encryptionManager.debounce(() => {
-                        reDecryptAllMessages();
-                    }, encryptionDebounceDelay);
-                } else {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(() => {
-                        reDecryptAllMessages();
-                    }, encryptionDebounceDelay);
-                }
-            }
-        });
-
+    function updateClearButtonVisibility() {
         if (clearEncryptionKeyBtn) {
-            clearEncryptionKeyBtn.addEventListener('click', () => {
-                encryptionKeyInput.value = '';
-                if (window.encryptionManager) {
-                    window.encryptionManager.setEncryptionKey('');
-                }
-
-                window.decryptedFilesCache = {};
-
-                updateClearButtonVisibility();
-
-                const encryptedFileButtons = document.querySelectorAll('.encrypted-file-btn.error');
-                encryptedFileButtons.forEach(button => {
-                    button.classList.remove('error');
-                    button.textContent = window.t('FILE_ENCRYPTED_CLICK');
-
-                    const fileUrl = button.dataset.fileUrl;
-                    const fileType = button.dataset.fileType;
-                    const fileName = button.dataset.fileName;
-                    const messageId = button.dataset.messageId;
-
-                    button.onclick = function() {
-                        window.decryptAndDisplayFile(fileUrl, fileType, fileName, messageId, this);
-                    };
-                });
-
-                shouldAutoScroll = false;
-
-                reDecryptAllMessages();
-            });
+            if (encryptionKeyInput.value) {
+                clearEncryptionKeyBtn.style.display = 'flex';
+            } else {
+                clearEncryptionKeyBtn.style.display = 'none';
+            }
         }
     }
+
+    updateClearButtonVisibility();
+
+    encryptionKeyInput.addEventListener('input', (e) => {
+        const key = e.target.value;
+        if (window.encryptionManager) {
+            window.encryptionManager.setEncryptionKey(key);
+
+            window.decryptedFilesCache = {};
+
+            updateClearButtonVisibility();
+
+            // Обновляем все зашифрованные сообщения
+            shouldAutoScroll = false;
+            
+            // Используем debounce для оптимизации
+            if (window.encryptionManager.debounce) {
+                window.encryptionManager.debounce(() => {
+                    reDecryptAllMessages();
+                }, encryptionDebounceDelay);
+            } else {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    reDecryptAllMessages();
+                }, encryptionDebounceDelay);
+            }
+        }
+    });
+
+    if (clearEncryptionKeyBtn) {
+        clearEncryptionKeyBtn.addEventListener('click', () => {
+            encryptionKeyInput.value = '';
+            if (window.encryptionManager) {
+                window.encryptionManager.setEncryptionKey('');
+            }
+
+            window.decryptedFilesCache = {};
+
+            updateClearButtonVisibility();
+
+            // Перерисовываем все сообщения (теперь они будут показывать "Ошибка расшифровки")
+            reDecryptAllMessages();
+        });
+    }
+}
 
     function reDecryptAllMessages() {
-        messagesContainer.innerHTML = '';
-        messageHistory.forEach(message => {
-            addMessageToChat(message);
-        });
-        shouldAutoScroll = true;
+    // Сохраняем текущую позицию скролла
+    const scrollPosition = messagesContainer.scrollTop;
+    const isAtBottom = Math.abs(messagesContainer.scrollHeight - messagesContainer.clientHeight - messagesContainer.scrollTop) < 10;
+    
+    // Очищаем контейнер
+    messagesContainer.innerHTML = '';
+    
+    // Перерисовываем все сообщения
+    messageHistory.forEach(message => {
+        addMessageToChat(message);
+    });
+    
+    // Восстанавливаем позицию скролла
+    if (isAtBottom) {
+        scrollToBottom();
+    } else {
+        messagesContainer.scrollTop = scrollPosition;
     }
+}
 
     function setupSidebarToggle() {
         const showSidebarBtn = document.getElementById('showSidebarBtn');

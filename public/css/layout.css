@@ -1523,23 +1523,81 @@ outline:none;
 border-color:#2d3e50;
 }
 
+/* Стили для ссылок в сообщениях */
 .message-link {
     color: #0066cc;
     text-decoration: none;
     word-break: break-all;
+    border-bottom: 1px dotted #0066cc;
+    transition: all 0.2s ease;
 }
 
 .message-link:hover {
     text-decoration: underline;
     text-decoration-color: #0066cc;
+    border-bottom-color: transparent;
 }
 
+/* Стили для email ссылок */
+.message-link.email {
+    color: #009688;
+    border-bottom-color: #009688;
+}
+
+.message-link.email:hover {
+    color: #00796b;
+    text-decoration-color: #009688;
+}
+
+/* Стили для телефонных ссылок */
+.message-link.phone {
+    color: #3f51b5;
+    border-bottom-color: #3f51b5;
+}
+
+.message-link.phone:hover {
+    color: #303f9f;
+    text-decoration-color: #3f51b5;
+}
+
+/* Для системных сообщений - более темные цвета */
+.system-message .message-link,
+.killall-message .message-link,
+.warning-message .message-link {
+    color: #666;
+    border-bottom-color: #666;
+}
+
+.system-message .message-link:hover,
+.killall-message .message-link:hover,
+.warning-message .message-link:hover {
+    color: #333;
+    text-decoration-color: #666;
+}
+
+/* Обеспечиваем перенос длинных слов и ссылок */
 .message-text {
     word-wrap: break-word;
     white-space: pre-wrap;
     overflow-wrap: break-word;
+    line-height: 1.5;
 }
 
-.message-text a.message-link {
-    color: #0066cc;
+.message-text a {
+    word-break: break-all;
+}
+
+/* Стили для файловых ссылок */
+.file-download-link {
+    color: #4a6fa5;
+    text-decoration: none;
+    display: inline-block;
+    padding: 2px 4px;
+    border-radius: 3px;
+    background-color: rgba(74, 111, 165, 0.1);
+}
+
+.file-download-link:hover {
+    background-color: rgba(74, 111, 165, 0.2);
+    text-decoration: underline;
 }

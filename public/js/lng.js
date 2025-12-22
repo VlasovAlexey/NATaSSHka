@@ -1,5 +1,8 @@
 ﻿const translations = {
     ru: {
+        EMAIL_CLICK_TO_SEND: 'Электронная почта',
+        PHONE_CLICK_TO_CALL: 'Звонок по номеру',
+        LINK_CLICK_TO_OPEN: 'Сторонняя ссылка',
         APP_TITLE: 'NATaSSHka',
         JOIN_CHAT: 'Вход в чат',
         USERNAME_PLACEHOLDER: 'Имя пользователя',
@@ -119,6 +122,9 @@
     },
     
     en: {
+        EMAIL_CLICK_TO_SEND: 'Email',
+        PHONE_CLICK_TO_CALL: 'Call',
+        LINK_CLICK_TO_OPEN: 'Third-party link',
         APP_TITLE: 'NATaSSHka',
         JOIN_CHAT: 'Join Chat',
         USERNAME_PLACEHOLDER: 'Username',
@@ -238,6 +244,9 @@
     },
     
     es: {
+        EMAIL_CLICK_TO_SEND: 'Correo electrónico',
+        PHONE_CLICK_TO_CALL: 'Llamar',
+        LINK_CLICK_TO_OPEN: 'Enlace de terceros',
         APP_TITLE: 'NATaSSHka',
         JOIN_CHAT: 'Unirse al chat',
         USERNAME_PLACEHOLDER: 'Nombre de usuario',
@@ -357,6 +366,9 @@
     },
     
     zh: {
+        EMAIL_CLICK_TO_SEND: '電子郵件',
+        PHONE_CLICK_TO_CALL: '撥打電話',
+        LINK_CLICK_TO_OPEN: '第三方連結',
         APP_TITLE: 'NATaSSHka',
         JOIN_CHAT: '加入聊天',
         USERNAME_PLACEHOLDER: '用户名',
