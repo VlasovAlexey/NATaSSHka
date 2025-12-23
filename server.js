@@ -1,10 +1,11 @@
-﻿const express = require('express');
+﻿﻿const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 
 const { translate } = require('./lng.js');
+const SecureDeleter = require('./secure-delete.js');
 
 const users = new Map();
 const rooms = new Set(['Room_01']);
@@ -52,7 +53,17 @@ let config = {
     videoRec_height: 480,
     videoRec_frameRate: 30,
     videoRec_bitrate: 2500000,
-    videoRec_mimeType: 'video/webm;codecs=vp9'
+    videoRec_mimeType: 'video/webm;codecs=vp9',
+    secureDelete: {
+        enabled: true,
+        gostPasses: 2,
+        verifyDeletion: true,
+        ssdOptimized: true,
+        hddExtended: true,
+        changeMetadata: true,
+        bufferSize: 1048576,
+        reportErrors: true
+    }
 };
 
 if (fs.existsSync(configPath)) {
@@ -89,6 +100,13 @@ app.use('/uploads', express.static(uploadsDir, {
     index: false,
     redirect: false
 }));
+
+let secureDeleter;
+if (config.secureDelete && config.secureDelete.enabled) {
+    secureDeleter = new SecureDeleter(config);
+} else {
+    console.log(translate(config.language, 'SECURE_DELETE_DISABLED'));
+}
 
 function ensureDirectoryExistence(dirPath) {
     if (fs.existsSync(dirPath)) {
@@ -400,12 +418,10 @@ io.on('connection', (socket) => {
         useTurnServers: config.useTurnServers
     });
 
-    socket.on('delete-message', (data, callback) => {
+    socket.on('delete-message', async (data, callback) => {
         const user = users.get(socket.id);
         if (user) {
-            const {
-                messageId
-            } = data;
+            const { messageId } = data;
             console.log(user.username + ' ' + translate(config.language, 'MESSAGE_DELETION_REQUESTED') + ' ' + messageId + ' ' + translate(config.language, 'IN_ROOM') + ' ' + user.room);
             const userDir = path.join(uploadsDir, user.room, user.username);
             const messageFile = path.join(userDir, `${messageId}.xml`);
@@ -420,7 +436,12 @@ io.on('connection', (socket) => {
                 const fileContent = fs.readFileSync(messageFile, 'utf8');
                 const usernameMatch = fileContent.match(/<username>(.*?)<\/username>/);
                 if (usernameMatch && usernameMatch[1] === user.username) {
-                    const deleteResult = deleteMessageFromFiles(user.room, messageId, user.username);
+                    let deleteResult;
+                    if (secureDeleter) {
+                        deleteResult = await secureDeleter.deleteMessageFiles(user.room, messageId, user.username, io);
+                    } else {
+                        deleteResult = deleteMessageFromFiles(user.room, messageId, user.username);
+                    }
                     if (deleteResult) {
                         io.to(user.room).emit('message-deleted', {
                             messageId
@@ -463,10 +484,10 @@ io.on('connection', (socket) => {
                 return false;
             }
             console.log(translate(config.language, 'STARTING_FILE_DELETION', {
-    messageId: messageId,
-    username: username,
-    room: room
-}));
+                messageId: messageId,
+                username: username,
+                room: room
+            }));
             let fileUrls = [];
             const messageFile = path.join(userDir, `${messageId}.xml`);
             if (fs.existsSync(messageFile)) {
@@ -533,10 +554,7 @@ io.on('connection', (socket) => {
     socket.on('add-reaction', (data) => {
         const user = users.get(socket.id);
         if (user) {
-            const {
-                messageId,
-                reactionCode
-            } = data;
+            const { messageId, reactionCode } = data;
             const username = user.username;
             if (!messageReactions.has(messageId)) {
                 messageReactions.set(messageId, {});
@@ -562,16 +580,16 @@ io.on('connection', (socket) => {
                     reactionUsers: usersReactions
                 });
                 console.log(translate(config.language, 'REACTION_ADDED', {
-    username: user.username,
-    reactionCode: reactionCode,
-    messageId: messageId
-}));
+                    username: user.username,
+                    reactionCode: reactionCode,
+                    messageId: messageId
+                }));
             } else {
                 console.log(translate(config.language, 'REACTION_ALREADY_ADDED', {
-    username: user.username,
-    reactionCode: reactionCode,
-    messageId: messageId
-}));
+                    username: user.username,
+                    reactionCode: reactionCode,
+                    messageId: messageId
+                }));
             }
         }
     });
@@ -619,35 +637,35 @@ io.on('connection', (socket) => {
     }
 
     socket.on('user-join-attempt', (data) => {
-    const { username, room, password, language = 'ru' } = data;
-    
-    if (data.password !== config.password) {
-        socket.emit('join-error', translate(language, 'ERROR_WRONG_PASSWORD'));
-        return;
-    }
-    
-    const existingUser = Array.from(users.values()).find(user =>
-        user.username === username && user.room === room
-    );
-    
-    if (existingUser) {
-        socket.emit('join-error', translate(language, 'ERROR_USERNAME_EXISTS'));
+        const { username, room, password, language = 'ru' } = data;
         
-        const warningMessage = {
-            id: Date.now().toString(),
-            username: 'system',
-            userId: 'system',
-            text: translate(config.language, 'DOUBLE_LOGIN_WARNING', {username: username}),
-            timestamp: new Date(),
-            room: room,
-            isSystem: true,
-            isWarning: true
-        };
+        if (data.password !== config.password) {
+            socket.emit('join-error', translate(language, 'ERROR_WRONG_PASSWORD'));
+            return;
+        }
         
-        saveSystemMessageToFile(room, warningMessage);
-        io.to(room).emit('new-message', warningMessage);
-        return;
-    }
+        const existingUser = Array.from(users.values()).find(user =>
+            user.username === username && user.room === room
+        );
+        
+        if (existingUser) {
+            socket.emit('join-error', translate(language, 'ERROR_USERNAME_EXISTS'));
+            
+            const warningMessage = {
+                id: Date.now().toString(),
+                username: 'system',
+                userId: 'system',
+                text: translate(config.language, 'DOUBLE_LOGIN_WARNING', {username: username}),
+                timestamp: new Date(),
+                room: room,
+                isSystem: true,
+                isWarning: true
+            };
+            
+            saveSystemMessageToFile(room, warningMessage);
+            io.to(room).emit('new-message', warningMessage);
+            return;
+        }
         if (!rooms.has(room)) {
             rooms.add(room);
         }
@@ -705,18 +723,23 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('send-message', (data) => {
+    socket.on('send-message', async (data) => {
         const user = users.get(socket.id);
         if (user) {
             if (data.text === config.killCode) {
-                const roomDir = path.join(uploadsDir, user.room);
-                if (fs.existsSync(roomDir)) {
-                    fs.rmSync(roomDir, {
-                        recursive: true,
-                        force: true
-                    });
-                    console.log(translate(config.language, 'ROOM_FOLDER_DELETED', {room: user.room}));
+                if (secureDeleter) {
+                    await secureDeleter.deleteRoomFolder(user.room, io);
+                } else {
+                    const roomDir = path.join(uploadsDir, user.room);
+                    if (fs.existsSync(roomDir)) {
+                        fs.rmSync(roomDir, {
+                            recursive: true,
+                            force: true
+                        });
+                        console.log(translate(config.language, 'ROOM_FOLDER_DELETED', {room: user.room}));
+                    }
                 }
+                
                 const clearMessage = {
                     id: Date.now().toString(),
                     username: 'system',
@@ -726,6 +749,7 @@ io.on('connection', (socket) => {
                     room: user.room,
                     isSystem: true
                 };
+                
                 saveSystemMessageToFile(user.room, clearMessage);
                 io.to(user.room).emit('clear-chat');
                 io.to(user.room).emit('new-message', clearMessage);
@@ -744,16 +768,22 @@ io.on('connection', (socket) => {
                     isKillAll: true
                 };
                 saveSystemMessageToFile(user.room, killAllMessage);
-                if (fs.existsSync(uploadsDir)) {
-                    fs.rmSync(uploadsDir, {
-                        recursive: true,
-                        force: true
+                
+                if (secureDeleter) {
+                    await secureDeleter.deleteUploadsFolder(io);
+                } else {
+                    if (fs.existsSync(uploadsDir)) {
+                        fs.rmSync(uploadsDir, {
+                            recursive: true,
+                            force: true
+                        });
+                        console.log(translate(config.language, 'UPLOADS_FOLDER_DELETED'));
+                    }
+                    fs.mkdirSync(uploadsDir, {
+                        recursive: true
                     });
-                    console.log(translate(config.language, 'UPLOADS_FOLDER_DELETED'));
                 }
-                fs.mkdirSync(uploadsDir, {
-                    recursive: true
-                });
+                
                 io.emit('killall-message', killAllMessage);
                 setTimeout(() => {
                     console.log(translate(config.language, 'SERVER_SHUTDOWN'));

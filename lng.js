@@ -148,7 +148,57 @@
         
         // Десериализация XML
         UNKNOWN_USER: 'неизвестного пользователя',
-        USER_DIR_NOT_FOUND: 'Директория пользователя не найдена:'
+        USER_DIR_NOT_FOUND: 'Директория пользователя не найдена:',
+
+        // Общие для безопасного удаления
+        STORAGE_TYPE_DETECTED: 'Тип накопителя определен как: {type}',
+        STORAGE_DETECTION_ERROR: 'Ошибка определения типа накопителя',
+        SECURE_DELETE_DISABLED: 'Безопасное удаление отключено в конфигурации',
+        SECURE_DELETE_START: 'Начало безопасного удаления файла: {path} ({size})',
+        SECURE_DELETE_COMPLETE: 'Безопасное удаление завершено: {path} (заняло {time} сек)',
+        SECURE_DELETE_ERROR: 'Ошибка безопасного удаления файла',
+        FILE_DELETE_FAILED: 'Не удалось удалить файл {file} по пути {path}. Ошибка: {error}',
+
+        // Для SSD/HDD
+        SSD_OPTIMIZED_DELETE: 'Оптимизированное удаление для SSD',
+        HDD_FULL_DELETE: 'Полное удаление для HDD/магнитного носителя',
+        SSD_DELETE_ERROR: 'Ошибка удаления на SSD',
+        HDD_DELETE_ERROR: 'Ошибка удаления на HDD',
+
+        // ГОСТ стандарт
+        GOST_OVERWRITE_START: 'Перезапись по ГОСТ Р 50739-9 ({passes} прохода)',
+        GOST_OVERWRITE_COMPLETE: 'Перезапись по ГОСТ завершена',
+        GOST_OVERWRITE_ERROR: 'Ошибка перезаписи по ГОСТ',
+        GOST_PASS_1_START: 'ГОСТ проход 1: случайные данные',
+        GOST_PASS_1_COMPLETE: 'ГОСТ проход 1 завершен',
+        GOST_PASS_2_START: 'ГОСТ проход 2: фиксированный шаблон',
+        GOST_PASS_2_COMPLETE: 'ГОСТ проход 2 завершен',
+
+        // Верификация
+        VERIFICATION_FAILED: 'Верификация удаления не пройдена',
+        VERIFICATION_FAILED_SIZE: 'Верификация не пройдена: файл {path} имеет размер {size} байт',
+        VERIFICATION_ERROR: 'Ошибка верификации удаления',
+
+        // Метаданные
+        METADATA_CHANGE_ERROR: 'Ошибка изменения метаданных файла',
+
+        // Симлинки
+        SYMLINK_DETECTED: 'Обнаружен симлинк: {path}',
+        SYMLINK_TARGET: 'Цель симлинка: {target}',
+        SYMLINK_DELETE_ERROR: 'Ошибка удаления симлинка',
+
+        // Директории
+        ROOM_DIR_NOT_FOUND: 'Директория комнаты не найдена: {room}',
+        UPLOADS_DIR_NOT_FOUND: 'Директория uploads не найдена',
+        ROOM_DELETION_START: 'Начало безопасного удаления комнаты: {room}',
+        ROOM_DELETION_COMPLETE: 'Безопасное удаление комнаты завершено: {room}',
+        ROOM_DELETION_ERROR: 'Ошибка удаления комнаты: {room}',
+        UPLOADS_DELETION_START: 'Начало безопасного удаления директории uploads',
+        UPLOADS_DELETION_COMPLETE: 'Безопасное удаление директории uploads завершено',
+        UPLOADS_DELETION_ERROR: 'Ошибка удаления директории uploads',
+        DIR_FILE_DELETE_ERROR: 'Ошибка удаления файла в директории: {file}',
+        DIR_DELETION_ERROR: 'Ошибка удаления директории: {dir}'
+
     },
     
     en: {
@@ -285,7 +335,49 @@
         FILE_METADATA_SAVE_ERROR: 'Error saving file metadata:',
         
         UNKNOWN_USER: 'unknown user',
-        USER_DIR_NOT_FOUND: 'User directory not found:'
+        USER_DIR_NOT_FOUND: 'User directory not found:',
+
+        STORAGE_TYPE_DETECTED: 'Storage type detected as: {type}',
+        STORAGE_DETECTION_ERROR: 'Storage type detection error',
+        SECURE_DELETE_DISABLED: 'Secure delete disabled in configuration',
+        SECURE_DELETE_START: 'Starting secure deletion of file: {path} ({size})',
+        SECURE_DELETE_COMPLETE: 'Secure deletion complete: {path} (took {time} sec)',
+        SECURE_DELETE_ERROR: 'Secure file deletion error',
+        FILE_DELETE_FAILED: 'Failed to delete file {file} at path {path}. Error: {error}',
+
+        SSD_OPTIMIZED_DELETE: 'Optimized deletion for SSD',
+        HDD_FULL_DELETE: 'Full deletion for HDD/magnetic storage',
+        SSD_DELETE_ERROR: 'SSD deletion error',
+        HDD_DELETE_ERROR: 'HDD deletion error',
+
+        GOST_OVERWRITE_START: 'GOST Р 50739-9 overwrite ({passes} passes)',
+        GOST_OVERWRITE_COMPLETE: 'GOST overwrite complete',
+        GOST_OVERWRITE_ERROR: 'GOST overwrite error',
+        GOST_PASS_1_START: 'GOST pass 1: random data',
+        GOST_PASS_1_COMPLETE: 'GOST pass 1 complete',
+        GOST_PASS_2_START: 'GOST pass 2: fixed pattern',
+        GOST_PASS_2_COMPLETE: 'GOST pass 2 complete',
+
+        VERIFICATION_FAILED: 'Deletion verification failed',
+        VERIFICATION_FAILED_SIZE: 'Verification failed: file {path} has size {size} bytes',
+        VERIFICATION_ERROR: 'Deletion verification error',
+
+        METADATA_CHANGE_ERROR: 'File metadata change error',
+
+        SYMLINK_DETECTED: 'Symlink detected: {path}',
+        SYMLINK_TARGET: 'Symlink target: {target}',
+        SYMLINK_DELETE_ERROR: 'Symlink deletion error',
+
+        ROOM_DIR_NOT_FOUND: 'Room directory not found: {room}',
+        UPLOADS_DIR_NOT_FOUND: 'Uploads directory not found',
+        ROOM_DELETION_START: 'Starting secure deletion of room: {room}',
+        ROOM_DELETION_COMPLETE: 'Secure room deletion complete: {room}',
+        ROOM_DELETION_ERROR: 'Room deletion error: {room}',
+        UPLOADS_DELETION_START: 'Starting secure deletion of uploads directory',
+        UPLOADS_DELETION_COMPLETE: 'Secure uploads directory deletion complete',
+        UPLOADS_DELETION_ERROR: 'Uploads directory deletion error',
+        DIR_FILE_DELETE_ERROR: 'Directory file deletion error: {file}',
+        DIR_DELETION_ERROR: 'Directory deletion error: {dir}'
     },
     
     es: {
@@ -422,7 +514,49 @@
         FILE_METADATA_SAVE_ERROR: 'Error guardando metadatos de archivo:',
         
         UNKNOWN_USER: 'usuario desconocido',
-        USER_DIR_NOT_FOUND: 'Directorio de usuario no encontrado:'
+        USER_DIR_NOT_FOUND: 'Directorio de usuario no encontrado:',
+
+        STORAGE_TYPE_DETECTED: 'Tipo de almacenamiento detectado como: {type}',
+        STORAGE_DETECTION_ERROR: 'Error de detección de tipo de almacenamiento',
+        SECURE_DELETE_DISABLED: 'Eliminación segura deshabilitada en configuración',
+        SECURE_DELETE_START: 'Iniciando eliminación segura de archivo: {path} ({size})',
+        SECURE_DELETE_COMPLETE: 'Eliminación segura completada: {path} (tomó {time} seg)',
+        SECURE_DELETE_ERROR: 'Error de eliminación segura de archivo',
+        FILE_DELETE_FAILED: 'No se pudo eliminar archivo {file} en ruta {path}. Error: {error}',
+
+        SSD_OPTIMIZED_DELETE: 'Eliminación optimizada para SSD',
+        HDD_FULL_DELETE: 'Eliminación completa para HDD/almacenamiento magnético',
+        SSD_DELETE_ERROR: 'Error de eliminación SSD',
+        HDD_DELETE_ERROR: 'Error de eliminación HDD',
+
+        GOST_OVERWRITE_START: 'Sobreescritura GOST Р 50739-9 ({passes} pasadas)',
+        GOST_OVERWRITE_COMPLETE: 'Sobreescritura GOST completada',
+        GOST_OVERWRITE_ERROR: 'Error de sobreescritura GOST',
+        GOST_PASS_1_START: 'GOST pasada 1: datos aleatorios',
+        GOST_PASS_1_COMPLETE: 'GOST pasada 1 completada',
+        GOST_PASS_2_START: 'GOST pasada 2: patrón fijo',
+        GOST_PASS_2_COMPLETE: 'GOST pasada 2 completada',
+
+        VERIFICATION_FAILED: 'Verificación de eliminación falló',
+        VERIFICATION_FAILED_SIZE: 'Verificación falló: archivo {path} tiene tamaño {size} bytes',
+        VERIFICATION_ERROR: 'Error de verificación de eliminación',
+
+        METADATA_CHANGE_ERROR: 'Error cambiando metadatos de archivo',
+
+        SYMLINK_DETECTED: 'Enlace simbólico detectado: {path}',
+        SYMLINK_TARGET: 'Destino de enlace simbólico: {target}',
+        SYMLINK_DELETE_ERROR: 'Error eliminando enlace simbólico',
+
+        ROOM_DIR_NOT_FOUND: 'Directorio de sala no encontrado: {room}',
+        UPLOADS_DIR_NOT_FOUND: 'Directorio uploads no encontrado',
+        ROOM_DELETION_START: 'Iniciando eliminación segura de sala: {room}',
+        ROOM_DELETION_COMPLETE: 'Eliminación segura de sala completada: {room}',
+        ROOM_DELETION_ERROR: 'Error de eliminación de sala: {room}',
+        UPLOADS_DELETION_START: 'Iniciando eliminación segura de directorio uploads',
+        UPLOADS_DELETION_COMPLETE: 'Eliminación segura de directorio uploads completada',
+        UPLOADS_DELETION_ERROR: 'Error de eliminación de directorio uploads',
+        DIR_FILE_DELETE_ERROR: 'Error eliminando archivo en directorio: {file}',
+        DIR_DELETION_ERROR: 'Error eliminando directorio: {dir}'
     },
     
     zh: {
@@ -559,7 +693,49 @@
         FILE_METADATA_SAVE_ERROR: '保存文件元数据错误:',
         
         UNKNOWN_USER: '未知用户',
-        USER_DIR_NOT_FOUND: '用户目录未找到:'
+        USER_DIR_NOT_FOUND: '用户目录未找到:',
+
+        STORAGE_TYPE_DETECTED: '存储类型检测为: {type}',
+        STORAGE_DETECTION_ERROR: '存储类型检测错误',
+        SECURE_DELETE_DISABLED: '安全删除在配置中已禁用',
+        SECURE_DELETE_START: '开始安全删除文件: {path} ({size})',
+        SECURE_DELETE_COMPLETE: '安全删除完成: {path} (耗时 {time} 秒)',
+        SECURE_DELETE_ERROR: '安全文件删除错误',
+        FILE_DELETE_FAILED: '无法删除文件 {file} 路径 {path}. 错误: {error}',
+
+        SSD_OPTIMIZED_DELETE: '针对SSD的优化删除',
+        HDD_FULL_DELETE: '针对HDD/磁存储的完全删除',
+        SSD_DELETE_ERROR: 'SSD删除错误',
+        HDD_DELETE_ERROR: 'HDD删除错误',
+
+        GOST_OVERWRITE_START: 'ГОСТ Р 50739-9 覆盖写入 ({passes} 次)',
+        GOST_OVERWRITE_COMPLETE: 'ГОСТ 覆盖写入完成',
+        GOST_OVERWRITE_ERROR: 'ГОСТ 覆盖写入错误',
+        GOST_PASS_1_START: 'ГОСТ 第1次: 随机数据',
+        GOST_PASS_1_COMPLETE: 'ГОСТ 第1次完成',
+        GOST_PASS_2_START: 'ГОСТ 第2次: 固定模式',
+        GOST_PASS_2_COMPLETE: 'ГОСТ 第2次完成',
+
+        VERIFICATION_FAILED: '删除验证失败',
+        VERIFICATION_FAILED_SIZE: '验证失败: 文件 {path} 大小为 {size} 字节',
+        VERIFICATION_ERROR: '删除验证错误',
+
+        METADATA_CHANGE_ERROR: '文件元数据更改错误',
+
+        SYMLINK_DETECTED: '检测到符号链接: {path}',
+        SYMLINK_TARGET: '符号链接目标: {target}',
+        SYMLINK_DELETE_ERROR: '符号链接删除错误',
+
+        ROOM_DIR_NOT_FOUND: '房间目录未找到: {room}',
+        UPLOADS_DIR_NOT_FOUND: '上传目录未找到',
+        ROOM_DELETION_START: '开始安全删除房间: {room}',
+        ROOM_DELETION_COMPLETE: '房间安全删除完成: {room}',
+        ROOM_DELETION_ERROR: '房间删除错误: {room}',
+        UPLOADS_DELETION_START: '开始安全删除上传目录',
+        UPLOADS_DELETION_COMPLETE: '上传目录安全删除完成',
+        UPLOADS_DELETION_ERROR: '上传目录删除错误',
+        DIR_FILE_DELETE_ERROR: '目录文件删除错误: {file}',
+        DIR_DELETION_ERROR: '目录删除错误: {dir}'
     }
 };
 
