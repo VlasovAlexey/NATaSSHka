@@ -1,13 +1,4 @@
-﻿// js/fileNameFormatter.js - Упрощенная версия
-// Форматирование имен файлов для корректного отображения в чате
-
-window.fileNameFormatter = {
-    /**
-     * Форматирует имя файла для отображения в чате
-     * Если имя файла длиннее 18 символов, обрезает его: первые 10 символов...последние 3 символа.расширение
-     * @param {string} fileName - Исходное имя файла
-     * @returns {string} Отформатированное имя файла
-     */
+﻿window.fileNameFormatter = {
     formatFileName: function(fileName) {
         // Проверка входных данных
         if (!fileName || typeof fileName !== 'string') {
@@ -57,6 +48,29 @@ window.fileNameFormatter = {
             console.error('Error formatting filename:', error);
             // В случае ошибки возвращаем исходное имя
             return fileName;
+        }
+    },
+    
+    /**
+     * Обрабатывает зашифрованные файлы
+     * @param {HTMLElement} buttonElement - Кнопка зашифрованного файла
+     * @param {string} originalFileName - Оригинальное имя файла
+     */
+    setupEncryptedFileButton: function(buttonElement, originalFileName) {
+        if (!buttonElement || !originalFileName || typeof originalFileName !== 'string') return;
+        
+        const formattedName = this.formatFileName(originalFileName);
+        
+        // Находим элемент с информацией о файле рядом с кнопкой
+        const nextSibling = buttonElement.nextElementSibling;
+        if (nextSibling && nextSibling.classList.contains('file-info')) {
+            if (formattedName !== originalFileName) {
+                nextSibling.textContent = formattedName;
+                nextSibling.title = originalFileName;
+                nextSibling.dataset.formatted = 'true';
+            } else if (originalFileName.length > 15) {
+                nextSibling.title = originalFileName;
+            }
         }
     },
     

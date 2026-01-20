@@ -1,7 +1,4 @@
-﻿// js/fileFormats.js
-// Определение поддерживаемых и неподдерживаемых форматов файлов
-
-window.fileFormats = {
+﻿window.fileFormats = {
     // Поддерживаемые форматы изображений (браузер может отображать)
     supportedImageFormats: [
         'image/jpeg',
