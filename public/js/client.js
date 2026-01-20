@@ -435,6 +435,11 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
     }
 
     window.decryptAndDisplayFile = async function(fileUrl, fileType, fileName, messageId, buttonElement) {
+        // Форматируем имя файла для кнопки
+        if (window.fileNameFormatter) {
+            window.fileNameFormatter.setupEncryptedFileButton(buttonElement, fileName);
+        }
+        
         const messageFileElement = buttonElement.closest('.message-file');
         if (!messageFileElement) {
             return;
@@ -537,6 +542,11 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
     }
 
     function showDecryptionError(messageFileElement, fileName, fileUrl, fileType, messageId) {
+        // Форматируем имя файла перед отображением
+        const displayFileName = window.fileNameFormatter ? 
+            window.fileNameFormatter.formatFileName(fileName) : 
+            fileName;
+        
         messageFileElement.innerHTML = `
         <button class="encrypted-file-btn error" 
                 onclick="decryptAndDisplayFile('${fileUrl}', '${fileType}', '${fileName}', '${messageId}', this)"
@@ -546,45 +556,67 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
                 data-message-id="${messageId}">
             ${window.t('FILE_WRONG_KEY')}
         </button>
-        <div class="file-info">${fileName}</div>
+        <div class="file-info" title="${fileName}">${displayFileName}</div>
     `;
     }
 
     function displayDecryptedFile(blob, fileType, fileName, messageFileElement) {
-        const url = URL.createObjectURL(blob);
-        const fileSize = (blob.size / 1024).toFixed(2);
+    const url = URL.createObjectURL(blob);
+    const fileSize = (blob.size / 1024).toFixed(2);
+    
+    // Анализируем тип файла
+    const fileAnalysis = window.fileFormats ? 
+        window.fileFormats.analyzeFile(fileType, fileName) : 
+        { isImage: fileType && fileType.startsWith('image/'), shouldDisplayAsFile: false };
+    
+    // Получаем иконку для файла
+    const fileIcon = window.fileFormats ? 
+        window.fileFormats.getFileIcon(fileType, fileName) : '📄';
 
-        if (fileType.startsWith('image/')) {
-            messageFileElement.innerHTML = `
-            <img src="${url}" alt="${fileName}" 
-                 onclick="window.expandImage('${url}', '${fileType}')">
-            <div class="file-size">${window.t('FILE_SIZE', { size: fileSize })}</div>
-        `;
-        } else if (fileType.startsWith('video/')) {
-            messageFileElement.innerHTML = `
-            <video src="${url}" controls muted 
-                   onclick="window.expandVideoWithSound('${url}')">
-                ${window.t('VIDEO_NOT_SUPPORTED')}
-            </video>
-            <div class="file-size">${window.t('FILE_SIZE', { size: fileSize })}</div>
-        `;
-        } else if (fileType.startsWith('audio/')) {
-            messageFileElement.innerHTML = `
-            <button class="audio-play-btn" onclick="window.audioRecorder.playAudioMessage('${url}', this)">
-                
-            </button>
-            <span class="audio-duration">${window.t('FILE_SIZE', { size: fileSize })}</span>
-        `;
-        } else {
-            messageFileElement.innerHTML = `
-            <a href="${url}" download="${fileName}">
-                📄 ${fileName}
-            </a>
-            <div class="file-size">${window.t('FILE_SIZE', { size: fileSize })}</div>
-        `;
-        }
+    if (fileAnalysis.isImage && !fileAnalysis.shouldDisplayAsFile) {
+        // Поддерживаемое изображение
+        messageFileElement.innerHTML = `
+        <img src="${url}" alt="${fileName}" 
+             onclick="window.expandImage('${url}', '${fileType}')">
+        <div class="file-size">${window.t('FILE_SIZE', { size: fileSize })}</div>
+    `;
+    } else if (fileType && fileType.startsWith('video/')) {
+        messageFileElement.innerHTML = `
+        <video src="${url}" controls muted 
+               onclick="window.expandVideoWithSound('${url}')">
+            ${window.t('VIDEO_NOT_SUPPORTED')}
+        </video>
+        <div class="file-size">${window.t('FILE_SIZE', { size: fileSize })}</div>
+    `;
+    } else if (fileType && fileType.startsWith('audio/')) {
+        messageFileElement.innerHTML = `
+        <button class="audio-play-btn" onclick="window.audioRecorder.playAudioMessage('${url}', this)">
+            
+        </button>
+        <span class="audio-duration">${window.t('FILE_SIZE', { size: fileSize })}</span>
+    `;
+    } else {
+        // Неподдерживаемое изображение или обычный файл
+        // Форматируем имя файла перед отображением
+        const displayFileName = window.fileNameFormatter ? 
+            window.fileNameFormatter.formatFileName(fileName) : 
+            fileName;
+        
+        messageFileElement.innerHTML = `
+        <a href="${url}" download="${fileName}" class="file-download-link" title="${fileName}">
+            ${fileIcon} ${displayFileName}
+        </a>
+        <div class="file-size">${window.t('FILE_SIZE', { size: fileSize })}</div>
+    `;
     }
-
+    
+    // Применяем форматирование к вновь созданным элементам
+    setTimeout(() => {
+        if (window.fileNameFormatter) {
+            window.fileNameFormatter.applyToContainer(messageFileElement);
+        }
+    }, 10);
+}
     const loginModal = document.getElementById('loginModal');
     const usernameInput = document.getElementById('usernameInput');
     const roomInput = document.getElementById('roomInput');
@@ -775,6 +807,15 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
         updateButtonStates();
         
         updateInterfaceLanguage();
+        
+        // Инициализируем форматирование имен файлов
+        if (window.fileNameFormatter && messagesContainer) {
+            // Форматируем все существующие файлы
+            window.fileNameFormatter.applyToContainer(messagesContainer);
+            
+            // Инициализируем наблюдатель для новых сообщений
+            window.fileNameFormatter.initializeObserver(messagesContainer);
+        }
     });
 
     function updateInterfaceLanguage() {
@@ -956,7 +997,7 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
         });
     }
 
-    function addMessageToChat(message) {
+function addMessageToChat(message) {
     const messageElement = document.createElement('div');
     messageElement.classList.add('message');
     messageElement.dataset.messageId = message.id;
@@ -1025,62 +1066,89 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
 
     // Обработка файловых сообщений
     if (message.isFile) {
+        // Безопасная проверка fileType
+        const fileType = message.fileType || '';
+        const fileName = message.fileName || '';
+        const fileSize = message.fileSize || '';
+        const fileUrl = message.fileUrl || '';
+        
+        // Анализируем тип файла
+        const fileAnalysis = window.fileFormats ? 
+            window.fileFormats.analyzeFile(fileType, fileName) : 
+            { 
+                isImage: fileType && typeof fileType === 'string' && fileType.startsWith('image/'), 
+                shouldDisplayAsFile: false 
+            };
+        
         if (message.isEncrypted) {
             messageContent += `
             <div class="message-file">
                 <button class="encrypted-file-btn" 
-                        onclick="window.decryptAndDisplayFile('${message.fileUrl}', '${message.fileType}', '${message.fileName}', '${message.id}', this)"
-                        data-file-url="${message.fileUrl}"
-                        data-file-type="${message.fileType}"
-                        data-file-name="${message.fileName}"
+                        onclick="window.decryptAndDisplayFile('${fileUrl}', '${fileType}', '${fileName}', '${message.id}', this)"
+                        data-file-url="${fileUrl}"
+                        data-file-type="${fileType}"
+                        data-file-name="${fileName}"
                         data-message-id="${message.id}">
                     ${window.t('FILE_ENCRYPTED_CLICK')}
                 </button>
-                <div class="file-info">${message.fileName} (${message.fileSize})</div>
+                <div class="file-info">${fileName} (${fileSize})</div>
             </div>
             `;
         } else {
+            // Форматируем имя файла для отображения
+            const displayFileName = window.fileNameFormatter ? 
+                window.fileNameFormatter.formatFileName(fileName) : 
+                fileName;
+            
+            // Получаем иконку для файла
+            const fileIcon = window.fileFormats ? 
+                window.fileFormats.getFileIcon(fileType, fileName) : '📄';
+            
             if (message.isAudio) {
+                const duration = message.duration || '';
                 messageContent += `
                     <div class="message-audio">
-                        <button class="audio-play-btn" onclick="window.audioRecorder.playAudioMessage('${message.fileUrl}', this)">
+                        <button class="audio-play-btn" onclick="window.audioRecorder.playAudioMessage('${fileUrl}', this)">
                             
                         </button>
-                        <span class="audio-duration">${window.t('FILE_DURATION_SIZE', { duration: message.duration, size: message.fileSize })}</span>
+                        <span class="audio-duration">${window.t('FILE_DURATION_SIZE', { duration: duration, size: fileSize })}</span>
                     </div>
                 `;
-            } else if (message.fileType.startsWith('image/')) {
+            } else if (fileAnalysis.isImage && !fileAnalysis.shouldDisplayAsFile) {
+                // Поддерживаемое изображение - отображаем как изображение
                 messageContent += `
                     <div class="message-file">
-                        <img src="${message.fileUrl}" alt="${message.fileName}" 
-                             onclick="window.expandImage('${message.fileUrl}', '${message.fileType}')">
-                        <div class="file-size">${message.fileSize}</div>
+                        <img src="${fileUrl}" alt="${fileName}" 
+                             onclick="window.expandImage('${fileUrl}', '${fileType}')">
+                        <div class="file-size">${fileSize}</div>
                     </div>
                 `;
-            } else if (message.fileType.startsWith('video/')) {
+            } else if (fileType && typeof fileType === 'string' && fileType.startsWith('video/')) {
+                const duration = message.duration || '';
                 messageContent += `
                     <div class="message-file">
-                        <video src="${message.fileUrl}" controls muted 
-                               onclick="window.expandVideoWithSound('${message.fileUrl}', this)">
+                        <video src="${fileUrl}" controls muted 
+                               onclick="window.expandVideoWithSound('${fileUrl}', this)">
                             ${window.t('VIDEO_NOT_SUPPORTED')}
                         </video>
-                        <div class="file-size">${window.t('FILE_DURATION_SIZE', { duration: message.duration, size: message.fileSize })}</div>
+                        <div class="file-size">${window.t('FILE_DURATION_SIZE', { duration: duration, size: fileSize })}</div>
                     </div>
                 `;
             } else {
+                // Неподдерживаемое изображение или обычный файл - отображаем как ссылку
                 messageContent += `
                     <div class="message-file">
-                        <a href="${message.fileUrl}" download="${message.fileName}" class="file-download-link">
-                            📄 ${message.fileName}
+                        <a href="${fileUrl}" download="${fileName}" class="file-download-link" title="${fileName}">
+                            ${fileIcon} ${displayFileName}
                         </a>
-                        <div class="file-size">${message.fileSize}</div>
+                        <div class="file-size">${fileSize}</div>
                     </div>
                 `;
             }
         }
     } else {
         // Текстовые сообщения - всегда парсим ссылки
-        let messageText = message.text;
+        let messageText = message.text || '';
         
         // Используем linkifyMessageText для всех типов сообщений
         // Для системных сообщений isSystem=true, для остальных false
@@ -1108,6 +1176,18 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
     }
 
     messagesContainer.appendChild(messageElement);
+    
+    // Форматируем имя файла если оно длинное
+    setTimeout(() => {
+        if (window.fileNameFormatter && (message.isFile || message.isAudio)) {
+            // Для файловых сообщений форматируем имя файла
+            const messageFileElement = messageElement.querySelector('.message-file, .message-audio');
+            if (messageFileElement) {
+                // Применяем форматирование ко всем элементам внутри
+                window.fileNameFormatter.applyToContainer(messageFileElement);
+            }
+        }
+    }, 10);
 
     setTimeout(() => {
         addDeleteButton(messageElement, message);
@@ -1115,7 +1195,6 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
 
     scrollToBottom();
 }
-
 // Функция для добавления обработчиков клика на ссылки
 function addClickHandlersToLinks(messageElement) {
     const links = messageElement.querySelectorAll('a.message-link');
