@@ -20,7 +20,7 @@
 
     window.webrtcManager = new WebRTCManager(socket);
 
-    window.decryptedFilesCache = {};
+    
 
     socket.on('stun-config', (iceServers) => {
         if (!window.rtcConfig) {
@@ -435,78 +435,66 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
     }
 
     window.decryptAndDisplayFile = async function(fileUrl, fileType, fileName, messageId, buttonElement) {
-        // Форматируем имя файла для кнопки
-        if (window.fileNameFormatter) {
-            window.fileNameFormatter.setupEncryptedFileButton(buttonElement, fileName);
-        }
+    // Добавляем параметр против кэширования
+    const antiCacheUrl = window.cacheControlManager?.addAntiCacheParam(fileUrl) || fileUrl;
+    
+    // Форматируем имя файла для кнопки
+    if (window.fileNameFormatter) {
+        window.fileNameFormatter.setupEncryptedFileButton(buttonElement, fileName);
+    }
+    
+    const messageFileElement = buttonElement.closest('.message-file');
+    if (!messageFileElement) {
+        return;
+    }
+
+    try {
+        messageFileElement.innerHTML = window.t('FILE_LOADING_DECRYPTING');
+
+        // ОТКЛЮЧАЕМ кэширование файлов - всегда загружаем заново
+        // Удаляем проверку кэша
         
-        const messageFileElement = buttonElement.closest('.message-file');
-        if (!messageFileElement) {
+        if (!window.encryptionManager.encryptionKey) {
+            showDecryptionError(messageFileElement, fileName, antiCacheUrl, fileType, messageId);
             return;
         }
 
-        try {
-            messageFileElement.innerHTML = window.t('FILE_LOADING_DECRYPTING');
-
-            if (window.decryptedFilesCache[fileUrl]) {
-                const cacheEntry = window.decryptedFilesCache[fileUrl];
-
-                if (cacheEntry.encryptionKey === window.encryptionManager.encryptionKey) {
-                    if (cacheEntry.status === 'success') {
-                        displayDecryptedFile(cacheEntry.blob, fileType, fileName, messageFileElement);
-                    } else {
-                        showDecryptionError(messageFileElement, fileName, fileUrl, fileType, messageId);
-                    }
-                    return;
-                } else {
-                    delete window.decryptedFilesCache[fileUrl];
-                }
-            }
-
-            if (!window.encryptionManager.encryptionKey) {
-                showDecryptionError(messageFileElement, fileName, fileUrl, fileType, messageId);
-                return;
-            }
-
-            const response = await fetch(fileUrl);
-            if (!response.ok) {
-                throw new Error(`${window.t('ERROR_FILE_READ', { filename: fileName })}: ${response.status}`);
-            }
-            const encryptedBlob = await response.blob();
-
-            const encryptedBase64 = await blobToBase64(encryptedBlob);
-
-            let decryptedBase64;
-            try {
-                decryptedBase64 = window.encryptionManager.decryptFile(encryptedBase64);
-            } catch (error) {
-                throw new Error(window.t('ERROR_WRONG_ENCRYPTION_KEY'));
-            }
-
-            const decryptedBlob = base64ToBlob(decryptedBase64, fileType);
-
-            if (!decryptedBlob || decryptedBlob.size === 0) {
-                throw new Error(window.t('ERROR_WRONG_ENCRYPTION_KEY'));
-            }
-
-            window.decryptedFilesCache[fileUrl] = {
-                blob: decryptedBlob,
-                status: 'success',
-                encryptionKey: window.encryptionManager.encryptionKey
-            };
-
-            displayDecryptedFile(decryptedBlob, fileType, fileName, messageFileElement);
-
-        } catch (error) {
-            window.decryptedFilesCache[fileUrl] = {
-                status: 'error',
-                encryptionKey: window.encryptionManager.encryptionKey,
-                error: error.message
-            };
-
-            showDecryptionError(messageFileElement, fileName, fileUrl, fileType, messageId);
+        // Используем antiCacheUrl и добавляем заголовки
+        const response = await fetch(antiCacheUrl, {
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            },
+            cache: 'no-store'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`${window.t('ERROR_FILE_READ', { filename: fileName })}: ${response.status}`);
         }
-    };
+        
+        const encryptedBlob = await response.blob();
+        const encryptedBase64 = await blobToBase64(encryptedBlob);
+
+        let decryptedBase64;
+        try {
+            decryptedBase64 = window.encryptionManager.decryptFile(encryptedBase64);
+        } catch (error) {
+            throw new Error(window.t('ERROR_WRONG_ENCRYPTION_KEY'));
+        }
+
+        const decryptedBlob = base64ToBlob(decryptedBase64, fileType);
+
+        if (!decryptedBlob || decryptedBlob.size === 0) {
+            throw new Error(window.t('ERROR_WRONG_ENCRYPTION_KEY'));
+        }
+
+        // НЕ сохраняем в кэш
+        displayDecryptedFile(decryptedBlob, fileType, fileName, messageFileElement);
+
+    } catch (error) {
+        showDecryptionError(messageFileElement, fileName, antiCacheUrl, fileType, messageId);
+    }
+};
 
     function blobToText(blob) {
         return new Promise((resolve, reject) => {
@@ -1329,75 +1317,304 @@ function addClickHandlersToLinks(messageElement) {
         }, 300);
     }
 
-    window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
-        const isMobile = window.innerWidth <= 770;
+    // Глобальный менеджер воспроизведения видео
+window.videoPlaybackManager = {
+    activeModalVideo: null,
+    pausedChatVideos: new Set(),
+    
+    pauseAllChatVideos() {
+        const allChatVideos = document.querySelectorAll('#messagesContainer video');
+        this.pausedChatVideos.clear();
+        
+        allChatVideos.forEach(video => {
+            if (!video.paused) {
+                video.pause();
+                this.pausedChatVideos.add(video);
+            }
+        });
+    },
+    
+    resumePausedChatVideos() {
+        this.pausedChatVideos.forEach(video => {
+            if (document.body.contains(video)) {
+                video.play().catch(error => {
+                    // Игнорируем ошибки автовоспроизведения
+                });
+            }
+        });
+        this.pausedChatVideos.clear();
+    },
+    
+    setActiveModalVideo(videoElement) {
+        this.activeModalVideo = videoElement;
+    },
+    
+    clearActiveModalVideo() {
+        this.activeModalVideo = null;
+    }
+};
 
-        if (chatVideoElement && !chatVideoElement.paused) {
+window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
+    const isMobile = window.innerWidth <= 770;
+
+    // 1. Пауза ВСЕХ видео в чате перед открытием модального окна
+    const allChatVideos = document.querySelectorAll('#messagesContainer video');
+    const pausedChatVideos = [];
+    
+    allChatVideos.forEach(video => {
+        if (!video.paused) {
+            video.pause();
+            pausedChatVideos.push(video);
+        }
+    });
+
+    // Сохраняем список приостановленных видео для восстановления позже
+    window.pausedChatVideosForRestore = pausedChatVideos;
+
+    // 2. Если передано конкретное видео из чата, запоминаем его отдельно
+    if (chatVideoElement && chatVideoElement.tagName === 'VIDEO') {
+        if (!chatVideoElement.paused) {
             chatVideoElement.pause();
-            window.pausedChatVideo = chatVideoElement;
+            // Добавляем в начало массива для приоритетного восстановления
+            window.pausedChatVideosForRestore.unshift(chatVideoElement);
+        }
+        window.clickedChatVideo = chatVideoElement;
+    } else {
+        window.clickedChatVideo = null;
+    }
+
+    // 3. Отладка
+    window.videoModalDebug = window.videoModalDebug || {
+        openAttempts: 0,
+        lastVideoUrl: '',
+        modalState: 'unknown'
+    };
+
+    window.videoModalDebug.openAttempts++;
+    window.videoModalDebug.lastVideoUrl = videoUrl;
+
+    if (!videoModal) {
+        window.videoModalDebug.modalState = 'not_found';
+        return;
+    }
+
+    if (!modalVideo) {
+        window.videoModalDebug.modalState = 'video_not_found';
+        return;
+    }
+
+    // 4. Пауза текущего видео в модальном окне если оно играет
+    if (!modalVideo.paused) {
+        modalVideo.pause();
+    }
+
+    videoModal.classList.add('active');
+    window.videoModalDebug.modalState = 'opening';
+
+    setTimeout(() => {
+        // 5. Освобождаем предыдущий URL если был
+        if (modalVideo.src && modalVideo.src.startsWith('blob:')) {
+            URL.revokeObjectURL(modalVideo.src);
         }
 
-        window.videoModalDebug = window.videoModalDebug || {
-            openAttempts: 0,
-            lastVideoUrl: '',
-            modalState: 'unknown'
+        // 6. Устанавливаем новый источник
+        modalVideo.src = videoUrl;
+        modalVideo.controls = true;
+        modalVideo.muted = false;
+
+        // 7. Обработчики событий для модального видео
+        modalVideo.onloadeddata = function() {
+            window.videoModalDebug.modalState = 'video_loaded';
+
+            // Автоматически начинаем воспроизведение
+            modalVideo.play().then(() => {
+                // Успешное начало воспроизведения
+            }).catch(error => {
+                // Ошибка автовоспроизведения - нормально, пользователь может запустить вручную
+                console.log('Autoplay blocked, user interaction required');
+            });
         };
 
-        window.videoModalDebug.openAttempts++;
-        window.videoModalDebug.lastVideoUrl = videoUrl;
-
-        if (!videoModal) {
-            window.videoModalDebug.modalState = 'not_found';
-            return;
-        }
-
-        if (!modalVideo) {
-            window.videoModalDebug.modalState = 'video_not_found';
-            return;
-        }
-
-        videoModal.classList.add('active');
-        window.videoModalDebug.modalState = 'opening';
-
-        setTimeout(() => {
-            if (modalVideo.src) {
-                URL.revokeObjectURL(modalVideo.src);
+        modalVideo.onerror = function(e) {
+            if (!videoModal.classList.contains('active')) {
+                return;
             }
 
-            modalVideo.src = videoUrl;
-            modalVideo.controls = true;
-            modalVideo.muted = false;
+            window.videoModalDebug.modalState = 'video_load_error';
+            console.error('Video load error:', e);
 
-            modalVideo.onloadeddata = function() {
-                window.videoModalDebug.modalState = 'video_loaded';
-
-                modalVideo.play().then(() => {}).catch(error => {});
-            };
-
-            modalVideo.onerror = function(e) {
-                if (!videoModal.classList.contains('active')) {
-                    return;
-                }
-
-                window.videoModalDebug.modalState = 'video_load_error';
-
-                if (videoModal.classList.contains('active')) {
-                    modalVideo.controls = false;
-                    modalVideo.poster = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzAwMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkeT0iMC4zNWVtIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmIiBmb250LXNpemU9IjE0Ij7QktC40LTQtdC+INC90LUg0LTQvtC00L7QvNC10YAg0LTQvtCx0YDQtdGC0L7QsiDQtNC+0YHRgtC+0LfQstC+0Lk8L3RleHQ+PC9zdmc+';
-                }
-            };
-
-            modalVideo.onended = function() {};
-        }, 10);
-
-        setTimeout(() => {
             if (videoModal.classList.contains('active')) {
-                window.videoModalDebug.modalState = 'opened';
-            } else {
-                window.videoModalDebug.modalState = 'failed_to_open';
+                modalVideo.controls = false;
+                modalVideo.poster = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzAwMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkeT0iMC4zNWVtIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmIiBmb250LXNpemU9IjE0Ij7QktC40LTQtdC+INC90LUg0LTQvtC00L7QvNC10YAg0LTQvtCx0YDQtdGC0L7QsiDQtNC+0YHRgtC+0LfQstC+0Lk8L3RleHQ+PC9zdmc+';
             }
-        }, 100);
-    };
+        };
+
+        modalVideo.onplay = function() {
+            // При начале воспроизведения в модальном окне убеждаемся, что все видео в чате на паузе
+            const currentChatVideos = document.querySelectorAll('#messagesContainer video');
+            currentChatVideos.forEach(video => {
+                if (!video.paused) {
+                    video.pause();
+                }
+            });
+        };
+
+        modalVideo.onpause = function() {
+            // При паузе в модальном окне - ничего не делаем с видео в чате
+        };
+
+        modalVideo.onended = function() {
+            // При завершении воспроизведения в модальном окне
+            // Можно автоматически закрыть модальное окно или оставить его открытым
+            // Не возобновляем видео в чате автоматически
+        };
+
+        // 8. Добавляем обработчик для события "playing" чтобы убедиться в синхронизации
+        modalVideo.addEventListener('playing', function() {
+            // Дополнительная проверка - пауза любых случайно запущенных видео в чате
+            const checkAndPauseChatVideos = () => {
+                const chatVideos = document.querySelectorAll('#messagesContainer video');
+                let foundPlaying = false;
+                
+                chatVideos.forEach(video => {
+                    if (!video.paused && video !== modalVideo) {
+                        video.pause();
+                        foundPlaying = true;
+                    }
+                });
+                
+                if (foundPlaying) {
+                    // Продолжаем проверять пока не убедимся
+                    setTimeout(checkAndPauseChatVideos, 100);
+                }
+            };
+            
+            checkAndPauseChatVideos();
+        });
+
+    }, 10);
+
+    setTimeout(() => {
+        if (videoModal.classList.contains('active')) {
+            window.videoModalDebug.modalState = 'opened';
+        } else {
+            window.videoModalDebug.modalState = 'failed_to_open';
+        }
+    }, 100);
+};
+
+// Вспомогательная функция для восстановления видео в чате (опционально)
+function restoreChatVideosOnModalClose() {
+    if (window.pausedChatVideosForRestore && window.pausedChatVideosForRestore.length > 0) {
+        // Фильтруем только те видео, которые все еще существуют в DOM
+        const validVideos = window.pausedChatVideosForRestore.filter(video => 
+            video && video.tagName === 'VIDEO' && document.body.contains(video)
+        );
+        
+        // Восстанавливаем воспроизведение только для последнего кликнутого видео (если есть)
+        if (window.clickedChatVideo && 
+            document.body.contains(window.clickedChatVideo) && 
+            window.clickedChatVideo.tagName === 'VIDEO') {
+            
+            // Небольшая задержка для плавности
+            setTimeout(() => {
+                window.clickedChatVideo.play().catch(error => {
+                    // Игнорируем ошибки автовоспроизведения
+                });
+            }, 300);
+        }
+        
+        // Очищаем сохраненные ссылки
+        window.pausedChatVideosForRestore = [];
+        window.clickedChatVideo = null;
+    }
+}
+
+// Обновленная функция closeVideoModal для использования восстановления
+function closeVideoModal() {
+    if (!videoModal || !modalVideo) {
+        return;
+    }
+
+    // Пауза видео в модальном окне
+    modalVideo.pause();
+    modalVideo.currentTime = 0;
+
+    // Очистка обработчиков событий
+    modalVideo.onloadeddata = null;
+    modalVideo.onerror = null;
+    modalVideo.onplay = null;
+    modalVideo.onpause = null;
+    modalVideo.onended = null;
+    
+    // Удаление всех обработчиков событий
+    const clone = modalVideo.cloneNode(true);
+    modalVideo.parentNode.replaceChild(clone, modalVideo);
+    modalVideo = clone;
+
+    videoModal.classList.remove('active');
+    window.videoModalDebug.modalState = 'closing';
+
+    setTimeout(() => {
+        if (modalVideo.src && modalVideo.src.startsWith('blob:')) {
+            URL.revokeObjectURL(modalVideo.src);
+            modalVideo.removeAttribute('src');
+            modalVideo.load();
+        }
+        modalVideo.controls = false;
+        modalVideo.poster = '';
+        window.videoModalDebug.modalState = 'closed';
+        
+        // ВОССТАНАВЛИВАЕМ видео в чате (если нужно)
+        // restoreChatVideosOnModalClose(); // Раскомментировать если нужно автоматическое восстановление
+    }, 300);
+}
+
+// Также добавьте глобальный обработчик для дополнительной безопасности
+document.addEventListener('play', function(e) {
+    const target = e.target;
+    
+    // Если начинает играть видео в модальном окне
+    if (target === modalVideo) {
+        // Гарантируем, что все видео в чате на паузе
+        const chatVideos = document.querySelectorAll('#messagesContainer video');
+        chatVideos.forEach(video => {
+            if (!video.paused) {
+                video.pause();
+            }
+        });
+    }
+    
+    // Если начинает играть видео в чате и модальное окно открыто
+    if (target.tagName === 'VIDEO' && 
+        target.closest('#messagesContainer') && 
+        videoModal.classList.contains('active')) {
+        
+        // Паузим видео в чате и запускаем видео в модальном окне если оно на паузе
+        target.pause();
+        
+        if (modalVideo && modalVideo.paused) {
+            modalVideo.play().catch(() => {});
+        }
+        
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
+
+// Функция для восстановления воспроизведения видео в чате
+function restoreChatVideoPlayback() {
+    // Возобновляем только то видео, которое было на паузе перед открытием модального окна
+    if (window.pausedChatVideo && window.pausedChatVideo.tagName === 'VIDEO') {
+        // Проверяем, что видео все еще существует в DOM
+        if (document.body.contains(window.pausedChatVideo)) {
+            window.pausedChatVideo.play().catch(error => {
+                // Игнорируем ошибки автовоспроизведения
+            });
+        }
+        window.pausedChatVideo = null;
+    }
+}
 
     function adjustMediaSize() {
         const messagesContainer = document.getElementById('messagesContainer');
@@ -1468,31 +1685,38 @@ function addClickHandlersToLinks(messageElement) {
     }
 
     function closeVideoModal() {
-        if (!videoModal || !modalVideo) {
-            return;
-        }
-
-        modalVideo.pause();
-        modalVideo.currentTime = 0;
-
-        modalVideo.onloadeddata = null;
-        modalVideo.onerror = null;
-        modalVideo.onended = null;
-
-        videoModal.classList.remove('active');
-        window.videoModalDebug.modalState = 'closing';
-
-        setTimeout(() => {
-            if (modalVideo.src) {
-                URL.revokeObjectURL(modalVideo.src);
-                modalVideo.removeAttribute('src');
-                modalVideo.load();
-            }
-            modalVideo.controls = false;
-            modalVideo.poster = '';
-            window.videoModalDebug.modalState = 'closed';
-        }, 300);
+    if (!videoModal || !modalVideo) {
+        return;
     }
+
+    // Пауза видео в модальном окне
+    modalVideo.pause();
+    modalVideo.currentTime = 0;
+
+    modalVideo.onloadeddata = null;
+    modalVideo.onerror = null;
+    modalVideo.onended = null;
+    modalVideo.onpause = null;
+
+    videoModal.classList.remove('active');
+    window.videoModalDebug.modalState = 'closing';
+    window.videoPlaybackManager.clearActiveModalVideo();
+
+    setTimeout(() => {
+        if (modalVideo.src) {
+            URL.revokeObjectURL(modalVideo.src);
+            modalVideo.removeAttribute('src');
+            modalVideo.load();
+        }
+        modalVideo.controls = false;
+        modalVideo.poster = '';
+        window.videoModalDebug.modalState = 'closed';
+        
+        // Возобновляем видео в чате
+        window.videoPlaybackManager.resumePausedChatVideos();
+    }, 300);
+}
+
 
     function setupImageModal() {
         if (!imageModal) {
@@ -1907,7 +2131,7 @@ function addClickHandlersToLinks(messageElement) {
         if (window.encryptionManager) {
             window.encryptionManager.setEncryptionKey(key);
 
-            window.decryptedFilesCache = {};
+            
 
             updateClearButtonVisibility();
 
@@ -1935,7 +2159,7 @@ function addClickHandlersToLinks(messageElement) {
                 window.encryptionManager.setEncryptionKey('');
             }
 
-            window.decryptedFilesCache = {};
+        
 
             updateClearButtonVisibility();
 
@@ -2168,7 +2392,37 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(handleViewportResize, 500);
 });
 
-
+// Глобальный обработчик для управления воспроизведением видео в чате
+document.addEventListener('play', function(e) {
+    const target = e.target;
+    
+    if (target.tagName === 'VIDEO' && target.closest('#messagesContainer')) {
+        // Если начинает играть видео в чате
+        const allChatVideos = document.querySelectorAll('#messagesContainer video');
+        
+        allChatVideos.forEach(video => {
+            if (video !== target && !video.paused) {
+                video.pause();
+            }
+        });
+        
+        // Если открыто модальное окно с видео, паузим его
+        if (modalVideo && modalVideo.src && !modalVideo.paused) {
+            modalVideo.pause();
+        }
+    }
+    
+    // Если начинает играть видео в модальном окне
+    if (target.tagName === 'VIDEO' && target === modalVideo) {
+        // Пауза всех видео в чате
+        const allChatVideos = document.querySelectorAll('#messagesContainer video');
+        allChatVideos.forEach(video => {
+            if (!video.paused) {
+                video.pause();
+            }
+        });
+    }
+}, true);
 
 document.addEventListener('focusin', () => {
     setTimeout(handleViewportResize, 300);

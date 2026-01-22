@@ -243,52 +243,22 @@
     }
 
     async sendVideoAsFile() {
-        if (!this.videoBlob || this.videoBlob.size === 0) {
-            this.showError(window.t('ERROR_VIDEO_RECORD'));
-            return;
+    if (!this.videoBlob || this.videoBlob.size === 0) {
+        this.showError(window.t('ERROR_VIDEO_RECORD'));
+        return;
+    }
+    
+    try {
+        // Используем NoCacheUploader вместо прямой отправки
+        if (window.noCacheUploader && typeof window.noCacheUploader.uploadVideo === 'function') {
+            await window.noCacheUploader.uploadVideo(this.videoBlob, this.recordDuration);
+        } else {
+            // Fallback на старый метод если uploader не доступен
+            throw new Error('Uploader not available');
         }
-
-        try {
-            const reader = new FileReader();
-            reader.onload = async () => {
-                let fileData = reader.result.split(',')[1];
-                let isEncrypted = false;
-                const fileSizeKB = (this.videoBlob.size / 1024).toFixed(2);
-
-                if (window.encryptionManager && window.encryptionManager.encryptionKey) {
-                    try {
-                        fileData = window.encryptionManager.encryptFile(fileData);
-                        isEncrypted = true;
-                    } catch (error) {}
-                }
-
-                if (this.checkSocketConnection()) {
-                    window.socket.emit('send-file', {
-                        fileName: `video_message_${Date.now()}.webm`,
-                        fileType: 'video/webm',
-                        fileData: fileData,
-                        duration: this.recordDuration.toFixed(1),
-                        fileSize: fileSizeKB,
-                        isEncrypted: isEncrypted
-                    }, (response) => {
-                        if (response && response.error) {
-                            this.showError(`${window.t('ERROR_SENDING_VIDEO')}: ${response.error}`);
-                        }
-                    });
-                } else {
-                    this.showError(window.t('ERROR_NO_SERVER_CONNECTION'));
-                }
-            };
-
-            reader.onerror = () => {
-                this.showError(window.t('ERROR_PROCESSING_VIDEO'));
-            };
-
-            reader.readAsDataURL(this.videoBlob);
-
-        } catch (error) {
-            this.showError(window.t('ERROR_SENDING_VIDEO'));
-        }
+    } catch (error) {
+        this.showError(`${window.t('ERROR_SENDING_VIDEO')}: ${error.message}`);
+    }
     }
 
     showError(message) {
@@ -303,5 +273,10 @@
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    window.videoRecorder = new VideoRecorder();
+    // Небольшая задержка чтобы убедиться что все зависимости загружены
+    setTimeout(() => {
+        window.videoRecorder = new VideoRecorder();
+        console.log('VideoRecorder initialized, uploader available:', 
+                   window.noCacheUploader && typeof window.noCacheUploader.uploadVideo === 'function');
+    }, 100);
 });

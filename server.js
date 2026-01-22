@@ -101,6 +101,33 @@ app.use('/uploads', express.static(uploadsDir, {
     redirect: false
 }));
 
+// Отключение кэширования для всех статических файлов
+app.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    next();
+});
+
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, path) => {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Last-Modified', new Date().toUTCString());
+    }
+}));
+
+app.use('/uploads', express.static(uploadsDir, {
+    setHeaders: (res, path) => {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Last-Modified', new Date().toUTCString());
+    }
+}));
+
 let secureDeleter;
 if (config.secureDelete && config.secureDelete.enabled) {
     secureDeleter = new SecureDeleter(config);
@@ -809,23 +836,79 @@ io.on('connection', (socket) => {
     });
 
     socket.on('send-file', (data, callback) => {
-        const user = users.get(socket.id);
-        if (!user) {
-            if (callback) callback({
-                error: 'Пользователь не авторизован'
-            });
-            return;
+    const user = users.get(socket.id);
+    if (!user) {
+        if (callback) callback({
+            error: 'Пользователь не авторизован'
+        });
+        return;
+    }
+
+    // Удаляем параметры против кэширования из имени файла
+    let originalFileName = data.fileName;
+    if (originalFileName.includes('file_') && originalFileName.includes('_nocache=')) {
+        // Извлекаем оригинальное имя файла из структуры file_<timestamp>_<random>_<filename>
+        const parts = originalFileName.split('_');
+        if (parts.length > 3) {
+            // Убираем первые 3 части (file, timestamp, random)
+            originalFileName = parts.slice(3).join('_');
+            // Удаляем параметры запроса если есть
+            originalFileName = originalFileName.split('?')[0];
         }
-        if (data.fileData.length * 0.75 > config.maxFileSize) {
-            const errorMsg = translate(config.language, 'FILES_TOO_BIG') + ' ' + (config.maxFileSize / (1024 * 1024)) + ' ' + translate(config.language, 'MB');
+    }
+    
+    // Также удаляем параметр _nocache если он есть в имени файла
+    if (originalFileName.includes('_nocache=')) {
+        originalFileName = originalFileName.split('_nocache=')[0];
+        // Убираем возможный завершающий знак вопроса
+        if (originalFileName.endsWith('?')) {
+            originalFileName = originalFileName.slice(0, -1);
+        }
+    }
+
+    // Проверка размера файла (учитываем base64 overhead)
+    if (data.fileData.length * 0.75 > config.maxFileSize) {
+        const errorMsg = translate(config.language, 'FILES_TOO_BIG') + ' ' + (config.maxFileSize / (1024 * 1024)) + ' ' + translate(config.language, 'MB');
+        if (callback) callback({
+            error: errorMsg
+        });
+        const errorMessage = {
+            id: Date.now().toString(),
+            username: translate(config.language, 'SYSTEM'),
+            userId: 'system',
+            text: translate(config.language, 'FAILED_TO_SEND_FILE') + ' ' + originalFileName + ': ' + errorMsg,
+            timestamp: new Date(),
+            room: user.room,
+            isSystem: true
+        };
+        socket.emit('new-message', errorMessage);
+        return;
+    }
+
+    // Создаем уникальное имя файла с timestamp для предотвращения кэширования
+    const fileExt = originalFileName.split('.').pop() || 'bin';
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substr(2, 9);
+    const uniqueFileName = `${timestamp}-${randomStr}.${fileExt}`;
+    
+    const roomDir = path.join(uploadsDir, user.room);
+    const userDir = path.join(roomDir, user.username);
+    ensureDirectoryExistence(userDir);
+    
+    const filePath = path.join(userDir, uniqueFileName);
+    const fileUrl = `/uploads/${user.room}/${user.username}/${uniqueFileName}`;
+
+    fs.writeFile(filePath, data.fileData, 'base64', (err) => {
+        if (err) {
+            console.error(translate(config.language, 'ERROR_SAVING_FILE') + ':', err);
             if (callback) callback({
-                error: errorMsg
+                error: translate(config.language, 'ERROR_SAVING_FILE')
             });
             const errorMessage = {
                 id: Date.now().toString(),
                 username: translate(config.language, 'SYSTEM'),
                 userId: 'system',
-                text: translate(config.language, 'FAILED_TO_SEND_FILE') + ' ' + data.fileName + ': ' + errorMsg,
+                text: translate(config.language, 'FAILED_TO_SEND_FILE') + ' ' + originalFileName + ': ' + translate(config.language, 'ERROR_SAVING'),
                 timestamp: new Date(),
                 room: user.room,
                 isSystem: true
@@ -833,75 +916,59 @@ io.on('connection', (socket) => {
             socket.emit('new-message', errorMessage);
             return;
         }
-        const fileExt = data.fileName.split('.').pop();
-        const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-        const roomDir = path.join(uploadsDir, user.room);
-        const userDir = path.join(roomDir, user.username);
-        ensureDirectoryExistence(userDir);
-        const filePath = path.join(userDir, uniqueFileName);
-        const fileUrl = `/uploads/${user.room}/${user.username}/${uniqueFileName}`;
-        fs.writeFile(filePath, data.fileData, 'base64', (err) => {
-            if (err) {
-                console.error(translate(config.language, 'ERROR_SAVING_FILE') + ':', err);
-                if (callback) callback({
-                    error: translate(config.language, 'ERROR_SAVING_FILE')
-                });
-                const errorMessage = {
-                    id: Date.now().toString(),
-                    username: translate(config.language, 'SYSTEM'),
-                    userId: 'system',
-                    text: translate(config.language, 'FAILED_TO_SEND_FILE') + ' ' + data.fileName + ': ' + translate(config.language, 'ERROR_SAVING'),
-                    timestamp: new Date(),
-                    room: user.room,
-                    isSystem: true
-                };
-                socket.emit('new-message', errorMessage);
-                return;
-            }
-            console.log(translate(config.language, 'FILE_SAVED') + ' ' + filePath);
-            const isAudio = data.fileType.startsWith('audio/');
-            const isVideo = data.fileType.startsWith('video/');
-            let fileSizeDisplay, duration;
-            if (isAudio || isVideo) {
-                fileSizeDisplay = data.fileSize ? data.fileSize + ' ' + translate(config.language, 'KB') : '0 ' + translate(config.language, 'KB');
-                duration = data.duration || 0;
-            } else {
-                const fileSizeMB = (data.fileData.length * 0.75 / (1024 * 1024)).toFixed(2);
-                fileSizeDisplay = fileSizeMB + ' ' + translate(config.language, 'MB');
-                duration = 0;
-            }
-            const message = {
-                id: Date.now().toString(),
-                username: user.username,
-                userId: socket.id,
-                fileName: data.fileName,
-                fileType: data.fileType,
-                fileUrl: fileUrl,
-                fileSize: fileSizeDisplay,
-                duration: duration,
-                timestamp: new Date(),
-                isFile: true,
-                isAudio: isAudio,
-                isEncrypted: data.isEncrypted || false,
-                room: user.room
-            };
-            if (saveMessageToFile(user.room, user.username, message)) {
-                console.log(translate(config.language, 'FILE_MESSAGE_SAVED', {path: `${user.room}/${user.username}/${message.id}.xml`}));
-            }
-            saveFileMetadata(user.room, user.username, uniqueFileName, {
-                fileName: data.fileName,
-                fileType: data.fileType,
-                fileUrl: fileUrl,
-                fileSize: fileSizeDisplay,
-                duration: duration,
-                isEncrypted: data.isEncrypted || false
-            });
-            io.to(user.room).emit('new-message', message);
-            if (callback) callback({
-                success: true
-            });
+
+        console.log(translate(config.language, 'FILE_SAVED') + ' ' + filePath);
+        
+        const isAudio = data.fileType.startsWith('audio/');
+        const isVideo = data.fileType.startsWith('video/');
+        let fileSizeDisplay, duration;
+        
+        if (isAudio || isVideo) {
+            fileSizeDisplay = data.fileSize ? data.fileSize + ' ' + translate(config.language, 'KB') : '0 ' + translate(config.language, 'KB');
+            duration = data.duration || 0;
+        } else {
+            const fileSizeMB = (data.fileData.length * 0.75 / (1024 * 1024)).toFixed(2);
+            fileSizeDisplay = fileSizeMB + ' ' + translate(config.language, 'MB');
+            duration = 0;
+        }
+
+        // Сохраняем оригинальное имя файла без параметров кэширования
+        const message = {
+            id: Date.now().toString(),
+            username: user.username,
+            userId: socket.id,
+            fileName: originalFileName, // Сохраняем очищенное имя файла
+            fileType: data.fileType,
+            fileUrl: fileUrl,
+            fileSize: fileSizeDisplay,
+            duration: duration,
+            timestamp: new Date(),
+            isFile: true,
+            isAudio: isAudio,
+            isEncrypted: data.isEncrypted || false,
+            room: user.room
+        };
+
+        if (saveMessageToFile(user.room, user.username, message)) {
+            console.log(translate(config.language, 'FILE_MESSAGE_SAVED', {path: `${user.room}/${user.username}/${message.id}.xml`}));
+        }
+
+        saveFileMetadata(user.room, user.username, uniqueFileName, {
+            fileName: originalFileName,
+            fileType: data.fileType,
+            fileUrl: fileUrl,
+            fileSize: fileSizeDisplay,
+            duration: duration,
+            isEncrypted: data.isEncrypted || false
+        });
+
+        io.to(user.room).emit('new-message', message);
+        
+        if (callback) callback({
+            success: true
         });
     });
+});
 
     socket.on('send-audio', (data, callback) => {
         console.log(translate(config.language, 'AUDIO_MESSAGE_RECEIVED_FROM_USER') + ':', socket.id);

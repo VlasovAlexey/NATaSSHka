@@ -161,46 +161,22 @@
 	}
 	
 	async sendAudioAsFile() {
-		if (!this.audioBlob || this.audioBlob.size === 0) {
-			this.showError(window.t('ERROR_AUDIO_RECORD'));
-			return;
-		}
-		try {
-			const reader = new FileReader();
-			reader.onload = async () => {
-				let fileData = reader.result.split(',')[1];
-				let isEncrypted = false;
-				const fileSizeKB = (this.audioBlob.size / 1024).toFixed(2);
-				if (window.encryptionManager && window.encryptionManager.encryptionKey) {
-					try {
-						fileData = window.encryptionManager.encryptFile(fileData);
-						isEncrypted = true;
-					} catch (error) {}
-				}
-				if (this.checkSocketConnection()) {
-					window.socket.emit('send-file', {
-						fileName: `audio_message_${Date.now()}.webm`,
-						fileType: 'audio/webm',
-						fileData: fileData,
-						duration: this.recordDuration.toFixed(1),
-						fileSize: fileSizeKB,
-						isEncrypted: isEncrypted
-					}, (response) => {
-						if (response && response.error) {
-							this.showError(`${window.t('ERROR_SENDING_AUDIO')}: ${response.error}`);
-						}
-					});
-				} else {
-					this.showError(window.t('ERROR_NO_SERVER_CONNECTION'));
-				}
-			};
-			reader.onerror = () => {
-				this.showError(window.t('ERROR_PROCESSING_AUDIO'));
-			};
-			reader.readAsDataURL(this.audioBlob);
-		} catch (error) {
-			this.showError(window.t('ERROR_SENDING_AUDIO'));
-		}
+    if (!this.audioBlob || this.audioBlob.size === 0) {
+        this.showError(window.t('ERROR_AUDIO_RECORD'));
+        return;
+    }
+    
+    try {
+        // Используем NoCacheUploader вместо прямой отправки
+        if (window.noCacheUploader && typeof window.noCacheUploader.uploadAudio === 'function') {
+            await window.noCacheUploader.uploadAudio(this.audioBlob, this.recordDuration);
+        } else {
+            // Fallback на старый метод если uploader не доступен
+            throw new Error('Uploader not available');
+        }
+    } catch (error) {
+        this.showError(`${window.t('ERROR_SENDING_AUDIO')}: ${error.message}`);
+    }
 	}
 	
 	playAudioMessage(audioUrl, buttonElement) {
@@ -264,5 +240,10 @@
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-	window.audioRecorder = new AudioRecorder();
+    // Небольшая задержка чтобы убедиться что все зависимости загружены
+    setTimeout(() => {
+        window.audioRecorder = new AudioRecorder();
+        console.log('AudioRecorder initialized, uploader available:', 
+                   window.noCacheUploader && typeof window.noCacheUploader.uploadAudio === 'function');
+    }, 100);
 });
