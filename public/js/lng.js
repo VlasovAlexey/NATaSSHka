@@ -118,7 +118,13 @@
         VIDEO_LOAD_ERROR: 'Ваш браузер не поддерживает видео.',
         
         SIDEBAR_TOGGLE_SHOW: 'Показать боковую панель',
-        SIDEBAR_TOGGLE_HIDE: 'Скрыть боковую панель'
+        SIDEBAR_TOGGLE_HIDE: 'Скрыть боковую панель',
+
+        VIDEO_LOAD_ERROR: 'Ошибка загрузки видео',
+        IMAGE_LOAD_ERROR: 'Ошибка загрузки изображения',
+        MEDIA_LOAD_ERROR: 'Ошибка загрузки медиафайла',
+        UNSUPPORTED_FORMAT: 'Формат не поддерживается',
+        BROWSER_NOT_SUPPORTED: 'Ваш браузер не поддерживает этот формат'
     },
     
     en: {
@@ -240,7 +246,12 @@
         VIDEO_LOAD_ERROR: 'Your browser does not support video.',
         
         SIDEBAR_TOGGLE_SHOW: 'Show sidebar',
-        SIDEBAR_TOGGLE_HIDE: 'Hide sidebar'
+        SIDEBAR_TOGGLE_HIDE: 'Hide sidebar',
+        VIDEO_LOAD_ERROR: 'Video load error',
+        IMAGE_LOAD_ERROR: 'Image load error',
+        MEDIA_LOAD_ERROR: 'Media load error',
+        UNSUPPORTED_FORMAT: 'Format not supported',
+        BROWSER_NOT_SUPPORTED: 'Your browser does not support this format'
     },
     
     es: {
@@ -362,7 +373,13 @@
         VIDEO_LOAD_ERROR: 'Tu navegador no soporta video.',
         
         SIDEBAR_TOGGLE_SHOW: 'Mostrar barra lateral',
-        SIDEBAR_TOGGLE_HIDE: 'Ocultar barra lateral'
+        SIDEBAR_TOGGLE_HIDE: 'Ocultar barra lateral',
+        
+        VIDEO_LOAD_ERROR: 'Error al cargar video',
+        IMAGE_LOAD_ERROR: 'Error al cargar imagen',
+        MEDIA_LOAD_ERROR: 'Error al cargar archivo multimedia',
+        UNSUPPORTED_FORMAT: 'Formato no compatible',
+        BROWSER_NOT_SUPPORTED: 'Tu navegador no soporta este formato'
     },
     
     zh: {
@@ -484,7 +501,13 @@
         VIDEO_LOAD_ERROR: '您的浏览器不支持视频。',
         
         SIDEBAR_TOGGLE_SHOW: '显示侧边栏',
-        SIDEBAR_TOGGLE_HIDE: '隐藏侧边栏'
+        SIDEBAR_TOGGLE_HIDE: '隐藏侧边栏',
+
+        VIDEO_LOAD_ERROR: '视频加载错误',
+        IMAGE_LOAD_ERROR: '图片加载错误',
+        MEDIA_LOAD_ERROR: '媒体文件加载错误',
+        UNSUPPORTED_FORMAT: '格式不支持',
+        BROWSER_NOT_SUPPORTED: '您的浏览器不支持此格式'
     }
 };
 

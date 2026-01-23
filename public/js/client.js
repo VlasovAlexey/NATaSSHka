@@ -569,14 +569,16 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
         <div class="file-size">${window.t('FILE_SIZE', { size: fileSize })}</div>
     `;
     } else if (fileType && fileType.startsWith('video/')) {
-        messageFileElement.innerHTML = `
-        <video src="${url}" controls muted 
-               onclick="window.expandVideoWithSound('${url}')">
-            ${window.t('VIDEO_NOT_SUPPORTED')}
-        </video>
-        <div class="file-size">${window.t('FILE_SIZE', { size: fileSize })}</div>
-    `;
-    } else if (fileType && fileType.startsWith('audio/')) {
+    messageFileElement.innerHTML = `
+    <video src="${url}" controls muted 
+           onclick="window.expandVideoWithSound('${url}')">
+        <div style="padding: 20px; text-align: center; background: #f4f4f4;">
+            ${window.t('BROWSER_NOT_SUPPORTED')}
+        </div>
+    </video>
+    <div class="file-size">${window.t('FILE_SIZE', { size: fileSize })}</div>
+`;
+} else if (fileType && fileType.startsWith('audio/')) {
         messageFileElement.innerHTML = `
         <button class="audio-play-btn" onclick="window.audioRecorder.playAudioMessage('${url}', this)">
             
@@ -1297,9 +1299,39 @@ function addClickHandlersToLinks(messageElement) {
         modalImage.onload = function() {};
 
         modalImage.onerror = function() {
-            modalImage.alt = window.t('IMAGE_LOAD_ERROR');
-            modalImage.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y0ZjRmNCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkeT0iMC4zNWVtIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LXNpemU9IjE4Ij7QndC10YI8L3RleHQ+PC9zdmc+';
-        };
+    modalImage.alt = window.t('IMAGE_LOAD_ERROR');
+    modalImage.style.display = 'none';
+    
+    // Создаем контейнер для сообщения об ошибке
+    const errorContainer = document.createElement('div');
+    errorContainer.className = 'image-error-container';
+    errorContainer.style.cssText = `
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #f4f4f4;
+        color: #999;
+        font-family: sans-serif;
+        padding: 20px;
+        box-sizing: border-box;
+        text-align: center;
+    `;
+    
+    errorContainer.innerHTML = `
+        <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;">🖼️</div>
+        <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">${window.t('IMAGE_LOAD_ERROR')}</div>
+        <div style="font-size: 14px;">${window.t('UNSUPPORTED_FORMAT')}</div>
+    `;
+    
+    // Вставляем сообщение об ошибке вместо изображения
+    const imageContainer = modalImage.parentElement;
+    if (imageContainer) {
+        imageContainer.appendChild(errorContainer);
+    }
+    };
     };
 
     function closeImageModal() {
@@ -1309,6 +1341,12 @@ function addClickHandlersToLinks(messageElement) {
 
         modalImage.onload = null;
         modalImage.onerror = null;
+
+        const imageErrorContainers = imageModal.querySelectorAll('.image-error-container');
+        imageErrorContainers.forEach(container => {
+            container.remove();
+        });
+        modalImage.style.display = ''; // Восстанавливаем display для изображения
 
         imageModal.classList.remove('active');
 
@@ -1436,18 +1474,49 @@ window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
         };
 
         modalVideo.onerror = function(e) {
-            if (!videoModal.classList.contains('active')) {
-                return;
-            }
+    if (!videoModal.classList.contains('active')) {
+        return;
+    }
 
-            window.videoModalDebug.modalState = 'video_load_error';
-            console.error('Video load error:', e);
+    window.videoModalDebug.modalState = 'video_load_error';
+    console.error('Video load error:', e);
 
-            if (videoModal.classList.contains('active')) {
-                modalVideo.controls = false;
-                modalVideo.poster = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzAwMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkeT0iMC4zNWVtIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmIiBmb250LXNpemU9IjE0Ij7QktC40LTQtdC+INC90LUg0LTQvtC00L7QvNC10YAg0LTQvtCx0YDQtdGC0L7QsiDQtNC+0YHRgtC+0LfQstC+0Lk8L3RleHQ+PC9zdmc+';
-            }
-        };
+    if (videoModal.classList.contains('active')) {
+        modalVideo.controls = false;
+        modalVideo.style.display = 'none';
+        
+        // Создаем контейнер для сообщения об ошибке
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'video-error-container';
+        errorContainer.style.cssText = `
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            color: #fff;
+            font-family: sans-serif;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        `;
+        
+        errorContainer.innerHTML = `
+            <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;">🎥</div>
+            <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">${window.t('VIDEO_LOAD_ERROR')}</div>
+            <div style="font-size: 14px; margin-bottom: 8px;">${window.t('UNSUPPORTED_FORMAT')}</div>
+            <div style="font-size: 12px; opacity: 0.7;">${window.t('BROWSER_NOT_SUPPORTED')}</div>
+        `;
+        
+        // Вставляем сообщение об ошибке вместо видео
+        const videoContainer = modalVideo.parentElement;
+        if (videoContainer) {
+            videoContainer.appendChild(errorContainer);
+        }
+    }
+};
 
         modalVideo.onplay = function() {
             // При начале воспроизведения в модальном окне убеждаемся, что все видео в чате на паузе
@@ -1547,6 +1616,12 @@ function closeVideoModal() {
     modalVideo.onpause = null;
     modalVideo.onended = null;
     
+    const errorContainers = videoModal.querySelectorAll('.video-error-container, .image-error-container');
+errorContainers.forEach(container => {
+    container.remove();
+});
+modalVideo.style.display = ''; // Восстанавливаем display для видео
+
     // Удаление всех обработчиков событий
     const clone = modalVideo.cloneNode(true);
     modalVideo.parentNode.replaceChild(clone, modalVideo);
