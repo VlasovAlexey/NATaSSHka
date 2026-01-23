@@ -12,10 +12,10 @@
         PASSWORD_PLACEHOLDER: 'Пароль',
         JOIN_BUTTON: 'Войти',
         LANGUAGE_SELECTOR: 'Язык',
-        
+
         MESSAGE_PLACEHOLDER: 'Введите сообщение...',
         ENCRYPTION_KEY_PLACEHOLDER: 'Ключ шифрования',
-        
+
         ERROR_REQUIRED_FIELDS: 'Заполните все поля',
         ERROR_INVALID_USERNAME: 'Имя пользователя может содержать только латинские буквы, цифры, дефис и нижнее подчеркивание (макс. 64 символа)',
         ERROR_INVALID_ROOM: 'Название комнаты может содержать только латинские буквы, цифры, дефис и нижнее подчеркивание (макс. 64 символа)',
@@ -43,12 +43,12 @@
         ERROR_CALL_START: 'Не удалось начать звонок: {error}',
         ERROR_CALL_ACCEPT: 'Не удалось принять звонок: {error}',
         ERROR_INSECURE_CONTEXT: 'Для работы голосовой и видео связи рекомендуется использовать HTTPS или localhost.',
-        
+
         SYSTEM_CHAT_CLEARED: 'История чата была очищена',
         SYSTEM_USER_JOINED: 'Пользователь {username} присоединился к комнате',
         SYSTEM_USER_LEFT: 'Пользователь {username} вышел из комнате',
         SYSTEM_SERVER_SHUTDOWN: 'Сервер завершил работу. Страница будет перезагружена.',
-        
+
         SEND_MESSAGE: 'Отправить сообщение',
         SEND_MESSAGE_TOOLTIP: 'Введите сообщение для отправки',
         SEND_MESSAGE_BUTTON: '↵',
@@ -59,7 +59,7 @@
         CONFIRM: 'Подтвердить',
         CONFIRM_DELETE: 'Удалить',
         OK: 'OK',
-        
+
         MODAL_INFO: 'Информация',
         MODAL_ERROR: 'Ошибка',
         MODAL_CALL: 'Звонок',
@@ -77,11 +77,11 @@
         MODAL_CALL_ENDED: 'Пользователь {username} завершил звонок',
         MODAL_CALL_NO_ANSWER: 'Пользователь не ответил на звонок',
         MODAL_ALREADY_IN_CALL: 'Уже в звонке',
-        
+
         RECORDING_AUDIO: 'Запись аудио...',
         RECORDING_VIDEO: 'Запись...',
         RECORDING_TIMER: '{seconds} сек',
-        
+
         FILE_LOADING_DECRYPTING: 'Загрузка и расшифровка...',
         FILE_ENCRYPTED: 'Файл зашифрован. Нажмите для расшифровки.',
         FILE_ENCRYPTED_CLICK: '🔒 Файл зашифрован. Нажмите для расшифровки.',
@@ -89,7 +89,7 @@
         FILE_DOWNLOAD: 'Скачать',
         FILE_SIZE: '{size} KB',
         FILE_DURATION_SIZE: '{duration} сек • {size}',
-        
+
         NOTIFICATION_TEST_TITLE: 'NATaSSHka - Уведомления включены',
         NOTIFICATION_TEST_BODY: 'Вы будете получать уведомления о новых сообщениях',
         NOTIFICATION_NEW_MESSAGE: 'Новое сообщение от {username}',
@@ -102,21 +102,21 @@
         NOTIFICATION_IMAGE_FILE: 'Файл: {filename}',
         NOTIFICATION_VIDEO_DURATION: 'Длительность: {duration} сек',
         NOTIFICATION_FILE_INFO: 'Файл: {filename} ({size})',
-        
+
         UPLOADING: 'Загрузка: {filename}',
         UPLOAD_ERROR: 'Ошибка загрузки!',
-        
+
         ROOM_INFO: 'Комната: {room}',
         USER_INFO: '✪ {username}',
-        
+
         END_CALL: 'Завершить звонок',
         AUDIO_CALL: 'Аудиозвонок',
         VIDEO_CALL: 'Видеозвонок',
-        
+
         VIDEO_NOT_SUPPORTED: 'Ваш браузер не поддерживает видео.',
         IMAGE_LOAD_ERROR: 'Ошибка загрузки изображения',
         VIDEO_LOAD_ERROR: 'Ваш браузер не поддерживает видео.',
-        
+
         SIDEBAR_TOGGLE_SHOW: 'Показать боковую панель',
         SIDEBAR_TOGGLE_HIDE: 'Скрыть боковую панель',
 
@@ -126,7 +126,7 @@
         UNSUPPORTED_FORMAT: 'Формат не поддерживается',
         BROWSER_NOT_SUPPORTED: 'Ваш браузер не поддерживает этот формат'
     },
-    
+
     en: {
         EMAIL_CLICK_TO_SEND: 'Email',
         PHONE_CLICK_TO_CALL: 'Call',
@@ -140,10 +140,10 @@
         PASSWORD_PLACEHOLDER: 'Password',
         JOIN_BUTTON: 'Join',
         LANGUAGE_SELECTOR: 'Language',
-        
+
         MESSAGE_PLACEHOLDER: 'Type a message...',
         ENCRYPTION_KEY_PLACEHOLDER: 'Encryption key',
-        
+
         ERROR_REQUIRED_FIELDS: 'Please fill in all fields',
         ERROR_INVALID_USERNAME: 'Username can only contain Latin letters, numbers, hyphen and underscore (max 64 characters)',
         ERROR_INVALID_ROOM: 'Room name can only contain Latin letters, numbers, hyphen and underscore (max 64 characters)',
@@ -171,12 +171,12 @@
         ERROR_CALL_START: 'Failed to start call: {error}',
         ERROR_CALL_ACCEPT: 'Failed to accept call: {error}',
         ERROR_INSECURE_CONTEXT: 'For voice and video calls, HTTPS or localhost is recommended.',
-        
+
         SYSTEM_CHAT_CLEARED: 'Chat history has been cleared',
         SYSTEM_USER_JOINED: 'User {username} joined the room',
         SYSTEM_USER_LEFT: 'User {username} left the room',
         SYSTEM_SERVER_SHUTDOWN: 'Server has shut down. Page will reload.',
-        
+
         SEND_MESSAGE: 'Send message',
         SEND_MESSAGE_TOOLTIP: 'Enter a message to send',
         SEND_MESSAGE_BUTTON: '↵',
@@ -187,7 +187,7 @@
         CONFIRM: 'Confirm',
         CONFIRM_DELETE: 'Delete',
         OK: 'OK',
-        
+
         MODAL_INFO: 'Information',
         MODAL_ERROR: 'Error',
         MODAL_CALL: 'Call',
@@ -205,11 +205,11 @@
         MODAL_CALL_ENDED: 'User {username} ended the call',
         MODAL_CALL_NO_ANSWER: 'User did not answer the call',
         MODAL_ALREADY_IN_CALL: 'Already in a call',
-        
+
         RECORDING_AUDIO: 'Recording audio...',
         RECORDING_VIDEO: 'Recording...',
         RECORDING_TIMER: '{seconds} sec',
-        
+
         FILE_LOADING_DECRYPTING: 'Loading and decrypting...',
         FILE_ENCRYPTED: 'File is encrypted. Click to decrypt.',
         FILE_ENCRYPTED_CLICK: '🔒 File is encrypted. Click to decrypt.',
@@ -217,7 +217,7 @@
         FILE_DOWNLOAD: 'Download',
         FILE_SIZE: '{size} KB',
         FILE_DURATION_SIZE: '{duration} sec • {size}',
-        
+
         NOTIFICATION_TEST_TITLE: 'NATaSSHka - Notifications enabled',
         NOTIFICATION_TEST_BODY: 'You will receive notifications about new messages',
         NOTIFICATION_NEW_MESSAGE: 'New message from {username}',
@@ -230,21 +230,21 @@
         NOTIFICATION_IMAGE_FILE: 'File: {filename}',
         NOTIFICATION_VIDEO_DURATION: 'Duration: {duration} sec',
         NOTIFICATION_FILE_INFO: 'File: {filename} ({size})',
-        
+
         UPLOADING: 'Uploading: {filename}',
         UPLOAD_ERROR: 'Upload error!',
-        
+
         ROOM_INFO: 'Room: {room}',
         USER_INFO: '✪ {username}',
-        
+
         END_CALL: 'End call',
         AUDIO_CALL: 'Audio call',
         VIDEO_CALL: 'Video call',
-        
+
         VIDEO_NOT_SUPPORTED: 'Your browser does not support video.',
         IMAGE_LOAD_ERROR: 'Image load error',
         VIDEO_LOAD_ERROR: 'Your browser does not support video.',
-        
+
         SIDEBAR_TOGGLE_SHOW: 'Show sidebar',
         SIDEBAR_TOGGLE_HIDE: 'Hide sidebar',
         VIDEO_LOAD_ERROR: 'Video load error',
@@ -253,7 +253,7 @@
         UNSUPPORTED_FORMAT: 'Format not supported',
         BROWSER_NOT_SUPPORTED: 'Your browser does not support this format'
     },
-    
+
     es: {
         EMAIL_CLICK_TO_SEND: 'Correo electrónico',
         PHONE_CLICK_TO_CALL: 'Llamar',
@@ -267,10 +267,10 @@
         PASSWORD_PLACEHOLDER: 'Contraseña',
         JOIN_BUTTON: 'Unirse',
         LANGUAGE_SELECTOR: 'Idioma',
-        
+
         MESSAGE_PLACEHOLDER: 'Escribe un mensaje...',
         ENCRYPTION_KEY_PLACEHOLDER: 'Clave de cifrado',
-        
+
         ERROR_REQUIRED_FIELDS: 'Por favor complete todos los campos',
         ERROR_INVALID_USERNAME: 'El nombre de usuario solo puede contener letras latinas, números, guión y guión bajo (máx. 64 caracteres)',
         ERROR_INVALID_ROOM: 'El nombre de la sala solo puede contener letras latinas, números, guión y guión bajo (máx. 64 caracteres)',
@@ -298,12 +298,12 @@
         ERROR_CALL_START: 'No se pudo iniciar la llamada: {error}',
         ERROR_CALL_ACCEPT: 'No se pudo aceptar la llamada: {error}',
         ERROR_INSECURE_CONTEXT: 'Para llamadas de voz y video, se recomienda HTTPS o localhost.',
-        
+
         SYSTEM_CHAT_CLEARED: 'El historial del chat ha sido borrado',
         SYSTEM_USER_JOINED: 'El usuario {username} se unió a la sala',
         SYSTEM_USER_LEFT: 'El usuario {username} salió de la sala',
         SYSTEM_SERVER_SHUTDOWN: 'El servidor se ha apagado. La página se recargará.',
-        
+
         SEND_MESSAGE: 'Enviar mensaje',
         SEND_MESSAGE_TOOLTIP: 'Ingrese un mensaje para enviar',
         SEND_MESSAGE_BUTTON: '↵',
@@ -314,7 +314,7 @@
         CONFIRM: 'Confirmar',
         CONFIRM_DELETE: 'Eliminar',
         OK: 'OK',
-        
+
         MODAL_INFO: 'Información',
         MODAL_ERROR: 'Error',
         MODAL_CALL: 'Llamada',
@@ -332,11 +332,11 @@
         MODAL_CALL_ENDED: 'El usuario {username} finalizó la llamada',
         MODAL_CALL_NO_ANSWER: 'El usuario no respondió la llamada',
         MODAL_ALREADY_IN_CALL: 'Ya en una llamada',
-        
+
         RECORDING_AUDIO: 'Grabando audio...',
         RECORDING_VIDEO: 'Grabando...',
         RECORDING_TIMER: '{seconds} seg',
-        
+
         FILE_LOADING_DECRYPTING: 'Cargando y descifrando...',
         FILE_ENCRYPTED: 'Archivo cifrado. Haz clic para descifrar.',
         FILE_ENCRYPTED_CLICK: '🔒 Archivo cifrado. Haz clic para descifrar.',
@@ -344,7 +344,7 @@
         FILE_DOWNLOAD: 'Descargar',
         FILE_SIZE: '{size} KB',
         FILE_DURATION_SIZE: '{duration} seg • {size}',
-        
+
         NOTIFICATION_TEST_TITLE: 'NATaSSHka - Notificaciones habilitadas',
         NOTIFICATION_TEST_BODY: 'Recibirás notificaciones sobre nuevos mensajes',
         NOTIFICATION_NEW_MESSAGE: 'Nuevo mensaje de {username}',
@@ -357,31 +357,31 @@
         NOTIFICATION_IMAGE_FILE: 'Archivo: {filename}',
         NOTIFICATION_VIDEO_DURATION: 'Duración: {duration} seg',
         NOTIFICATION_FILE_INFO: 'Archivo: {filename} ({size})',
-        
+
         UPLOADING: 'Subiendo: {filename}',
         UPLOAD_ERROR: '¡Error de subida!',
-        
+
         ROOM_INFO: 'Sala: {room}',
         USER_INFO: '✪ {username}',
-        
+
         END_CALL: 'Finalizar llamada',
         AUDIO_CALL: 'Llamada de audio',
         VIDEO_CALL: 'Llamada de video',
-        
+
         VIDEO_NOT_SUPPORTED: 'Tu navegador no soporta video.',
         IMAGE_LOAD_ERROR: 'Error al cargar imagen',
         VIDEO_LOAD_ERROR: 'Tu navegador no soporta video.',
-        
+
         SIDEBAR_TOGGLE_SHOW: 'Mostrar barra lateral',
         SIDEBAR_TOGGLE_HIDE: 'Ocultar barra lateral',
-        
+
         VIDEO_LOAD_ERROR: 'Error al cargar video',
         IMAGE_LOAD_ERROR: 'Error al cargar imagen',
         MEDIA_LOAD_ERROR: 'Error al cargar archivo multimedia',
         UNSUPPORTED_FORMAT: 'Formato no compatible',
         BROWSER_NOT_SUPPORTED: 'Tu navegador no soporta este formato'
     },
-    
+
     zh: {
         EMAIL_CLICK_TO_SEND: '電子郵件',
         PHONE_CLICK_TO_CALL: '撥打電話',
@@ -395,10 +395,10 @@
         PASSWORD_PLACEHOLDER: '密码',
         JOIN_BUTTON: '加入',
         LANGUAGE_SELECTOR: '语言',
-        
+
         MESSAGE_PLACEHOLDER: '输入消息...',
         ENCRYPTION_KEY_PLACEHOLDER: '加密密钥',
-        
+
         ERROR_REQUIRED_FIELDS: '请填写所有字段',
         ERROR_INVALID_USERNAME: '用户名只能包含拉丁字母、数字、连字符和下划线（最多64个字符）',
         ERROR_INVALID_ROOM: '房间名称只能包含拉丁字母、数字、连字符和下划线（最多64个字符）',
@@ -426,12 +426,12 @@
         ERROR_CALL_START: '无法开始通话：{error}',
         ERROR_CALL_ACCEPT: '无法接听通话：{error}',
         ERROR_INSECURE_CONTEXT: '对于语音和视频通话，建议使用HTTPS或localhost。',
-        
+
         SYSTEM_CHAT_CLEARED: '聊天记录已被清除',
         SYSTEM_USER_JOINED: '用户 {username} 加入了房间',
         SYSTEM_USER_LEFT: '用户 {username} 离开了房间',
         SYSTEM_SERVER_SHUTDOWN: '服务器已关闭。页面将重新加载。',
-        
+
         SEND_MESSAGE: '发送消息',
         SEND_MESSAGE_TOOLTIP: '输入要发送的消息',
         SEND_MESSAGE_BUTTON: '↵',
@@ -442,7 +442,7 @@
         CONFIRM: '确认',
         CONFIRM_DELETE: '删除',
         OK: '确定',
-        
+
         MODAL_INFO: '信息',
         MODAL_ERROR: '错误',
         MODAL_CALL: '通话',
@@ -460,11 +460,11 @@
         MODAL_CALL_ENDED: '用户 {username} 结束了通话',
         MODAL_CALL_NO_ANSWER: '用户未接听',
         MODAL_ALREADY_IN_CALL: '已在通话中',
-        
+
         RECORDING_AUDIO: '正在录制音频...',
         RECORDING_VIDEO: '正在录制...',
         RECORDING_TIMER: '{seconds} 秒',
-        
+
         FILE_LOADING_DECRYPTING: '正在加载和解密...',
         FILE_ENCRYPTED: '文件已加密。点击解密。',
         FILE_ENCRYPTED_CLICK: '🔒 文件已加密。点击解密。',
@@ -472,7 +472,7 @@
         FILE_DOWNLOAD: '下载',
         FILE_SIZE: '{size} KB',
         FILE_DURATION_SIZE: '{duration} 秒 • {size}',
-        
+
         NOTIFICATION_TEST_TITLE: 'NATaSSHka - 通知已启用',
         NOTIFICATION_TEST_BODY: '您将收到新消息的通知',
         NOTIFICATION_NEW_MESSAGE: '来自 {username} 的新消息',
@@ -485,21 +485,21 @@
         NOTIFICATION_IMAGE_FILE: '文件：{filename}',
         NOTIFICATION_VIDEO_DURATION: '时长：{duration} 秒',
         NOTIFICATION_FILE_INFO: '文件：{filename}（{size}）',
-        
+
         UPLOADING: '正在上传：{filename}',
         UPLOAD_ERROR: '上传错误！',
-        
+
         ROOM_INFO: '房间：{room}',
         USER_INFO: '✪ {username}',
-        
+
         END_CALL: '结束通话',
         AUDIO_CALL: '语音通话',
         VIDEO_CALL: '视频通话',
-        
+
         VIDEO_NOT_SUPPORTED: '您的浏览器不支持视频。',
         IMAGE_LOAD_ERROR: '图片加载错误',
         VIDEO_LOAD_ERROR: '您的浏览器不支持视频。',
-        
+
         SIDEBAR_TOGGLE_SHOW: '显示侧边栏',
         SIDEBAR_TOGGLE_HIDE: '隐藏侧边栏',
 
@@ -513,43 +513,43 @@
 
 class LanguageManager {
     constructor() {
-        this.currentLanguage = 'en'; // По умолчанию английский
+        this.currentLanguage = 'en';
         this.init();
     }
-    
+
     init() {
         const savedLang = localStorage.getItem('chat_language');
         if (savedLang && translations[savedLang]) {
             this.currentLanguage = savedLang;
         }
-        
+
         this.updatePageTitle();
-        
-        // Обновляем интерфейс сразу при загрузке
+
+
         setTimeout(() => {
             this.updateLoginModal();
             this.updateInterfaceLanguage();
         }, 100);
     }
-    
+
     updatePageTitle() {
         document.title = this.t('APP_TITLE');
     }
-    
+
     t(key, params = {}) {
-        let translation = translations[this.currentLanguage] && translations[this.currentLanguage][key] 
-            ? translations[this.currentLanguage][key] 
+        let translation = translations[this.currentLanguage] && translations[this.currentLanguage][key]
+            ? translations[this.currentLanguage][key]
             : translations['en'][key] || key;
-        
+
         if (typeof translation === 'string') {
             translation = translation.replace(/\{(\w+)\}/g, (match, placeholder) => {
                 return params[placeholder] !== undefined ? params[placeholder] : match;
             });
         }
-        
+
         return translation;
     }
-    
+
     setLanguage(lang) {
         if (translations[lang]) {
             this.currentLanguage = lang;
@@ -561,34 +561,34 @@ class LanguageManager {
         }
         return false;
     }
-    
+
     updateLoginModal() {
         const loginModal = document.getElementById('loginModal');
         if (!loginModal) return;
-        
-        // Обновляем только если модальное окно видимо (не скрыто)
+
+
         if (!loginModal.classList.contains('hidden')) {
             const modalTitle = loginModal.querySelector('h2');
             if (modalTitle) modalTitle.textContent = this.t('JOIN_CHAT');
-            
+
             const usernameInput = document.getElementById('usernameInput');
             if (usernameInput) {
                 usernameInput.placeholder = this.t('USERNAME_PLACEHOLDER');
                 usernameInput.title = this.t('USERNAME_PATTERN_TITLE');
             }
-            
+
             const roomInput = document.getElementById('roomInput');
             if (roomInput) {
                 roomInput.placeholder = this.t('ROOM_PLACEHOLDER');
                 roomInput.title = this.t('USERNAME_PATTERN_TITLE');
             }
-            
+
             const passwordInput = document.getElementById('passwordInput');
             if (passwordInput) passwordInput.placeholder = this.t('PASSWORD_PLACEHOLDER');
-            
+
             const joinButton = document.getElementById('joinChatBtn');
             if (joinButton) joinButton.textContent = this.t('JOIN_BUTTON');
-            
+
             const languageSelect = document.getElementById('languageSelect');
             if (languageSelect) {
                 const labels = {
@@ -597,13 +597,13 @@ class LanguageManager {
                     'es': 'Español',
                     'zh': '中文'
                 };
-                
+
                 for (let option of languageSelect.options) {
                     if (labels[option.value]) {
                         option.textContent = labels[option.value];
                     }
                 }
-                
+
                 const label = languageSelect.previousElementSibling;
                 if (label && label.tagName === 'LABEL') {
                     label.textContent = this.t('LANGUAGE_SELECTOR') + ':';
@@ -611,34 +611,34 @@ class LanguageManager {
             }
         }
     }
-    
+
     updateInterfaceLanguage() {
-        // Обновляем поля, которые всегда видны
+
         const messageInput = document.getElementById('messageInput');
         if (messageInput) {
             messageInput.placeholder = this.t('MESSAGE_PLACEHOLDER');
         }
-        
+
         const encryptionKeyInput = document.getElementById('encryptionKeyInput');
         if (encryptionKeyInput) {
             encryptionKeyInput.placeholder = this.t('ENCRYPTION_KEY_PLACEHOLDER');
         }
-        
+
         const sendMessageBtn = document.getElementById('sendMessageBtn');
         if (sendMessageBtn) {
             sendMessageBtn.title = this.t('SEND_MESSAGE_TOOLTIP');
         }
-        
+
         const audioCallBtn = document.getElementById('audioCallBtn');
         if (audioCallBtn) {
             audioCallBtn.title = this.t('AUDIO_CALL');
         }
-        
+
         const videoCallBtn = document.getElementById('videoCallBtn');
         if (videoCallBtn) {
             videoCallBtn.title = this.t('VIDEO_CALL');
         }
-        
+
         const recordButton = document.getElementById('recordButton');
         if (recordButton) {
             const recordingText = document.getElementById('recordingText');
@@ -646,37 +646,37 @@ class LanguageManager {
                 recordingText.textContent = this.t('RECORDING_AUDIO');
             }
         }
-        
+
         const videoRecordingText = document.getElementById('videoRecordingText');
         if (videoRecordingText) {
             videoRecordingText.textContent = this.t('RECORDING_VIDEO');
         }
-        
+
         const preparingModalTitle = document.getElementById('preparingModalTitle');
         if (preparingModalTitle) {
             preparingModalTitle.textContent = this.t('MODAL_PREPARING_DEVICE');
         }
-        
-        // Обновляем тексты в уже созданных модальных окнах
+
+
         this.updateModalTexts();
     }
-    
+
     updateModalTexts() {
-        // Обновляем текст в модальном окне сообщений, если оно видимо
+
         const messageModal = document.getElementById('messageModal');
         if (messageModal && !messageModal.classList.contains('hidden')) {
             const messageModalTitle = messageModal.querySelector('#messageModalTitle');
             if (messageModalTitle && messageModalTitle.textContent === 'Сообщение') {
                 messageModalTitle.textContent = this.t('MODAL_INFO');
             }
-            
+
             const messageModalOkBtn = messageModal.querySelector('#messageModalOkBtn');
             if (messageModalOkBtn && messageModalOkBtn.textContent === 'OK') {
                 messageModalOkBtn.textContent = this.t('OK');
             }
         }
     }
-    
+
     getCurrentLanguage() {
         return this.currentLanguage;
     }
@@ -692,20 +692,20 @@ window.setLanguage = function(lang) {
     return window.languageManager.setLanguage(lang);
 };
 
-// Обновляем язык сразу при загрузке DOM
+
 document.addEventListener('DOMContentLoaded', () => {
-    // Обновляем селектор языка
+
     const languageSelect = document.getElementById('languageSelect');
     if (languageSelect) {
         languageSelect.value = window.languageManager.getCurrentLanguage();
-        
+
         languageSelect.addEventListener('change', (e) => {
             const lang = e.target.value;
             window.setLanguage(lang);
         });
     }
-    
-    // Обновляем интерфейс входа сразу
+
+
     setTimeout(() => {
         window.languageManager.updateLoginModal();
     }, 50);

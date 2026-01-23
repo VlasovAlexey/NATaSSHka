@@ -101,7 +101,7 @@ app.use('/uploads', express.static(uploadsDir, {
     redirect: false
 }));
 
-// Отключение кэширования для всех статических файлов
+
 app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
@@ -665,19 +665,19 @@ io.on('connection', (socket) => {
 
     socket.on('user-join-attempt', (data) => {
         const { username, room, password, language = 'ru' } = data;
-        
+
         if (data.password !== config.password) {
             socket.emit('join-error', translate(language, 'ERROR_WRONG_PASSWORD'));
             return;
         }
-        
+
         const existingUser = Array.from(users.values()).find(user =>
             user.username === username && user.room === room
         );
-        
+
         if (existingUser) {
             socket.emit('join-error', translate(language, 'ERROR_USERNAME_EXISTS'));
-            
+
             const warningMessage = {
                 id: Date.now().toString(),
                 username: 'system',
@@ -688,7 +688,7 @@ io.on('connection', (socket) => {
                 isSystem: true,
                 isWarning: true
             };
-            
+
             saveSystemMessageToFile(room, warningMessage);
             io.to(room).emit('new-message', warningMessage);
             return;
@@ -715,7 +715,7 @@ io.on('connection', (socket) => {
             messageHistory: messageHistory,
             reactionUsersData: reactionUsersData
         });
-        
+
         const joinMessage = {
             id: Date.now().toString(),
             username: 'system',
@@ -725,7 +725,7 @@ io.on('connection', (socket) => {
             room: room,
             isSystem: true
         };
-        
+
         const roomUsers = Array.from(users.values()).filter(user => user.room === room);
         io.to(room).emit('users-list', roomUsers);
         console.log(translate(config.language, 'USER_JOINED_ROOM', {username: username, room: room}));
@@ -766,7 +766,7 @@ io.on('connection', (socket) => {
                         console.log(translate(config.language, 'ROOM_FOLDER_DELETED', {room: user.room}));
                     }
                 }
-                
+
                 const clearMessage = {
                     id: Date.now().toString(),
                     username: 'system',
@@ -776,7 +776,7 @@ io.on('connection', (socket) => {
                     room: user.room,
                     isSystem: true
                 };
-                
+
                 saveSystemMessageToFile(user.room, clearMessage);
                 io.to(user.room).emit('clear-chat');
                 io.to(user.room).emit('new-message', clearMessage);
@@ -795,7 +795,7 @@ io.on('connection', (socket) => {
                     isKillAll: true
                 };
                 saveSystemMessageToFile(user.room, killAllMessage);
-                
+
                 if (secureDeleter) {
                     await secureDeleter.deleteUploadsFolder(io);
                 } else {
@@ -810,7 +810,7 @@ io.on('connection', (socket) => {
                         recursive: true
                     });
                 }
-                
+
                 io.emit('killall-message', killAllMessage);
                 setTimeout(() => {
                     console.log(translate(config.language, 'SERVER_SHUTDOWN'));
@@ -844,29 +844,29 @@ io.on('connection', (socket) => {
         return;
     }
 
-    // Удаляем параметры против кэширования из имени файла
+
     let originalFileName = data.fileName;
     if (originalFileName.includes('file_') && originalFileName.includes('_nocache=')) {
-        // Извлекаем оригинальное имя файла из структуры file_<timestamp>_<random>_<filename>
+
         const parts = originalFileName.split('_');
         if (parts.length > 3) {
-            // Убираем первые 3 части (file, timestamp, random)
+
             originalFileName = parts.slice(3).join('_');
-            // Удаляем параметры запроса если есть
+
             originalFileName = originalFileName.split('?')[0];
         }
     }
-    
-    // Также удаляем параметр _nocache если он есть в имени файла
+
+
     if (originalFileName.includes('_nocache=')) {
         originalFileName = originalFileName.split('_nocache=')[0];
-        // Убираем возможный завершающий знак вопроса
+
         if (originalFileName.endsWith('?')) {
             originalFileName = originalFileName.slice(0, -1);
         }
     }
 
-    // Проверка размера файла (учитываем base64 overhead)
+
     if (data.fileData.length * 0.75 > config.maxFileSize) {
         const errorMsg = translate(config.language, 'FILES_TOO_BIG') + ' ' + (config.maxFileSize / (1024 * 1024)) + ' ' + translate(config.language, 'MB');
         if (callback) callback({
@@ -885,16 +885,16 @@ io.on('connection', (socket) => {
         return;
     }
 
-    // Создаем уникальное имя файла с timestamp для предотвращения кэширования
+
     const fileExt = originalFileName.split('.').pop() || 'bin';
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substr(2, 9);
     const uniqueFileName = `${timestamp}-${randomStr}.${fileExt}`;
-    
+
     const roomDir = path.join(uploadsDir, user.room);
     const userDir = path.join(roomDir, user.username);
     ensureDirectoryExistence(userDir);
-    
+
     const filePath = path.join(userDir, uniqueFileName);
     const fileUrl = `/uploads/${user.room}/${user.username}/${uniqueFileName}`;
 
@@ -918,11 +918,11 @@ io.on('connection', (socket) => {
         }
 
         console.log(translate(config.language, 'FILE_SAVED') + ' ' + filePath);
-        
+
         const isAudio = data.fileType.startsWith('audio/');
         const isVideo = data.fileType.startsWith('video/');
         let fileSizeDisplay, duration;
-        
+
         if (isAudio || isVideo) {
             fileSizeDisplay = data.fileSize ? data.fileSize + ' ' + translate(config.language, 'KB') : '0 ' + translate(config.language, 'KB');
             duration = data.duration || 0;
@@ -932,12 +932,12 @@ io.on('connection', (socket) => {
             duration = 0;
         }
 
-        // Сохраняем оригинальное имя файла без параметров кэширования
+
         const message = {
             id: Date.now().toString(),
             username: user.username,
             userId: socket.id,
-            fileName: originalFileName, // Сохраняем очищенное имя файла
+            fileName: originalFileName,
             fileType: data.fileType,
             fileUrl: fileUrl,
             fileSize: fileSizeDisplay,
@@ -963,7 +963,7 @@ io.on('connection', (socket) => {
         });
 
         io.to(user.room).emit('new-message', message);
-        
+
         if (callback) callback({
             success: true
         });

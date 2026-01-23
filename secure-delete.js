@@ -27,7 +27,7 @@ class SecureDeleter {
             } else {
                 this.isSSD = false;
             }
-            
+
             console.log(translate(this.config.language, 'STORAGE_TYPE_DETECTED', {
                 type: this.isSSD ? 'SSD' : 'HDD'
             }));
@@ -42,9 +42,9 @@ class SecureDeleter {
             const { exec } = require('child_process');
             const util = require('util');
             const execPromise = util.promisify(exec);
-            
+
             const { stdout } = await execPromise('wmic diskdrive get MediaType');
-            return stdout.toLowerCase().includes('ssd') || 
+            return stdout.toLowerCase().includes('ssd') ||
                    stdout.toLowerCase().includes('solid state');
         } catch {
             return false;
@@ -56,7 +56,7 @@ class SecureDeleter {
             const { exec } = require('child_process');
             const util = require('util');
             const execPromise = util.promisify(exec);
-            
+
             const { stdout } = await execPromise('lsblk -d -o name,rota');
             const lines = stdout.split('\n');
             for (const line of lines) {
@@ -75,7 +75,7 @@ class SecureDeleter {
             const { exec } = require('child_process');
             const util = require('util');
             const execPromise = util.promisify(exec);
-            
+
             const { stdout } = await execPromise('diskutil info / | grep "Solid State"');
             return stdout.toLowerCase().includes('yes');
         } catch {
@@ -85,11 +85,11 @@ class SecureDeleter {
 
     async secureDeleteFile(filePath, io, room, username) {
         const language = this.config.language || 'ru';
-        
+
         try {
             const stats = await fs.lstat(filePath);
             const isSymlink = stats.isSymbolicLink();
-            
+
             if (isSymlink) {
                 console.log(translate(language, 'SYMLINK_DETECTED', { path: filePath }));
                 await this.deleteSymlink(filePath);
@@ -102,7 +102,7 @@ class SecureDeleter {
             }));
 
             const startTime = Date.now();
-            
+
             if (this.isSSD) {
                 await this.secureDeleteSSD(filePath, stats.size);
             } else {
@@ -110,14 +110,14 @@ class SecureDeleter {
             }
 
             const verification = await this.verifyDeletion(filePath);
-            
+
             if (!verification) {
                 throw new Error(translate(language, 'VERIFICATION_FAILED'));
             }
 
             const endTime = Date.now();
             const duration = (endTime - startTime) / 1000;
-            
+
             console.log(translate(language, 'SECURE_DELETE_COMPLETE', {
                 path: filePath,
                 time: duration.toFixed(2)
@@ -127,7 +127,7 @@ class SecureDeleter {
 
         } catch (error) {
             console.error(translate(language, 'SECURE_DELETE_ERROR'), error);
-            
+
             if (io && room) {
                 const errorMessage = {
                     id: Date.now().toString(),
@@ -143,23 +143,23 @@ class SecureDeleter {
                     isSystem: true,
                     isWarning: true
                 };
-                
+
                 io.to(room).emit('new-message', errorMessage);
             }
-            
+
             return false;
         }
     }
 
     async secureDeleteSSD(filePath, originalSize) {
         const language = this.config.language || 'ru';
-        
+
         try {
             console.log(translate(language, 'SSD_OPTIMIZED_DELETE'));
-            
+
             await this.overwriteFileGOST(filePath, originalSize);
             await fs.unlink(filePath);
-            
+
         } catch (error) {
             console.error(translate(language, 'SSD_DELETE_ERROR'), error);
             throw error;
@@ -168,19 +168,19 @@ class SecureDeleter {
 
     async secureDeleteHDD(filePath, originalSize) {
         const language = this.config.language || 'ru';
-        
+
         try {
             console.log(translate(language, 'HDD_FULL_DELETE'));
-            
+
             await this.overwriteFileGOST(filePath, originalSize);
-            
+
             const increasedSize = originalSize * 3;
             await this.changeMetadata(filePath, increasedSize);
-            
+
             await this.overwriteFileGOST(filePath, increasedSize);
-            
+
             await fs.unlink(filePath);
-            
+
         } catch (error) {
             console.error(translate(language, 'HDD_DELETE_ERROR'), error);
             throw error;
@@ -189,24 +189,24 @@ class SecureDeleter {
 
     async overwriteFileGOST(filePath, size) {
         const language = this.config.language || 'ru';
-        
+
         try {
             console.log(translate(language, 'GOST_OVERWRITE_START', { passes: 2 }));
-            
+
             const fileHandle = await fs.open(filePath, 'r+');
-            
+
             try {
                 await this.gostPass1(fileHandle, size);
                 await this.gostPass2(fileHandle, size);
-                
+
                 await fileHandle.sync();
-                
+
             } finally {
                 await fileHandle.close();
             }
-            
+
             console.log(translate(language, 'GOST_OVERWRITE_COMPLETE'));
-            
+
         } catch (error) {
             console.error(translate(language, 'GOST_OVERWRITE_ERROR'), error);
             throw error;
@@ -215,40 +215,40 @@ class SecureDeleter {
 
     async gostPass1(fileHandle, size) {
         console.log(translate(this.config.language, 'GOST_PASS_1_START'));
-        
+
         const bufferSize = Math.min(1024 * 1024, size);
         const randomBuffer = crypto.randomBytes(bufferSize);
-        
+
         let bytesWritten = 0;
         while (bytesWritten < size) {
             const writeSize = Math.min(bufferSize, size - bytesWritten);
             await fileHandle.write(randomBuffer.slice(0, writeSize), 0, writeSize, bytesWritten);
             bytesWritten += writeSize;
         }
-        
+
         await fileHandle.sync();
         console.log(translate(this.config.language, 'GOST_PASS_1_COMPLETE'));
     }
 
     async gostPass2(fileHandle, size) {
         console.log(translate(this.config.language, 'GOST_PASS_2_START'));
-        
+
         const pattern = Buffer.from('00000000000000000000000000000000', 'hex');
         const bufferSize = Math.min(1024 * 1024, size);
-        
+
         let bytesWritten = 0;
         while (bytesWritten < size) {
             const writeSize = Math.min(bufferSize, size - bytesWritten);
-            
+
             const patternBuffer = Buffer.alloc(writeSize);
             for (let i = 0; i < writeSize; i += pattern.length) {
                 pattern.copy(patternBuffer, i);
             }
-            
+
             await fileHandle.write(patternBuffer, 0, writeSize, bytesWritten);
             bytesWritten += writeSize;
         }
-        
+
         await fileHandle.sync();
         console.log(translate(this.config.language, 'GOST_PASS_2_COMPLETE'));
     }
@@ -256,14 +256,14 @@ class SecureDeleter {
     async changeMetadata(filePath, newSize) {
         try {
             const stats = fsSync.statSync(filePath);
-            
+
             await this.truncateFile(filePath, newSize);
-            
+
             const newDate = new Date(0);
             fsSync.utimesSync(filePath, newDate, newDate);
-            
+
             fsSync.chmodSync(filePath, 0o777);
-            
+
         } catch (error) {
             console.error(translate(this.config.language, 'METADATA_CHANGE_ERROR'), error);
         }
@@ -281,7 +281,7 @@ class SecureDeleter {
     async verifyDeletion(filePath) {
         try {
             await fs.access(filePath);
-            
+
             const stats = await fs.stat(filePath);
             if (stats.size > 0) {
                 console.error(translate(this.config.language, 'VERIFICATION_FAILED_SIZE', {
@@ -290,7 +290,7 @@ class SecureDeleter {
                 }));
                 return false;
             }
-            
+
             return true;
         } catch (error) {
             if (error.code === 'ENOENT') {
@@ -317,7 +317,7 @@ class SecureDeleter {
         const language = this.config.language || 'ru';
         const uploadsDir = path.join(__dirname, 'uploads');
         const userDir = path.join(uploadsDir, room, username);
-        
+
         if (!fsSync.existsSync(userDir)) {
             console.log(translate(language, 'USER_DIR_NOT_FOUND', { path: userDir }));
             return false;
@@ -331,7 +331,7 @@ class SecureDeleter {
 
         let fileUrls = [];
         const messageFile = path.join(userDir, `${messageId}.xml`);
-        
+
         if (fsSync.existsSync(messageFile)) {
             try {
                 const fileContent = fsSync.readFileSync(messageFile, 'utf8');
@@ -342,9 +342,9 @@ class SecureDeleter {
                     });
                 }
                 console.log(translate(language, 'FOUND_FILEURLS_IN_XML'), fileUrls);
-                
+
                 await this.secureDeleteFile(messageFile, io, room, username);
-                
+
             } catch (readError) {
                 console.error(translate(language, 'XML_READ_ERROR'), readError);
                 if (fsSync.existsSync(messageFile)) {
@@ -393,14 +393,14 @@ class SecureDeleter {
         const language = this.config.language || 'ru';
         const uploadsDir = path.join(__dirname, 'uploads');
         const roomDir = path.join(uploadsDir, room);
-        
+
         if (!fsSync.existsSync(roomDir)) {
             console.log(translate(language, 'ROOM_DIR_NOT_FOUND', { room }));
             return false;
         }
 
         console.log(translate(language, 'ROOM_DELETION_START', { room }));
-        
+
         try {
             await this.deleteDirectorySecure(roomDir, io, room);
             console.log(translate(language, 'ROOM_DELETION_COMPLETE', { room }));
@@ -414,14 +414,14 @@ class SecureDeleter {
     async deleteUploadsFolder(io = null) {
         const language = this.config.language || 'ru';
         const uploadsDir = path.join(__dirname, 'uploads');
-        
+
         if (!fsSync.existsSync(uploadsDir)) {
             console.log(translate(language, 'UPLOADS_DIR_NOT_FOUND'));
             return false;
         }
 
         console.log(translate(language, 'UPLOADS_DELETION_START'));
-        
+
         try {
             await this.deleteDirectorySecure(uploadsDir, io, 'global');
             console.log(translate(language, 'UPLOADS_DELETION_COMPLETE'));
@@ -434,13 +434,13 @@ class SecureDeleter {
 
     async deleteDirectorySecure(dirPath, io, room) {
         const language = this.config.language || 'ru';
-        
+
         try {
             const items = await fs.readdir(dirPath, { withFileTypes: true });
-            
+
             for (const item of items) {
                 const fullPath = path.join(dirPath, item.name);
-                
+
                 if (item.isDirectory()) {
                     await this.deleteDirectorySecure(fullPath, io, room);
                 } else {
@@ -451,9 +451,9 @@ class SecureDeleter {
                     }
                 }
             }
-            
+
             await fs.rmdir(dirPath);
-            
+
         } catch (error) {
             console.error(translate(language, 'DIR_DELETION_ERROR', { dir: dirPath }), error);
             throw error;

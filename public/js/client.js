@@ -20,7 +20,6 @@
 
     window.webrtcManager = new WebRTCManager(socket);
 
-    
 
     socket.on('stun-config', (iceServers) => {
         if (!window.rtcConfig) {
@@ -37,37 +36,36 @@
         toggleCallButtons(rtcConfig.useTurnServers);
     });
 
-    // Функция для безопасного парсинга ссылок с поддержкой шифрования
-// Функция для безопасного парсинга ссылок с поддержкой шифрования
+
 function linkifyMessageText(text, isEncrypted = false, isSystem = false) {
     if (!text || typeof text !== 'string') {
         return text;
     }
-    
-    // Если это системное сообщение или сообщение killall, не парсим ссылки
+
+
     if (isSystem) {
         return text;
     }
-    
+
     let processedText = text;
-    
-    // Если сообщение зашифровано, пытаемся расшифровать
+
+
     if (isEncrypted) {
         if (window.encryptionManager && window.encryptionManager.encryptionKey) {
             try {
                 processedText = window.encryptionManager.decryptMessage(text);
-                // Успешно расшифровали, можно парсить ссылки
+
             } catch (error) {
-                // Ошибка расшифровки - возвращаем текст ошибки
+
                 return window.t('ERROR_WRONG_ENCRYPTION_KEY');
             }
         } else {
-            // Нет ключа - возвращаем сообщение о необходимости ключа
+
             return window.t('ERROR_WRONG_ENCRYPTION_KEY');
         }
     }
-    
-    // Парсим ссылки, телефоны и email с использованием Autolinker
+
+
     try {
         if (window.Autolinker) {
             return Autolinker.link(processedText, {
@@ -91,23 +89,23 @@ function linkifyMessageText(text, isEncrypted = false, isSystem = false) {
         }
     } catch (error) {
         console.warn('Autolinker error:', error);
-        // В случае ошибки парсинга возвращаем исходный текст
+
         return processedText;
     }
-    
+
     return processedText;
 }
 
-// Функция для добавления классов и атрибутов к ссылкам после их создания
+
 function enhanceMessageLinks(messageElement) {
     if (!messageElement) return;
-    
+
     const links = messageElement.querySelectorAll('a.message-link');
-    
+
     links.forEach(link => {
         const href = link.getAttribute('href') || '';
-        
-        // Определяем тип ссылки по href и добавляем соответствующий класс
+
+
         if (href.startsWith('mailto:')) {
             link.classList.add('email');
             link.setAttribute('title', window.t('EMAIL_CLICK_TO_SEND', { email: href.replace('mailto:', '') }));
@@ -115,27 +113,27 @@ function enhanceMessageLinks(messageElement) {
             link.classList.add('phone');
             link.setAttribute('title', window.t('PHONE_CLICK_TO_CALL', { phone: href.replace('tel:', '') }));
         } else if (href.startsWith('http://') || href.startsWith('https://')) {
-            // Добавляем атрибуты безопасности для внешних ссылок
+
             link.setAttribute('rel', 'noopener noreferrer');
             link.setAttribute('title', window.t('LINK_CLICK_TO_OPEN'));
         }
-        
-        // Останавливаем всплытие, чтобы не срабатывал клик на сообщение
+
+
         link.addEventListener('click', (e) => {
             e.stopPropagation();
         });
     });
 }
 
-// Функция для получения чистого текста из сообщения (для уведомлений)
+
 function getPlainTextForNotification(text, isEncrypted = false) {
     if (!text || typeof text !== 'string') {
         return text;
     }
-    
+
     let processedText = text;
-    
-    // Расшифровываем если нужно
+
+
     if (isEncrypted) {
         if (window.encryptionManager && window.encryptionManager.encryptionKey) {
             try {
@@ -147,30 +145,30 @@ function getPlainTextForNotification(text, isEncrypted = false) {
             return window.t('NOTIFICATION_ENCRYPTED_MESSAGE');
         }
     }
-    
-    // Удаляем HTML теги
+
+
     processedText = processedText.replace(/<[^>]*>/g, '');
-    
-    // Декодируем HTML-сущности
+
+
     processedText = processedText.replace(/&amp;/g, '&')
                                .replace(/&lt;/g, '<')
                                .replace(/&gt;/g, '>')
                                .replace(/&quot;/g, '"')
                                .replace(/&#039;/g, "'")
                                .replace(/&#39;/g, "'");
-    
+
     return processedText;
 }
 
-// Функция для получения чистого текста из сообщения (для уведомлений)
+
 function getPlainTextForNotification(text, isEncrypted = false) {
     if (!text || typeof text !== 'string') {
         return text;
     }
-    
+
     let processedText = text;
-    
-    // Расшифровываем если нужно
+
+
     if (isEncrypted) {
         if (window.encryptionManager && window.encryptionManager.encryptionKey) {
             try {
@@ -182,18 +180,18 @@ function getPlainTextForNotification(text, isEncrypted = false) {
             return window.t('NOTIFICATION_ENCRYPTED_MESSAGE');
         }
     }
-    
-    // Удаляем HTML теги
+
+
     processedText = processedText.replace(/<[^>]*>/g, '');
-    
-    // Декодируем HTML-сущности
+
+
     processedText = processedText.replace(/&amp;/g, '&')
                                .replace(/&lt;/g, '<')
                                .replace(/&gt;/g, '>')
                                .replace(/&quot;/g, '"')
                                .replace(/&#039;/g, "'")
                                .replace(/&#39;/g, "'");
-    
+
     return processedText;
 }
 
@@ -263,18 +261,18 @@ function getPlainTextForNotification(text, isEncrypted = false) {
         }
     }
 
-    // Функция для безопасного парсинга ссылок, телефонов и email
+
 function linkifyText(text, isEncrypted = false, encryptionKey = null) {
     if (!text || typeof text !== 'string') {
         return text;
     }
-    
-    // Если текст - это ошибка расшифровки, не парсим
+
+
     if (isEncrypted && text === window.t('ERROR_WRONG_ENCRYPTION_KEY')) {
         return text;
     }
-    
-    // Если сообщение зашифровано и есть ключ, пытаемся расшифровать
+
+
     if (isEncrypted && encryptionKey) {
         try {
             text = window.encryptionManager.decryptMessage(text);
@@ -284,7 +282,7 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
     } else if (isEncrypted && !encryptionKey) {
         return window.t('ERROR_WRONG_ENCRYPTION_KEY');
     }
-    
+
     try {
         if (window.Autolinker) {
             return Autolinker.link(text, {
@@ -304,22 +302,22 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
                 },
                 className: 'message-link',
                 sanitizeHtml: true,
-                
-                // Дополнительные настройки для телефонов
+
+
                 phoneUrlScheme: 'tel:',
                 replaceFn: function(autolinker, match) {
                     const tag = match.buildTag();
-                    
+
                     if (match.getType() === 'email') {
                         tag.addClass('email');
                         tag.setAttr('title', window.t('EMAIL_CLICK_TO_SEND', { email: match.getEmail() }));
                     }
-                    
+
                     if (match.getType() === 'phone') {
                         tag.addClass('phone');
                         tag.setAttr('title', window.t('PHONE_CLICK_TO_CALL', { phone: match.getNumber() }));
                     }
-                    
+
                     return tag;
                 }
             });
@@ -327,7 +325,7 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
     } catch (error) {
         console.warn('Linkify error:', error);
     }
-    
+
     return text;
 }
 
@@ -367,10 +365,10 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
             icon = '/icons/clip.svg';
         }
     } else {
-        // Используем getPlainTextForNotification для всех типов сообщений
+
         body = getPlainTextForNotification(message.text, message.isEncrypted || false);
-        
-        // Ограничиваем длину текста для уведомления
+
+
         if (body.length > 100) {
             body = body.substring(0, 100) + '...';
         }
@@ -435,14 +433,14 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
     }
 
     window.decryptAndDisplayFile = async function(fileUrl, fileType, fileName, messageId, buttonElement) {
-    // Добавляем параметр против кэширования
+
     const antiCacheUrl = window.cacheControlManager?.addAntiCacheParam(fileUrl) || fileUrl;
-    
-    // Форматируем имя файла для кнопки
+
+
     if (window.fileNameFormatter) {
         window.fileNameFormatter.setupEncryptedFileButton(buttonElement, fileName);
     }
-    
+
     const messageFileElement = buttonElement.closest('.message-file');
     if (!messageFileElement) {
         return;
@@ -451,15 +449,13 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
     try {
         messageFileElement.innerHTML = window.t('FILE_LOADING_DECRYPTING');
 
-        // ОТКЛЮЧАЕМ кэширование файлов - всегда загружаем заново
-        // Удаляем проверку кэша
-        
+
         if (!window.encryptionManager.encryptionKey) {
             showDecryptionError(messageFileElement, fileName, antiCacheUrl, fileType, messageId);
             return;
         }
 
-        // Используем antiCacheUrl и добавляем заголовки
+
         const response = await fetch(antiCacheUrl, {
             headers: {
                 'Cache-Control': 'no-cache',
@@ -467,11 +463,11 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
             },
             cache: 'no-store'
         });
-        
+
         if (!response.ok) {
             throw new Error(`${window.t('ERROR_FILE_READ', { filename: fileName })}: ${response.status}`);
         }
-        
+
         const encryptedBlob = await response.blob();
         const encryptedBase64 = await blobToBase64(encryptedBlob);
 
@@ -488,7 +484,7 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
             throw new Error(window.t('ERROR_WRONG_ENCRYPTION_KEY'));
         }
 
-        // НЕ сохраняем в кэш
+
         displayDecryptedFile(decryptedBlob, fileType, fileName, messageFileElement);
 
     } catch (error) {
@@ -530,13 +526,13 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
     }
 
     function showDecryptionError(messageFileElement, fileName, fileUrl, fileType, messageId) {
-        // Форматируем имя файла перед отображением
-        const displayFileName = window.fileNameFormatter ? 
-            window.fileNameFormatter.formatFileName(fileName) : 
+
+        const displayFileName = window.fileNameFormatter ?
+            window.fileNameFormatter.formatFileName(fileName) :
             fileName;
-        
+
         messageFileElement.innerHTML = `
-        <button class="encrypted-file-btn error" 
+        <button class="encrypted-file-btn error"
                 onclick="decryptAndDisplayFile('${fileUrl}', '${fileType}', '${fileName}', '${messageId}', this)"
                 data-file-url="${fileUrl}"
                 data-file-type="${fileType}"
@@ -551,26 +547,26 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
     function displayDecryptedFile(blob, fileType, fileName, messageFileElement) {
     const url = URL.createObjectURL(blob);
     const fileSize = (blob.size / 1024).toFixed(2);
-    
-    // Анализируем тип файла
-    const fileAnalysis = window.fileFormats ? 
-        window.fileFormats.analyzeFile(fileType, fileName) : 
+
+
+    const fileAnalysis = window.fileFormats ?
+        window.fileFormats.analyzeFile(fileType, fileName) :
         { isImage: fileType && fileType.startsWith('image/'), shouldDisplayAsFile: false };
-    
-    // Получаем иконку для файла
-    const fileIcon = window.fileFormats ? 
+
+
+    const fileIcon = window.fileFormats ?
         window.fileFormats.getFileIcon(fileType, fileName) : '📄';
 
     if (fileAnalysis.isImage && !fileAnalysis.shouldDisplayAsFile) {
-        // Поддерживаемое изображение
+
         messageFileElement.innerHTML = `
-        <img src="${url}" alt="${fileName}" 
+        <img src="${url}" alt="${fileName}"
              onclick="window.expandImage('${url}', '${fileType}')">
         <div class="file-size">${window.t('FILE_SIZE', { size: fileSize })}</div>
     `;
     } else if (fileType && fileType.startsWith('video/')) {
     messageFileElement.innerHTML = `
-    <video src="${url}" controls muted 
+    <video src="${url}" controls muted
            onclick="window.expandVideoWithSound('${url}')">
         <div style="padding: 20px; text-align: center; background: #f4f4f4;">
             ${window.t('BROWSER_NOT_SUPPORTED')}
@@ -581,17 +577,17 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
 } else if (fileType && fileType.startsWith('audio/')) {
         messageFileElement.innerHTML = `
         <button class="audio-play-btn" onclick="window.audioRecorder.playAudioMessage('${url}', this)">
-            
+
         </button>
         <span class="audio-duration">${window.t('FILE_SIZE', { size: fileSize })}</span>
     `;
     } else {
-        // Неподдерживаемое изображение или обычный файл
-        // Форматируем имя файла перед отображением
-        const displayFileName = window.fileNameFormatter ? 
-            window.fileNameFormatter.formatFileName(fileName) : 
+
+
+        const displayFileName = window.fileNameFormatter ?
+            window.fileNameFormatter.formatFileName(fileName) :
             fileName;
-        
+
         messageFileElement.innerHTML = `
         <a href="${url}" download="${fileName}" class="file-download-link" title="${fileName}">
             ${fileIcon} ${displayFileName}
@@ -599,8 +595,8 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
         <div class="file-size">${window.t('FILE_SIZE', { size: fileSize })}</div>
     `;
     }
-    
-    // Применяем форматирование к вновь созданным элементам
+
+
     setTimeout(() => {
         if (window.fileNameFormatter) {
             window.fileNameFormatter.applyToContainer(messageFileElement);
@@ -736,7 +732,7 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
             username,
             room,
             password,
-            language // Добавляем язык
+            language
         });
     } else {
         showLoginError(window.t('ERROR_REQUIRED_FIELDS'));
@@ -795,15 +791,15 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
         setupVideoModal();
 
         updateButtonStates();
-        
+
         updateInterfaceLanguage();
-        
-        // Инициализируем форматирование имен файлов
+
+
         if (window.fileNameFormatter && messagesContainer) {
-            // Форматируем все существующие файлы
+
             window.fileNameFormatter.applyToContainer(messagesContainer);
-            
-            // Инициализируем наблюдатель для новых сообщений
+
+
             window.fileNameFormatter.initializeObserver(messagesContainer);
         }
     });
@@ -812,25 +808,25 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
         if (messageInput) {
             messageInput.placeholder = window.t('MESSAGE_PLACEHOLDER');
         }
-        
+
         if (encryptionKeyInput) {
             encryptionKeyInput.placeholder = window.t('ENCRYPTION_KEY_PLACEHOLDER');
         }
-        
+
         if (sendMessageBtn) {
             sendMessageBtn.title = window.t('SEND_MESSAGE_TOOLTIP');
         }
-        
+
         const audioCallBtn = document.getElementById('audioCallBtn');
         if (audioCallBtn) {
             audioCallBtn.title = window.t('AUDIO_CALL');
         }
-        
+
         const videoCallBtn = document.getElementById('videoCallBtn');
         if (videoCallBtn) {
             videoCallBtn.title = window.t('VIDEO_CALL');
         }
-        
+
         const recordButton = document.getElementById('recordButton');
         if (recordButton) {
             const recordingText = document.getElementById('recordingText');
@@ -838,12 +834,12 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
                 recordingText.textContent = window.t('RECORDING_AUDIO');
             }
         }
-        
+
         const videoRecordingText = document.getElementById('videoRecordingText');
         if (videoRecordingText) {
             videoRecordingText.textContent = window.t('RECORDING_VIDEO');
         }
-        
+
         const preparingModalTitle = document.getElementById('preparingModalTitle');
         if (preparingModalTitle) {
             preparingModalTitle.textContent = window.t('MODAL_PREPARING_DEVICE');
@@ -1034,14 +1030,14 @@ function addMessageToChat(message) {
         </div>
     `;
 
-    // Обработка цитаты с парсингом ссылок
+
     if (message.quote) {
         let quoteText = message.quote.text;
         let quoteUsername = message.quote.username;
-        
-        // Используем linkifyMessageText для цитат
+
+
         quoteText = linkifyMessageText(
-            quoteText, 
+            quoteText,
             message.quote.isEncrypted || false,
             false
         );
@@ -1054,26 +1050,26 @@ function addMessageToChat(message) {
         `;
     }
 
-    // Обработка файловых сообщений
+
     if (message.isFile) {
-        // Безопасная проверка fileType
+
         const fileType = message.fileType || '';
         const fileName = message.fileName || '';
         const fileSize = message.fileSize || '';
         const fileUrl = message.fileUrl || '';
-        
-        // Анализируем тип файла
-        const fileAnalysis = window.fileFormats ? 
-            window.fileFormats.analyzeFile(fileType, fileName) : 
-            { 
-                isImage: fileType && typeof fileType === 'string' && fileType.startsWith('image/'), 
-                shouldDisplayAsFile: false 
+
+
+        const fileAnalysis = window.fileFormats ?
+            window.fileFormats.analyzeFile(fileType, fileName) :
+            {
+                isImage: fileType && typeof fileType === 'string' && fileType.startsWith('image/'),
+                shouldDisplayAsFile: false
             };
-        
+
         if (message.isEncrypted) {
             messageContent += `
             <div class="message-file">
-                <button class="encrypted-file-btn" 
+                <button class="encrypted-file-btn"
                         onclick="window.decryptAndDisplayFile('${fileUrl}', '${fileType}', '${fileName}', '${message.id}', this)"
                         data-file-url="${fileUrl}"
                         data-file-type="${fileType}"
@@ -1085,30 +1081,30 @@ function addMessageToChat(message) {
             </div>
             `;
         } else {
-            // Форматируем имя файла для отображения
-            const displayFileName = window.fileNameFormatter ? 
-                window.fileNameFormatter.formatFileName(fileName) : 
+
+            const displayFileName = window.fileNameFormatter ?
+                window.fileNameFormatter.formatFileName(fileName) :
                 fileName;
-            
-            // Получаем иконку для файла
-            const fileIcon = window.fileFormats ? 
+
+
+            const fileIcon = window.fileFormats ?
                 window.fileFormats.getFileIcon(fileType, fileName) : '📄';
-            
+
             if (message.isAudio) {
                 const duration = message.duration || '';
                 messageContent += `
                     <div class="message-audio">
                         <button class="audio-play-btn" onclick="window.audioRecorder.playAudioMessage('${fileUrl}', this)">
-                            
+
                         </button>
                         <span class="audio-duration">${window.t('FILE_DURATION_SIZE', { duration: duration, size: fileSize })}</span>
                     </div>
                 `;
             } else if (fileAnalysis.isImage && !fileAnalysis.shouldDisplayAsFile) {
-                // Поддерживаемое изображение - отображаем как изображение
+
                 messageContent += `
                     <div class="message-file">
-                        <img src="${fileUrl}" alt="${fileName}" 
+                        <img src="${fileUrl}" alt="${fileName}"
                              onclick="window.expandImage('${fileUrl}', '${fileType}')">
                         <div class="file-size">${fileSize}</div>
                     </div>
@@ -1117,7 +1113,7 @@ function addMessageToChat(message) {
                 const duration = message.duration || '';
                 messageContent += `
                     <div class="message-file">
-                        <video src="${fileUrl}" controls muted 
+                        <video src="${fileUrl}" controls muted
                                onclick="window.expandVideoWithSound('${fileUrl}', this)">
                             ${window.t('VIDEO_NOT_SUPPORTED')}
                         </video>
@@ -1125,7 +1121,7 @@ function addMessageToChat(message) {
                     </div>
                 `;
             } else {
-                // Неподдерживаемое изображение или обычный файл - отображаем как ссылку
+
                 messageContent += `
                     <div class="message-file">
                         <a href="${fileUrl}" download="${fileName}" class="file-download-link" title="${fileName}">
@@ -1137,23 +1133,22 @@ function addMessageToChat(message) {
             }
         }
     } else {
-        // Текстовые сообщения - всегда парсим ссылки
+
         let messageText = message.text || '';
-        
-        // Используем linkifyMessageText для всех типов сообщений
-        // Для системных сообщений isSystem=true, для остальных false
+
+
         messageText = linkifyMessageText(
             messageText,
             message.isEncrypted || false,
             message.isSystem || message.isKillAll || message.isWarning
         );
-        
+
         messageContent += `<div class="message-text">${messageText}</div>`;
     }
 
     messageElement.innerHTML = messageContent;
-    
-    // Добавляем улучшения для ссылок после вставки
+
+
     setTimeout(() => {
         enhanceMessageLinks(messageElement);
     }, 0);
@@ -1166,14 +1161,14 @@ function addMessageToChat(message) {
     }
 
     messagesContainer.appendChild(messageElement);
-    
-    // Форматируем имя файла если оно длинное
+
+
     setTimeout(() => {
         if (window.fileNameFormatter && (message.isFile || message.isAudio)) {
-            // Для файловых сообщений форматируем имя файла
+
             const messageFileElement = messageElement.querySelector('.message-file, .message-audio');
             if (messageFileElement) {
-                // Применяем форматирование ко всем элементам внутри
+
                 window.fileNameFormatter.applyToContainer(messageFileElement);
             }
         }
@@ -1185,11 +1180,11 @@ function addMessageToChat(message) {
 
     scrollToBottom();
 }
-// Функция для добавления обработчиков клика на ссылки
+
 function addClickHandlersToLinks(messageElement) {
     const links = messageElement.querySelectorAll('a.message-link');
     links.forEach(link => {
-        // Уже есть обработка через Autolinker, но добавляем дополнительные атрибуты для безопасности
+
         if (link.href && !link.href.startsWith('mailto:') && !link.href.startsWith('tel:')) {
             if (!link.hasAttribute('rel')) {
                 link.setAttribute('rel', 'noopener noreferrer');
@@ -1198,8 +1193,8 @@ function addClickHandlersToLinks(messageElement) {
                 link.setAttribute('target', '_blank');
             }
         }
-        
-        // Останавливаем всплытие, чтобы не срабатывал клик на сообщение
+
+
         link.addEventListener('click', (e) => {
             e.stopPropagation();
         });
@@ -1301,8 +1296,8 @@ function addClickHandlersToLinks(messageElement) {
         modalImage.onerror = function() {
     modalImage.alt = window.t('IMAGE_LOAD_ERROR');
     modalImage.style.display = 'none';
-    
-    // Создаем контейнер для сообщения об ошибке
+
+
     const errorContainer = document.createElement('div');
     errorContainer.className = 'image-error-container';
     errorContainer.style.cssText = `
@@ -1319,14 +1314,14 @@ function addClickHandlersToLinks(messageElement) {
         box-sizing: border-box;
         text-align: center;
     `;
-    
+
     errorContainer.innerHTML = `
         <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;">🖼️</div>
         <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">${window.t('IMAGE_LOAD_ERROR')}</div>
         <div style="font-size: 14px;">${window.t('UNSUPPORTED_FORMAT')}</div>
     `;
-    
-    // Вставляем сообщение об ошибке вместо изображения
+
+
     const imageContainer = modalImage.parentElement;
     if (imageContainer) {
         imageContainer.appendChild(errorContainer);
@@ -1346,7 +1341,7 @@ function addClickHandlersToLinks(messageElement) {
         imageErrorContainers.forEach(container => {
             container.remove();
         });
-        modalImage.style.display = ''; // Восстанавливаем display для изображения
+        modalImage.style.display = '';
 
         imageModal.classList.remove('active');
 
@@ -1355,15 +1350,15 @@ function addClickHandlersToLinks(messageElement) {
         }, 300);
     }
 
-    // Глобальный менеджер воспроизведения видео
+
 window.videoPlaybackManager = {
     activeModalVideo: null,
     pausedChatVideos: new Set(),
-    
+
     pauseAllChatVideos() {
         const allChatVideos = document.querySelectorAll('#messagesContainer video');
         this.pausedChatVideos.clear();
-        
+
         allChatVideos.forEach(video => {
             if (!video.paused) {
                 video.pause();
@@ -1371,22 +1366,22 @@ window.videoPlaybackManager = {
             }
         });
     },
-    
+
     resumePausedChatVideos() {
         this.pausedChatVideos.forEach(video => {
             if (document.body.contains(video)) {
                 video.play().catch(error => {
-                    // Игнорируем ошибки автовоспроизведения
+
                 });
             }
         });
         this.pausedChatVideos.clear();
     },
-    
+
     setActiveModalVideo(videoElement) {
         this.activeModalVideo = videoElement;
     },
-    
+
     clearActiveModalVideo() {
         this.activeModalVideo = null;
     }
@@ -1395,10 +1390,10 @@ window.videoPlaybackManager = {
 window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
     const isMobile = window.innerWidth <= 770;
 
-    // 1. Пауза ВСЕХ видео в чате перед открытием модального окна
+
     const allChatVideos = document.querySelectorAll('#messagesContainer video');
     const pausedChatVideos = [];
-    
+
     allChatVideos.forEach(video => {
         if (!video.paused) {
             video.pause();
@@ -1406,14 +1401,14 @@ window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
         }
     });
 
-    // Сохраняем список приостановленных видео для восстановления позже
+
     window.pausedChatVideosForRestore = pausedChatVideos;
 
-    // 2. Если передано конкретное видео из чата, запоминаем его отдельно
+
     if (chatVideoElement && chatVideoElement.tagName === 'VIDEO') {
         if (!chatVideoElement.paused) {
             chatVideoElement.pause();
-            // Добавляем в начало массива для приоритетного восстановления
+
             window.pausedChatVideosForRestore.unshift(chatVideoElement);
         }
         window.clickedChatVideo = chatVideoElement;
@@ -1421,7 +1416,7 @@ window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
         window.clickedChatVideo = null;
     }
 
-    // 3. Отладка
+
     window.videoModalDebug = window.videoModalDebug || {
         openAttempts: 0,
         lastVideoUrl: '',
@@ -1441,7 +1436,7 @@ window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
         return;
     }
 
-    // 4. Пауза текущего видео в модальном окне если оно играет
+
     if (!modalVideo.paused) {
         modalVideo.pause();
     }
@@ -1450,25 +1445,25 @@ window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
     window.videoModalDebug.modalState = 'opening';
 
     setTimeout(() => {
-        // 5. Освобождаем предыдущий URL если был
+
         if (modalVideo.src && modalVideo.src.startsWith('blob:')) {
             URL.revokeObjectURL(modalVideo.src);
         }
 
-        // 6. Устанавливаем новый источник
+
         modalVideo.src = videoUrl;
         modalVideo.controls = true;
         modalVideo.muted = false;
 
-        // 7. Обработчики событий для модального видео
+
         modalVideo.onloadeddata = function() {
             window.videoModalDebug.modalState = 'video_loaded';
 
-            // Автоматически начинаем воспроизведение
+
             modalVideo.play().then(() => {
-                // Успешное начало воспроизведения
+
             }).catch(error => {
-                // Ошибка автовоспроизведения - нормально, пользователь может запустить вручную
+
                 console.log('Autoplay blocked, user interaction required');
             });
         };
@@ -1484,8 +1479,8 @@ window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
     if (videoModal.classList.contains('active')) {
         modalVideo.controls = false;
         modalVideo.style.display = 'none';
-        
-        // Создаем контейнер для сообщения об ошибке
+
+
         const errorContainer = document.createElement('div');
         errorContainer.className = 'video-error-container';
         errorContainer.style.cssText = `
@@ -1502,15 +1497,15 @@ window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
             box-sizing: border-box;
             text-align: center;
         `;
-        
+
         errorContainer.innerHTML = `
             <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;">🎥</div>
             <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">${window.t('VIDEO_LOAD_ERROR')}</div>
             <div style="font-size: 14px; margin-bottom: 8px;">${window.t('UNSUPPORTED_FORMAT')}</div>
             <div style="font-size: 12px; opacity: 0.7;">${window.t('BROWSER_NOT_SUPPORTED')}</div>
         `;
-        
-        // Вставляем сообщение об ошибке вместо видео
+
+
         const videoContainer = modalVideo.parentElement;
         if (videoContainer) {
             videoContainer.appendChild(errorContainer);
@@ -1519,7 +1514,7 @@ window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
 };
 
         modalVideo.onplay = function() {
-            // При начале воспроизведения в модальном окне убеждаемся, что все видео в чате на паузе
+
             const currentChatVideos = document.querySelectorAll('#messagesContainer video');
             currentChatVideos.forEach(video => {
                 if (!video.paused) {
@@ -1529,35 +1524,34 @@ window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
         };
 
         modalVideo.onpause = function() {
-            // При паузе в модальном окне - ничего не делаем с видео в чате
+
         };
 
         modalVideo.onended = function() {
-            // При завершении воспроизведения в модальном окне
-            // Можно автоматически закрыть модальное окно или оставить его открытым
-            // Не возобновляем видео в чате автоматически
+
+
         };
 
-        // 8. Добавляем обработчик для события "playing" чтобы убедиться в синхронизации
+
         modalVideo.addEventListener('playing', function() {
-            // Дополнительная проверка - пауза любых случайно запущенных видео в чате
+
             const checkAndPauseChatVideos = () => {
                 const chatVideos = document.querySelectorAll('#messagesContainer video');
                 let foundPlaying = false;
-                
+
                 chatVideos.forEach(video => {
                     if (!video.paused && video !== modalVideo) {
                         video.pause();
                         foundPlaying = true;
                     }
                 });
-                
+
                 if (foundPlaying) {
-                    // Продолжаем проверять пока не убедимся
+
                     setTimeout(checkAndPauseChatVideos, 100);
                 }
             };
-            
+
             checkAndPauseChatVideos();
         });
 
@@ -1572,57 +1566,57 @@ window.expandVideoWithSound = function(videoUrl, chatVideoElement = null) {
     }, 100);
 };
 
-// Вспомогательная функция для восстановления видео в чате (опционально)
+
 function restoreChatVideosOnModalClose() {
     if (window.pausedChatVideosForRestore && window.pausedChatVideosForRestore.length > 0) {
-        // Фильтруем только те видео, которые все еще существуют в DOM
-        const validVideos = window.pausedChatVideosForRestore.filter(video => 
+
+        const validVideos = window.pausedChatVideosForRestore.filter(video =>
             video && video.tagName === 'VIDEO' && document.body.contains(video)
         );
-        
-        // Восстанавливаем воспроизведение только для последнего кликнутого видео (если есть)
-        if (window.clickedChatVideo && 
-            document.body.contains(window.clickedChatVideo) && 
+
+
+        if (window.clickedChatVideo &&
+            document.body.contains(window.clickedChatVideo) &&
             window.clickedChatVideo.tagName === 'VIDEO') {
-            
-            // Небольшая задержка для плавности
+
+
             setTimeout(() => {
                 window.clickedChatVideo.play().catch(error => {
-                    // Игнорируем ошибки автовоспроизведения
+
                 });
             }, 300);
         }
-        
-        // Очищаем сохраненные ссылки
+
+
         window.pausedChatVideosForRestore = [];
         window.clickedChatVideo = null;
     }
 }
 
-// Обновленная функция closeVideoModal для использования восстановления
+
 function closeVideoModal() {
     if (!videoModal || !modalVideo) {
         return;
     }
 
-    // Пауза видео в модальном окне
+
     modalVideo.pause();
     modalVideo.currentTime = 0;
 
-    // Очистка обработчиков событий
+
     modalVideo.onloadeddata = null;
     modalVideo.onerror = null;
     modalVideo.onplay = null;
     modalVideo.onpause = null;
     modalVideo.onended = null;
-    
+
     const errorContainers = videoModal.querySelectorAll('.video-error-container, .image-error-container');
 errorContainers.forEach(container => {
     container.remove();
 });
-modalVideo.style.display = ''; // Восстанавливаем display для видео
+modalVideo.style.display = '';
 
-    // Удаление всех обработчиков событий
+
     const clone = modalVideo.cloneNode(true);
     modalVideo.parentNode.replaceChild(clone, modalVideo);
     modalVideo = clone;
@@ -1639,19 +1633,18 @@ modalVideo.style.display = ''; // Восстанавливаем display для 
         modalVideo.controls = false;
         modalVideo.poster = '';
         window.videoModalDebug.modalState = 'closed';
-        
-        // ВОССТАНАВЛИВАЕМ видео в чате (если нужно)
-        // restoreChatVideosOnModalClose(); // Раскомментировать если нужно автоматическое восстановление
+
+
     }, 300);
 }
 
-// Также добавьте глобальный обработчик для дополнительной безопасности
+
 document.addEventListener('play', function(e) {
     const target = e.target;
-    
-    // Если начинает играть видео в модальном окне
+
+
     if (target === modalVideo) {
-        // Гарантируем, что все видео в чате на паузе
+
         const chatVideos = document.querySelectorAll('#messagesContainer video');
         chatVideos.forEach(video => {
             if (!video.paused) {
@@ -1659,32 +1652,32 @@ document.addEventListener('play', function(e) {
             }
         });
     }
-    
-    // Если начинает играть видео в чате и модальное окно открыто
-    if (target.tagName === 'VIDEO' && 
-        target.closest('#messagesContainer') && 
+
+
+    if (target.tagName === 'VIDEO' &&
+        target.closest('#messagesContainer') &&
         videoModal.classList.contains('active')) {
-        
-        // Паузим видео в чате и запускаем видео в модальном окне если оно на паузе
+
+
         target.pause();
-        
+
         if (modalVideo && modalVideo.paused) {
             modalVideo.play().catch(() => {});
         }
-        
+
         e.preventDefault();
         e.stopPropagation();
     }
 }, true);
 
-// Функция для восстановления воспроизведения видео в чате
+
 function restoreChatVideoPlayback() {
-    // Возобновляем только то видео, которое было на паузе перед открытием модального окна
+
     if (window.pausedChatVideo && window.pausedChatVideo.tagName === 'VIDEO') {
-        // Проверяем, что видео все еще существует в DOM
+
         if (document.body.contains(window.pausedChatVideo)) {
             window.pausedChatVideo.play().catch(error => {
-                // Игнорируем ошибки автовоспроизведения
+
             });
         }
         window.pausedChatVideo = null;
@@ -1764,7 +1757,7 @@ function restoreChatVideoPlayback() {
         return;
     }
 
-    // Пауза видео в модальном окне
+
     modalVideo.pause();
     modalVideo.currentTime = 0;
 
@@ -1786,8 +1779,8 @@ function restoreChatVideoPlayback() {
         modalVideo.controls = false;
         modalVideo.poster = '';
         window.videoModalDebug.modalState = 'closed';
-        
-        // Возобновляем видео в чате
+
+
         window.videoPlaybackManager.resumePausedChatVideos();
     }, 300);
 }
@@ -2125,10 +2118,10 @@ function restoreChatVideoPlayback() {
             return;
         }
 
-        // Извлекаем текст без HTML-тегов для цитаты
+
         let messageText = messageTextElement.innerHTML;
-        
-        // Удаляем HTML-теги, но сохраняем текст
+
+
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = messageText;
         messageText = tempDiv.textContent || tempDiv.innerText || '';
@@ -2146,7 +2139,6 @@ function restoreChatVideoPlayback() {
         });
     });
 }
-
 
 
     function addCallButtons() {
@@ -2206,14 +2198,13 @@ function restoreChatVideoPlayback() {
         if (window.encryptionManager) {
             window.encryptionManager.setEncryptionKey(key);
 
-            
 
             updateClearButtonVisibility();
 
-            // Обновляем все зашифрованные сообщения
+
             shouldAutoScroll = false;
-            
-            // Используем debounce для оптимизации
+
+
             if (window.encryptionManager.debounce) {
                 window.encryptionManager.debounce(() => {
                     reDecryptAllMessages();
@@ -2234,30 +2225,29 @@ function restoreChatVideoPlayback() {
                 window.encryptionManager.setEncryptionKey('');
             }
 
-        
 
             updateClearButtonVisibility();
 
-            // Перерисовываем все сообщения (теперь они будут показывать "Ошибка расшифровки")
+
             reDecryptAllMessages();
         });
     }
 }
 
     function reDecryptAllMessages() {
-    // Сохраняем текущую позицию скролла
+
     const scrollPosition = messagesContainer.scrollTop;
     const isAtBottom = Math.abs(messagesContainer.scrollHeight - messagesContainer.clientHeight - messagesContainer.scrollTop) < 10;
-    
-    // Очищаем контейнер
+
+
     messagesContainer.innerHTML = '';
-    
-    // Перерисовываем все сообщения
+
+
     messageHistory.forEach(message => {
         addMessageToChat(message);
     });
-    
-    // Восстанавливаем позицию скролла
+
+
     if (isAtBottom) {
         scrollToBottom();
     } else {
@@ -2417,7 +2407,7 @@ function restoreChatVideoPlayback() {
     const languageSelect = document.getElementById('languageSelect');
     if (languageSelect) {
         languageSelect.value = window.languageManager.getCurrentLanguage();
-        
+
         languageSelect.addEventListener('change', (e) => {
             const lang = e.target.value;
             window.setLanguage(lang);
@@ -2467,29 +2457,29 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(handleViewportResize, 500);
 });
 
-// Глобальный обработчик для управления воспроизведением видео в чате
+
 document.addEventListener('play', function(e) {
     const target = e.target;
-    
+
     if (target.tagName === 'VIDEO' && target.closest('#messagesContainer')) {
-        // Если начинает играть видео в чате
+
         const allChatVideos = document.querySelectorAll('#messagesContainer video');
-        
+
         allChatVideos.forEach(video => {
             if (video !== target && !video.paused) {
                 video.pause();
             }
         });
-        
-        // Если открыто модальное окно с видео, паузим его
+
+
         if (modalVideo && modalVideo.src && !modalVideo.paused) {
             modalVideo.pause();
         }
     }
-    
-    // Если начинает играть видео в модальном окне
+
+
     if (target.tagName === 'VIDEO' && target === modalVideo) {
-        // Пауза всех видео в чате
+
         const allChatVideos = document.querySelectorAll('#messagesContainer video');
         allChatVideos.forEach(video => {
             if (!video.paused) {

@@ -15,25 +15,25 @@
                 video: video,
                 audio: audio
             });
-            
+
             this.hasMediaAccess = true;
             this.mediaAccessRequested = true;
-            
-            const event = new CustomEvent('mediaAccessGranted', { 
+
+            const event = new CustomEvent('mediaAccessGranted', {
                 detail: { stream: this.localStream, video: video, audio: audio }
             });
             window.dispatchEvent(event);
-            
+
             return this.localStream;
         } catch (error) {
             this.hasMediaAccess = false;
             this.mediaAccessRequested = true;
-            
-            const event = new CustomEvent('mediaAccessDenied', { 
+
+            const event = new CustomEvent('mediaAccessDenied', {
                 detail: { error: error.message, video: video, audio: audio }
             });
             window.dispatchEvent(event);
-            
+
             throw error;
         }
     }

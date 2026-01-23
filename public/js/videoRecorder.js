@@ -247,13 +247,13 @@
         this.showError(window.t('ERROR_VIDEO_RECORD'));
         return;
     }
-    
+
     try {
-        // Используем NoCacheUploader вместо прямой отправки
+
         if (window.noCacheUploader && typeof window.noCacheUploader.uploadVideo === 'function') {
             await window.noCacheUploader.uploadVideo(this.videoBlob, this.recordDuration);
         } else {
-            // Fallback на старый метод если uploader не доступен
+
             throw new Error('Uploader not available');
         }
     } catch (error) {
@@ -273,10 +273,10 @@
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Небольшая задержка чтобы убедиться что все зависимости загружены
+
     setTimeout(() => {
         window.videoRecorder = new VideoRecorder();
-        console.log('VideoRecorder initialized, uploader available:', 
+        console.log('VideoRecorder initialized, uploader available:',
                    window.noCacheUploader && typeof window.noCacheUploader.uploadVideo === 'function');
     }, 100);
 });
