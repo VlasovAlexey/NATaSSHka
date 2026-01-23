@@ -2,161 +2,161 @@
 
 **NATaSSHka — encrypted messages and calls in your browser**
 
-Безопасный мессенджер-приложение с **end‑to‑end шифрованием**, поддерживающее текстовые сообщения, голосовые и видео сообщения, обмен файлами и звонки (аудио/видео) прямо в браузере.
+A secure messenger application with **end-to-end encryption** that supports text messages, voice and video messages, file sharing, and audio/video calls directly in the browser.
 
 ---
-- [Функции](#функции)  
-- [Сходство с другими мессенджерами](#сходство-с-другими-мессенджерами)  
-- [Преимущества и возможности](#преимущества-и-возможности)  
-- [Установка и конфигурация](#установка-и-конфигурация)
-- [Запуск локально и тестирование](#запуск-локально-и-тестирование)
-- [Шифрование и дешифрация](#шифрование-и-дешифрация)
-- [Параметры `config.json`](#параметры-configjson)  
-- [Лицензия](#лицензия)  
-
----
-
-## Функции
-- Отправка и получение **текстовых сообщений** в реальном времени  
-- Запись и отправка **голосовых сообщений**  
-- Запись и отправка **видео сообщений**  
-- Аудио/видео звонки через WebRTC  
-- Обмен любыми файлами (при ограничении размера)  
-- End‑to‑end шифрование текста и файлов на стороне клиента  
-- Поддержка комнат (room‑чатов) для приватного общения  
-- История сообщений: сохранение сообщений в комнате (на сервере, в зашифрованном виде)  
-- Возможность удаления/очистки чата или всех чатов (через специальные коды)  
+- [Features](#features)  
+- [Similarity to other messengers](#similarity-to-other-messengers)  
+- [Advantages and capabilities](#advantages-and-capabilities)  
+- [Installation and configuration](#installation-and-configuration)
+- [Local launch and testing](#local-launch-and-testing)
+- [Encryption and decryption](#encryption-and-decryption)
+- [config.json parameters](#configjson-parameters)  
+- [License](#license)  
 
 ---
 
-## Сходство с другими мессенджерами
-
-NATaSSHka по своим функциям напоминает:
-
-- **Telegram** — безопасная передача файлов, акцент на приватность  
-- **WhatsApp** — голосовые и видео сообщения, звонки + обмен медиа  
-- **Signal** — сильное end‑to‑end шифрование, защита данных  
-
----
-
-## Преимущества и возможности
-
-- **Конфиденциальность и безопасность** — данные шифруются на клиенте, сервер не имеет доступа к открытым сообщениям или файлам  
-- **Контроль над ключом шифрования** — пользователь сам задаёт/держит ключ, сервер не хранит его  
-- **Без регистрации** — базовый доступ может быть по паролю, нет необходимости в сложной авторизации  
-- **Поддержка разных медиаформатов** — текст, голос, видео, файлы  
-- **Гибкость конфигурации** — можно настраивать параметры WebRTC, аудио/видео качества, лимит файлов и т.д.  
-- **Открытый исходный код** — можно проверить, адаптировать, внести изменения  
+## Features
+- Sending and receiving **text messages** in real time  
+- Recording and sending **voice messages**  
+- Recording and sending **video messages**  
+- Audio/video calls via WebRTC  
+- Sharing any files (with size limits)  
+- End-to-end encryption of text and files on the client side  
+- Support for rooms (room chats) for private communication  
+- Message history: messages are stored per room (on the server, in encrypted form)  
+- Ability to delete/clear a chat or all chats (via special codes)  
 
 ---
 
-## Установка и конфигурация
+## Similarity to other messengers
 
-### Предварительные требования
+By its functionality, NATaSSHka is similar to:
 
-- Node.js версии 14 или выше  
-- npm (идёт вместе с Node.js)  
-- Доступ к интернету при первом запуске (если используются STUN / TURN)  
-- Браузер (Chrome, или любой современный)  
+- **Telegram** — secure file transfer, strong focus on privacy  
+- **WhatsApp** — voice and video messages, calls, and media sharing  
+- **Signal** — strong end-to-end encryption and data protection  
 
-### Последовательность установки
+---
 
-1. Клонировать репозиторий:
+## Advantages and capabilities
+
+- **Privacy and security** — data is encrypted on the client side; the server has no access to plaintext messages or files  
+- **Encryption key control** — the user defines and holds the key; the server does not store it  
+- **No registration** — basic access can be password-based, without complex authentication  
+- **Support for multiple media formats** — text, voice, video, files  
+- **Flexible configuration** — WebRTC parameters, audio/video quality, file size limits, etc. can be adjusted  
+- **Open source** — code can be reviewed, modified, and extended  
+
+---
+
+## Installation and configuration
+
+### Prerequisites
+
+- Node.js version 14 or higher  
+- npm (comes with Node.js)  
+- Internet access on first launch (if STUN / TURN is used)  
+- A browser (Chrome or any modern browser)  
+
+### Installation steps
+
+1. Clone the repository:
 
    ```bash
    git clone https://github.com/VlasovAlexey/NATaSSHka.git
    cd NATaSSHka
    ```
-   или скачать zip архив репозитория.
+   or download the repository as a ZIP archive.
 
-2. Установить зависимости:
+2. Install dependencies:
 
    ```bash
    npm install express
    ```
 
-3. Настроить файл `config.json` (при желании использовать значения по умолчанию или изменить).  
+3. Configure the `config.json` file (optional — defaults can be used or modified).  
 
-4. Запустить сервер:
+4. Start the server:
 
    ```bash
    node server.js
    ```
 
-   или, если на Windows, используя `start_server.bat`.
+   or on Windows using `start_server.bat`.
 
 ---
 
-## Параметры `config.json`
+## config.json parameters
 
-`config.json` содержит настройки, влияющие на поведение приложения. Вот описание полей:
+`config.json` contains settings that affect application behavior. Field descriptions:
 
-| Параметр | Тип | Что задаёт / назначение |
+| Parameter | Type | Description |
 |---|---|---|
-| `port` | number | Порт, на котором запускается сервер (например, 3000) |
-| `password` | string | Пароль, необходимый для доступа к чату / комнате |
-| `stunServers` | array of objects | Список STUN‑серверов для WebRTC (для установления соединений через NAT) |
-| `killCode` | string | Кодовое слово, при отправке которого очищается чат и удаляются файлы в **текущей комнате** |
-| `killAllCode` | string | Кодовое слово, при отправке которого очищаются **все комнаты**, файлы, и возможно выключается сервер (зависит от реализации) |
-| `maxFileSize` | number | Максимальный размер файла в байтах, который разрешается отправлять |
-| `audio` | object | Настройки аудио записи (sampleRate, sampleSize, mimeType и др.) |
-| `rtc_video` | object | Настройки видео для WebRTC звонков (размер, fps и др.) |
-| `rtc_audio` | object | Настройки аудио для WebRTC (количество каналов, echo‑cancellation, шумоподавление и др.) |
-| `videoRec_width`, `videoRec_height`, `videoRec_frameRate`, `videoRec_bitrate`, `videoRec_mimeType` | number / string | Параметры, используемые при записи видео сообщений: ширина, высота, кадровая частота, битрейт, MIME‑тип |
-| `encryptionDebounceDelay` | number | Задержка (в миллисекундах) перед перерасшифровкой сообщений при смене ключа шифрования (чтобы не перегружать интерфейс) |
+| `port` | number | Port on which the server runs (e.g. 3000) |
+| `password` | string | Password required to access the chat / room |
+| `stunServers` | array of objects | List of STUN servers for WebRTC (used to establish connections through NAT) |
+| `killCode` | string | Code word that clears the chat and deletes files in the **current room** |
+| `killAllCode` | string | Code word that clears **all rooms**, files, and may shut down the server (depends on implementation) |
+| `maxFileSize` | number | Maximum allowed file size in bytes |
+| `audio` | object | Audio recording settings (sampleRate, sampleSize, mimeType, etc.) |
+| `rtc_video` | object | Video settings for WebRTC calls (resolution, fps, etc.) |
+| `rtc_audio` | object | Audio settings for WebRTC (channels, echo cancellation, noise suppression, etc.) |
+| `videoRec_width`, `videoRec_height`, `videoRec_frameRate`, `videoRec_bitrate`, `videoRec_mimeType` | number / string | Parameters for recording video messages: width, height, frame rate, bitrate, MIME type |
+| `encryptionDebounceDelay` | number | Delay (in milliseconds) before re-decrypting messages when the encryption key changes (to avoid UI overload) |
 
 ---
 
-## Запуск локально и тестирование
+## Local launch and testing
 
-1. Убедитесь, что конфигурация `config.json` корректна и порт, пароль и STUN‑серверы заданы.  
+1. Make sure `config.json` is configured correctly (port, password, STUN servers).  
 
-2. Запустите сервер:
+2. Start the server:
 
    ```bash
    node server.js
    ```
 
-   или через скрипт `start_server.bat` (если есть).  
+   or via `start_server.bat` (if available).  
 
-3. Откройте браузер Chrome и перейдите по адресу:
+3. Open Chrome and navigate to:
 
    ```
-   http://localhost:<порт>
+   http://localhost:<port>
    ```
 
-   Например, если `port` = 3000 → `http://localhost:3000`
+   Example: if `port` = 3000 → `http://localhost:3000`
 
-4. При первом обращении браузер запросит разрешение на доступ к микрофону и камере — подтвердите, если хотите использовать звонки.
+4. On first access, the browser will request permission to use the microphone and camera — allow access if you want to use calls.
 
-5. В интерфейсе ввести своё имя пользователя, выбрать комнату (например, по умолчанию “Room_01”) и ввести пароль (если он задан в `config.json`).
+5. In the interface, enter your username, select a room (e.g. the default “Room_01”), and enter the password (if set in `config.json`).
 
-6. Тестирование звонков:
+6. Call testing:
 
-   - Откройте второе окно браузера (можно в режиме инкогнито), зайдите под другим именем и той же комнате и с тем же паролем.  
-   - Проверьте, что голосовые/видео сообщения отправляются, звонки устанавливаются, файлы шифруются и расшифровываются, медиа отображаются.
+   - Open a second browser window (or incognito mode), log in with a different username, the same room, and the same password.  
+   - Verify that voice/video messages are sent correctly, calls connect, files are encrypted and decrypted, and media is displayed properly.
 
 ---
 
-## Шифрование и дешифрация
+## Encryption and decryption
 
-### Как это работает
+### How it works
 
-- Клиент задаёт ключ шифрования (password/key) — этот ключ известен **только клиенту(ам)**, не серверу.  
-- При отправке текстового сообщения или файла клиент шифрует данные с помощью AES используя CryptoJS.  
-- Если сообщение помечено как зашифрованное (`isEncrypted` или аналогичный флаг), сервер сохраняет и пересылает **зашифрованный текст/контент**, не имея возможности его прочитать.  
-- При получении сообщения клиент проверяет: если есть ключ шифрования — пытается расшифровать. Если ключ верный — показывается исходный текст/файл/медиа, иначе — сообщение об ошибке (“неверный ключ шифрования”).  
-- Для файлов: медиа (аудио, видео, изображения) могут отображаться с отложенной дешифровкой, то есть файл может быть загружен, но не расшифрован до момента, когда он нужен для просмотра/прослушивания.
+- The client defines an encryption key (password/key) — this key is known **only to the client(s)**, not the server.  
+- When sending a text message or file, the client encrypts the data using AES via CryptoJS.  
+- If a message is marked as encrypted (`isEncrypted` or a similar flag), the server stores and forwards **only encrypted content**, without the ability to read it.  
+- Upon receiving a message, the client checks for an encryption key: if present, it attempts decryption. If the key is correct, the original text/file/media is shown; otherwise, an error is displayed (“invalid encryption key”).  
+- For files: media (audio, video, images) may use deferred decryption — the file can be downloaded but decrypted only when needed for playback or viewing.
 
-### Преимущества шифрования на клиентах
+### Benefits of client-side encryption
 
-- Сервер никогда не видит открытых данных — даже при компрометации сервера злоумышленник не получит текст/содержимое файлов.  
-- Пользователь контролирует ключ — можно менять, хранить локально, не передавать никуда.  
-- Повышенная приватность и безопасность, соответствуют требованиям конфиденциального обмена информацией.  
-- Совместимость с принципами, используемыми в Signal, WhatsApp, Telegram при end‑to‑end шифровании.
+- The server never sees plaintext data — even if compromised, attackers cannot access message text or file contents.  
+- The user controls the key — it can be changed, stored locally, and never transmitted.  
+- Increased privacy and security, suitable for confidential communication.  
+- Compatible with principles used in Signal, WhatsApp, and Telegram for end-to-end encryption.
 
 ---
 
-## Лицензия
-Проект лицензируется под **MIT License**.  
-Смотрите файл [`LICENSE`](LICENSE) для деталей.
+## License
+This project is licensed under the **MIT License**.  
+See the [`LICENSE`](LICENSE) file for details.
