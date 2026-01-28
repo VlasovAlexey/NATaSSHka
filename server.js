@@ -1,10 +1,11 @@
 ﻿﻿const express = require('express');
 const http = require('http');
+const https = require('https');
 const socketIo = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 
-const { translate } = require('./lng.js');
+const { translate } = require('./lng-server.js');
 const SecureDeleter = require('./secure-delete.js');
 
 const users = new Map();
@@ -12,10 +13,30 @@ const rooms = new Set(['Room_01']);
 const messageReactions = new Map();
 const reactionUsers = new Map();
 const configPath = path.join(__dirname, 'config.json');
+
+
 let config = {
     port: 3000,
     language: 'ru',
     password: 'pass',
+    cors: {
+        enabled: true,
+        origin: "*",
+        methods: ["GET", "POST"],
+        allowedHeaders: ["Content-Type"],
+        credentials: false,
+        maxAge: 86400
+    },
+    https: {
+        enabled: false,
+        port: 3443,
+        key: "./ssl/key.pem",
+        cert: "./ssl/cert.pem",
+        ca: "./ssl/ca.pem",
+        passphrase: "",
+        redirectHttp: true,
+        httpPort: 3000
+    },
     stunServers: [{
             urls: 'stun:stun.l.google.com:19302'
         },
@@ -29,8 +50,8 @@ let config = {
         credential: 'your-password'
     }],
     useTurnServers: false,
-    killCode: 'kill',
-    killAllCode: 'killall',
+    killCode: ['kill','очистка','clear'],
+    killAllCode: ['killall','nuke','destroyall'],
     maxFileSize: 50 * 1024 * 1024,
     audio: {
         sampleRate: 44100,
@@ -77,9 +98,66 @@ if (fs.existsSync(configPath)) {
 }
 
 const app = express();
-const server = http.createServer(app);
+
+
+if (config.cors && config.cors.enabled) {
+    app.use((req, res, next) => {
+        const origin = config.cors.origin === "*" ? "*" : config.cors.origin;
+        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Access-Control-Allow-Methods', config.cors.methods.join(', '));
+        res.header('Access-Control-Allow-Headers', config.cors.allowedHeaders.join(', '));
+        res.header('Access-Control-Allow-Credentials', config.cors.credentials);
+
+        if (req.method === 'OPTIONS') {
+            return res.status(200).end();
+        }
+        next();
+    });
+}
+
+
+let server;
+let isHttps = false;
+
+if (config.https && config.https.enabled) {
+    try {
+        const httpsOptions = {
+            key: fs.readFileSync(config.https.key),
+            cert: fs.readFileSync(config.https.cert)
+        };
+
+
+        if (config.https.ca && fs.existsSync(config.https.ca)) {
+            httpsOptions.ca = fs.readFileSync(config.https.ca);
+        }
+
+
+        if (config.https.passphrase && config.https.passphrase.trim() !== '') {
+            httpsOptions.passphrase = config.https.passphrase;
+        }
+
+        server = https.createServer(httpsOptions, app);
+        isHttps = true;
+        console.log(translate(config.language, 'HTTPS_ENABLED', { port: config.https.port }));
+
+    } catch (error) {
+        console.error(translate(config.language, 'HTTPS_ERROR'), error);
+        console.log(translate(config.language, 'FALLBACK_TO_HTTP'));
+        server = http.createServer(app);
+    }
+} else {
+    server = http.createServer(app);
+    console.log(translate(config.language, 'SERVER_START') + ' ' + config.port);
+}
+
+
 const io = socketIo(server, {
-    cors: {
+    cors: config.cors && config.cors.enabled ? {
+        origin: config.cors.origin,
+        methods: config.cors.methods,
+        allowedHeaders: config.cors.allowedHeaders,
+        credentials: config.cors.credentials
+    } : {
         origin: "*",
         methods: ["GET", "POST"]
     },
@@ -100,7 +178,6 @@ app.use('/uploads', express.static(uploadsDir, {
     index: false,
     redirect: false
 }));
-
 
 app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -751,89 +828,94 @@ io.on('connection', (socket) => {
     });
 
     socket.on('send-message', async (data) => {
-        const user = users.get(socket.id);
-        if (user) {
-            if (data.text === config.killCode) {
-                if (secureDeleter) {
-                    await secureDeleter.deleteRoomFolder(user.room, io);
-                } else {
-                    const roomDir = path.join(uploadsDir, user.room);
-                    if (fs.existsSync(roomDir)) {
-                        fs.rmSync(roomDir, {
-                            recursive: true,
-                            force: true
-                        });
-                        console.log(translate(config.language, 'ROOM_FOLDER_DELETED', {room: user.room}));
-                    }
-                }
+    const user = users.get(socket.id);
+    if (user) {
 
-                const clearMessage = {
-                    id: Date.now().toString(),
-                    username: 'system',
-                    userId: 'system',
-                    text: translate(config.language, 'HISTORY_CLEARED_BY_USER', {username: user.username}),
-                    timestamp: new Date(),
-                    room: user.room,
-                    isSystem: true
-                };
-
-                saveSystemMessageToFile(user.room, clearMessage);
-                io.to(user.room).emit('clear-chat');
-                io.to(user.room).emit('new-message', clearMessage);
-                console.log(user.username + ' ' + translate(config.language, 'CLEARED_CHAT_AND_FILES', {room: user.room}));
-                return;
-            }
-            if (data.text === config.killAllCode) {
-                console.log(user.username + ' ' + translate(config.language, 'ACTIVATED_KILLALL_COMMAND'));
-                const killAllMessage = {
-                    id: Date.now().toString(),
-                    username: 'system',
-                    userId: 'system',
-                    text: translate(config.language, 'KILLALL_MESSAGE'),
-                    timestamp: new Date(),
-                    isSystem: true,
-                    isKillAll: true
-                };
-                saveSystemMessageToFile(user.room, killAllMessage);
-
-                if (secureDeleter) {
-                    await secureDeleter.deleteUploadsFolder(io);
-                } else {
-                    if (fs.existsSync(uploadsDir)) {
-                        fs.rmSync(uploadsDir, {
-                            recursive: true,
-                            force: true
-                        });
-                        console.log(translate(config.language, 'UPLOADS_FOLDER_DELETED'));
-                    }
-                    fs.mkdirSync(uploadsDir, {
-                        recursive: true
+        if (config.killCode && Array.isArray(config.killCode) && config.killCode.includes(data.text.trim())) {
+            if (secureDeleter) {
+                await secureDeleter.deleteRoomFolder(user.room, io);
+            } else {
+                const roomDir = path.join(uploadsDir, user.room);
+                if (fs.existsSync(roomDir)) {
+                    fs.rmSync(roomDir, {
+                        recursive: true,
+                        force: true
                     });
+                    console.log(translate(config.language, 'ROOM_FOLDER_DELETED', {room: user.room}));
                 }
-
-                io.emit('killall-message', killAllMessage);
-                setTimeout(() => {
-                    console.log(translate(config.language, 'SERVER_SHUTDOWN'));
-                    process.exit(0);
-                }, 3000);
-                return;
             }
-            const message = {
+
+            const clearMessage = {
                 id: Date.now().toString(),
-                username: user.username,
-                userId: socket.id,
-                text: data.text,
+                username: 'system',
+                userId: 'system',
+                text: translate(config.language, 'HISTORY_CLEARED_BY_USER', {username: user.username}),
                 timestamp: new Date(),
                 room: user.room,
-                quote: data.quote || null,
-                isEncrypted: data.isEncrypted || false
+                isSystem: true
             };
-            if (saveMessageToFile(user.room, user.username, message)) {
-                console.log(translate(config.language, 'MESSAGE_SAVED_TO_FILE', {path: `${user.room}/${user.username}/${message.id}.xml`}));
-            }
-            io.to(user.room).emit('new-message', message);
+
+            saveSystemMessageToFile(user.room, clearMessage);
+            io.to(user.room).emit('clear-chat');
+            io.to(user.room).emit('new-message', clearMessage);
+            console.log(user.username + ' ' + translate(config.language, 'CLEARED_CHAT_AND_FILES', {room: user.room}));
+            return;
         }
-    });
+
+
+        if (config.killAllCode && Array.isArray(config.killAllCode) && config.killAllCode.includes(data.text.trim())) {
+            console.log(user.username + ' ' + translate(config.language, 'ACTIVATED_KILLALL_COMMAND'));
+            const killAllMessage = {
+                id: Date.now().toString(),
+                username: 'system',
+                userId: 'system',
+                text: translate(config.language, 'KILLALL_MESSAGE'),
+                timestamp: new Date(),
+                isSystem: true,
+                isKillAll: true
+            };
+            saveSystemMessageToFile(user.room, killAllMessage);
+
+            if (secureDeleter) {
+                await secureDeleter.deleteUploadsFolder(io);
+            } else {
+                if (fs.existsSync(uploadsDir)) {
+                    fs.rmSync(uploadsDir, {
+                        recursive: true,
+                        force: true
+                    });
+                    console.log(translate(config.language, 'UPLOADS_FOLDER_DELETED'));
+                }
+                fs.mkdirSync(uploadsDir, {
+                    recursive: true
+                });
+            }
+
+            io.emit('killall-message', killAllMessage);
+            setTimeout(() => {
+                console.log(translate(config.language, 'SERVER_SHUTDOWN'));
+                process.exit(0);
+            }, 3000);
+            return;
+        }
+
+
+        const message = {
+            id: Date.now().toString(),
+            username: user.username,
+            userId: socket.id,
+            text: data.text,
+            timestamp: new Date(),
+            room: user.room,
+            quote: data.quote || null,
+            isEncrypted: data.isEncrypted || false
+        };
+        if (saveMessageToFile(user.room, user.username, message)) {
+            console.log(translate(config.language, 'MESSAGE_SAVED_TO_FILE', {path: `${user.room}/${user.username}/${message.id}.xml`}));
+        }
+        io.to(user.room).emit('new-message', message);
+    }
+});
 
     socket.on('send-file', (data, callback) => {
     const user = users.get(socket.id);
@@ -1121,29 +1203,76 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = config.port;
+const getServerPort = () => {
+    if (config.https && config.https.enabled) {
+        return config.https.port || config.port;
+    }
+    return config.port;
+};
+
+const PORT = getServerPort();
+
+
 server.listen(PORT, () => {
     console.log('='.repeat(60));
-    console.log(translate(config.language, 'SERVER_START') + ' ' + PORT);
-    console.log('='.repeat(60));
-    const net = require('net');
-    const tester = net.createServer();
-    tester.once('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-            console.error(translate(config.language, 'PORT_BUSY') + ' ' + PORT + '!');
-            console.error(translate(config.language, 'PORT_BUSY_SOLUTIONS'));
+
+    if (config.https && config.https.enabled) {
+
+
+        if (config.https.key && config.https.cert) {
+            console.log(translate(config.language, 'SSL_CERTIFICATES'));
+            console.log(translate(config.language, 'SSL_KEY') + ' ' + config.https.key);
+            console.log(translate(config.language, 'SSL_CERT') + ' ' + config.https.cert);
+            if (config.https.ca) {
+                console.log(translate(config.language, 'SSL_CA') + ' ' + config.https.ca);
+            }
         }
-    });
-    tester.once('listening', () => {
-        tester.close();
-        console.log(translate(config.language, 'PORT_AVAILABLE') + ' ' + PORT);
-    });
+    } else {
+        console.log(translate(config.language, 'SERVER_START') + ' ' + PORT);
+    }
+
     console.log(translate(config.language, 'MAX_FILE_SIZE') + ' ' + (config.maxFileSize / (1024 * 1024)) + ' ' + translate(config.language, 'MB'));
     console.log(translate(config.language, 'FILE_STORAGE_PATH') + ' ' + uploadsDir);
     console.log(translate(config.language, 'TURN_STATUS') + ' ' + (config.useTurnServers ? translate(config.language, 'TURN_ENABLED') : translate(config.language, 'TURN_DISABLED')));
+
     const iceServers = getIceServers();
     console.log(translate(config.language, 'ICE_SERVERS_COUNT') + ' ' + iceServers.length);
+
+
+    if (config.https && config.https.enabled && config.https.redirectHttp) {
+        const redirectPort = config.https.httpPort || 80;
+
+
+        const httpServer = http.createServer((req, res) => {
+            const host = req.headers.host.split(':')[0];
+            const httpsUrl = `https://${host}:${PORT}${req.url}`;
+            res.writeHead(301, {
+                'Location': httpsUrl,
+                'Cache-Control': 'no-store, no-cache, must-revalidate'
+            });
+            res.end();
+        });
+
+        httpServer.listen(redirectPort, () => {
+            console.log(translate(config.language, 'HTTP_REDIRECT_ENABLED', {
+                from: redirectPort,
+                to: PORT
+            }));
+        });
+    }
+
     console.log('='.repeat(60));
+});
+
+
+server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+        console.error(translate(config.language, 'PORT_BUSY') + ' ' + PORT + '!');
+        console.error(translate(config.language, 'PORT_BUSY_SOLUTIONS'));
+    } else {
+        console.error('❌ Ошибка сервера:', error.message);
+    }
+    process.exit(1);
 });
 
 function saveSystemMessageToFile(room, message) {

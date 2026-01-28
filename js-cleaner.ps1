@@ -3,7 +3,7 @@
 # Does NOT use regular expressions for comment removal to avoid breaking code
 
 # Directories to ignore (comma-separated list)
-$ignoreDirectories = @("uploads","autolinker.js")
+$ignoreDirectories = @("node_modules","uploads","autolinker.js")
 
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")

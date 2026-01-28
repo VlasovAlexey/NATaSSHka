@@ -20,6 +20,17 @@
 
     window.webrtcManager = new WebRTCManager(socket);
 
+    socket.on('connect_error', (error) => {
+    console.error(window.t('CONNECTION_ERROR'), error);
+
+    if (error.message.includes('certificate')) {
+        showMessage(window.t('MODAL_ERROR'), window.t('INVALID_HTTPS_CERTIFICATE'));
+    } else if (error.message.includes('expired')) {
+        showMessage(window.t('MODAL_ERROR'), window.t('SSL_CERTIFICATE_EXPIRED'));
+    } else if (error.message.includes('not yet valid')) {
+        showMessage(window.t('MODAL_ERROR'), window.t('SSL_CERTIFICATE_NOT_YET_VALID'));
+    }
+    });
 
     socket.on('stun-config', (iceServers) => {
         if (!window.rtcConfig) {

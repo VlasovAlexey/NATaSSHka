@@ -2,7 +2,7 @@
 const fsSync = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { translate } = require('./lng.js');
+const { translate } = require('./lng-server.js');
 
 class SecureDeleter {
     constructor(config) {

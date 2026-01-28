@@ -124,7 +124,12 @@
         IMAGE_LOAD_ERROR: 'Ошибка загрузки изображения',
         MEDIA_LOAD_ERROR: 'Ошибка загрузки медиафайла',
         UNSUPPORTED_FORMAT: 'Формат не поддерживается',
-        BROWSER_NOT_SUPPORTED: 'Ваш браузер не поддерживает этот формат'
+        BROWSER_NOT_SUPPORTED: 'Ваш браузер не поддерживает этот формат',
+
+        CONNECTION_ERROR: '❌ Ошибка подключения к серверу',
+        INVALID_HTTPS_CERTIFICATE: '❌ Недействительный HTTPS сертификат',
+        SSL_CERTIFICATE_EXPIRED: '❌ SSL сертификат истек',
+        SSL_CERTIFICATE_NOT_YET_VALID: '❌ SSL сертификат еще не действителен'
     },
 
     en: {
@@ -251,7 +256,12 @@
         IMAGE_LOAD_ERROR: 'Image load error',
         MEDIA_LOAD_ERROR: 'Media load error',
         UNSUPPORTED_FORMAT: 'Format not supported',
-        BROWSER_NOT_SUPPORTED: 'Your browser does not support this format'
+        BROWSER_NOT_SUPPORTED: 'Your browser does not support this format',
+
+        CONNECTION_ERROR: '❌ Connection error to server',
+        INVALID_HTTPS_CERTIFICATE: '❌ Invalid HTTPS certificate',
+        SSL_CERTIFICATE_EXPIRED: '❌ SSL certificate expired',
+        SSL_CERTIFICATE_NOT_YET_VALID: '❌ SSL certificate not yet valid'
     },
 
     es: {
@@ -379,7 +389,12 @@
         IMAGE_LOAD_ERROR: 'Error al cargar imagen',
         MEDIA_LOAD_ERROR: 'Error al cargar archivo multimedia',
         UNSUPPORTED_FORMAT: 'Formato no compatible',
-        BROWSER_NOT_SUPPORTED: 'Tu navegador no soporta este formato'
+        BROWSER_NOT_SUPPORTED: 'Tu navegador no soporta este formato',
+
+        CONNECTION_ERROR: '❌ Error de conexión al servidor',
+        INVALID_HTTPS_CERTIFICATE: '❌ Certificado HTTPS inválido',
+        SSL_CERTIFICATE_EXPIRED: '❌ Certificado SSL expirado',
+        SSL_CERTIFICATE_NOT_YET_VALID: '❌ Certificado SSL aún no válido'
     },
 
     zh: {
@@ -507,7 +522,12 @@
         IMAGE_LOAD_ERROR: '图片加载错误',
         MEDIA_LOAD_ERROR: '媒体文件加载错误',
         UNSUPPORTED_FORMAT: '格式不支持',
-        BROWSER_NOT_SUPPORTED: '您的浏览器不支持此格式'
+        BROWSER_NOT_SUPPORTED: '您的浏览器不支持此格式',
+
+        CONNECTION_ERROR: '❌ 服务器连接错误',
+        INVALID_HTTPS_CERTIFICATE: '❌ 无效的 HTTPS 证书',
+        SSL_CERTIFICATE_EXPIRED: '❌ SSL 证书已过期',
+        SSL_CERTIFICATE_NOT_YET_VALID: '❌ SSL 证书尚未生效'
     }
 };
 
