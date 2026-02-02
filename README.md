@@ -73,6 +73,7 @@ By its functionality, NATaSSHka is similar to:
 
    ```bash
    npm install express
+   npm install archiver extract-zip
    ```
 
 3. Configure the `config.json` file (optional — defaults can be used or modified).  
