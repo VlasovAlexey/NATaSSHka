@@ -20,6 +20,98 @@
 
     window.webrtcManager = new WebRTCManager(socket);
 
+socket.on('backup-ready', (data) => {
+    const { backupId, fileName, downloadUrl, fileSizeFormatted, cleanupTimeout } = data;
+
+    console.log('Backup ready for download:', fileName, fileSizeFormatted, 'Backup ID:', backupId);
+
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+    <div class="modal-content">
+        <h2>${window.t('MODAL_INFO')}</h2>
+        <p>${window.t('BACKUP_READY')} <strong>"${fileName}"</strong> (${fileSizeFormatted})</p>
+        <p style="text-align: center; margin: 20px 0;">
+            <a href="${downloadUrl}"
+               download="${fileName}"
+               target="_blank"
+               id="backupDownloadLink"
+               class="download-link"
+               style="display: inline-block; padding: 12px 24px; background: #007bff; transition: all 0.23s ease-in-out;
+                      color: white; text-decoration: none; border-radius: 25px; font-weight: bold;"
+               onmouseover="this.style.transform='scale(1.05)'"
+               onmouseout="this.style.transform='scale(1)'"
+               onmousedown="this.style.transform='scale(0.98)'"
+               onmouseup="this.style.transform='scale(1.05)'">
+               ${window.t('DOWNLOAD_NOW')}
+            </a>
+        </p>
+        <p style="margin-top: 15px; text-align: center;">
+            ${window.t('BACKUP_AUTO_DELETE', { minutes: cleanupTimeout })}
+        </p>
+        <div class="modal-buttons" style="margin-top: 20px; display: flex; gap: 10px;">
+            <button id="backupDownloadedBtn" class="modal-ok-btn" style="flex: 1; border-radius: 8px;">
+                ${window.t('I_DOWNLOADED')}
+            </button>
+            <button id="backupCancelBtn" class="modal-ok-btn" style="flex: 1; border-radius: 8px;">
+                ${window.t('CANCEL')}
+            </button>
+        </div>
+    </div>
+`;
+
+    document.body.appendChild(modal);
+
+
+    modal.dataset.backupId = backupId;
+
+
+    document.getElementById('backupDownloadedBtn').addEventListener('click', () => {
+        const modalBackupId = modal.dataset.backupId;
+        console.log('Sending backup-downloaded with ID:', modalBackupId);
+
+
+        socket.emit('backup-downloaded', { backupId: modalBackupId });
+
+        showMessage(window.t('MODAL_INFO'), window.t('BACKUP_THANKS'));
+        document.body.removeChild(modal);
+    });
+
+
+    document.getElementById('backupCancelBtn').addEventListener('click', () => {
+        const modalBackupId = modal.dataset.backupId;
+        console.log('Canceling backup download:', modalBackupId);
+
+
+        socket.emit('backup-canceled', { backupId: modalBackupId });
+
+        showMessage(window.t('MODAL_INFO'), window.t('DOWNLOAD_CANCELED'));
+        document.body.removeChild(modal);
+    });
+
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            const modalBackupId = modal.dataset.backupId;
+            console.log('Modal closed, canceling backup:', modalBackupId);
+
+
+            socket.emit('backup-canceled', { backupId: modalBackupId });
+
+            document.body.removeChild(modal);
+        }
+    });
+
+
+    setTimeout(() => {
+        const link = document.getElementById('backupDownloadLink');
+        if (link) {
+            link.focus();
+        }
+    }, 100);
+});
     socket.on('connect_error', (error) => {
     console.error(window.t('CONNECTION_ERROR'), error);
 
@@ -869,6 +961,21 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
         showMessageNotification(message);
     });
 
+    socket.on('refresh-chat-history', (data) => {
+    if (data.room === currentRoom) {
+
+        const scrollPosition = messagesContainer.scrollTop;
+        const scrollHeightBefore = messagesContainer.scrollHeight;
+
+
+        displayMessages(data.messages);
+
+
+        const scrollHeightChange = messagesContainer.scrollHeight - scrollHeightBefore;
+        messagesContainer.scrollTop = scrollPosition + scrollHeightChange;
+    }
+    });
+
     socket.on('message-updated', (message) => {
         const messageIndex = messageHistory.findIndex(msg => msg.id === message.id);
         if (messageIndex !== -1) {
@@ -910,6 +1017,40 @@ function linkifyText(text, isEncrypted = false, encryptionKey = null) {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
     }
+
+    function displayMessages(messages) {
+    if (!messages || !Array.isArray(messages)) {
+        console.error('Invalid messages data:', messages);
+        return;
+    }
+
+
+    const scrollPosition = messagesContainer.scrollTop;
+    const isAtBottom = Math.abs(
+        messagesContainer.scrollHeight -
+        messagesContainer.clientHeight -
+        messagesContainer.scrollTop
+    ) < 10;
+
+
+    messageHistory = messages;
+
+
+    messagesContainer.innerHTML = '';
+
+
+    messages.forEach(message => {
+        addMessageToChat(message);
+    });
+
+
+    if (isAtBottom) {
+        scrollToBottom();
+    } else {
+        messagesContainer.scrollTop = scrollPosition;
+    }
+}
+
 
     function addDeleteButton(messageElement, message) {
         if (!messageElement || !message) return;

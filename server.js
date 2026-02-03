@@ -1,4 +1,4 @@
-﻿﻿const express = require('express');
+﻿const express = require('express');
 const http = require('http');
 const https = require('https');
 const socketIo = require('socket.io');
@@ -7,6 +7,7 @@ const fs = require('fs');
 
 const { translate } = require('./lng-server.js');
 const SecureDeleter = require('./secure-delete.js');
+const PluginManager = require('./plugins-manager.js');
 
 const users = new Map();
 const rooms = new Set(['Room_01']);
@@ -173,6 +174,20 @@ if (!fs.existsSync(uploadsDir)) {
     });
 }
 
+
+let pluginManager;
+try {
+    pluginManager = new PluginManager(config, io, uploadsDir);
+    pluginManager.loadPlugins().then(() => {
+        console.log(translate(config.language, 'PLUGINS_INITIALIZED'));
+    }).catch(error => {
+        console.error(translate(config.language, 'PLUGINS_LOAD_ERROR_GENERAL'), error);
+    });
+} catch (error) {
+    console.error('Failed to initialize plugin manager:', error);
+}
+
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadsDir, {
     index: false,
@@ -204,6 +219,47 @@ app.use('/uploads', express.static(uploadsDir, {
         res.setHeader('Last-Modified', new Date().toUTCString());
     }
 }));
+
+app.get('/backups/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, 'backups', filename);
+
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).send('File not found');
+    }
+
+    try {
+
+        const stats = fs.statSync(filePath);
+        const fileSize = stats.size;
+
+
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+        res.setHeader('Content-Length', fileSize);
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+
+
+        const fileStream = fs.createReadStream(filePath);
+
+
+        fileStream.on('error', (error) => {
+            console.error('Error reading backup file:', error);
+            if (!res.headersSent) {
+                res.status(500).send('Error reading file');
+            }
+        });
+
+
+        fileStream.pipe(res);
+
+    } catch (error) {
+        console.error('Error serving backup file:', error);
+        res.status(500).send('Server error');
+    }
+});
 
 let secureDeleter;
 if (config.secureDelete && config.secureDelete.enabled) {
@@ -522,6 +578,28 @@ io.on('connection', (socket) => {
         useTurnServers: config.useTurnServers
     });
 
+    socket.on('backup-downloaded', (data) => {
+    console.log('Received backup-downloaded:', data);
+
+    if (pluginManager) {
+        const backupPlugin = pluginManager.getPlugin('backup-rooms');
+        if (backupPlugin && backupPlugin.handleBackupDownloaded) {
+            backupPlugin.handleBackupDownloaded(data);
+        }
+    }
+});
+
+socket.on('backup-canceled', (data) => {
+    console.log('Received backup-canceled:', data);
+
+    if (pluginManager) {
+        const backupPlugin = pluginManager.getPlugin('backup-rooms');
+        if (backupPlugin && backupPlugin.handleBackupCanceled) {
+            backupPlugin.handleBackupCanceled(data);
+        }
+    }
+});
+
     socket.on('delete-message', async (data, callback) => {
         const user = users.get(socket.id);
         if (user) {
@@ -741,95 +819,105 @@ io.on('connection', (socket) => {
     }
 
     socket.on('user-join-attempt', (data) => {
-        const { username, room, password, language = 'ru' } = data;
+    const { username, room, password, language = 'ru' } = data;
 
-        if (data.password !== config.password) {
-            socket.emit('join-error', translate(language, 'ERROR_WRONG_PASSWORD'));
-            return;
-        }
+    if (data.password !== config.password) {
+        socket.emit('join-error', translate(language, 'ERROR_WRONG_PASSWORD'));
+        return;
+    }
 
-        const existingUser = Array.from(users.values()).find(user =>
-            user.username === username && user.room === room
-        );
+    const existingUser = Array.from(users.values()).find(user =>
+        user.username === username && user.room === room
+    );
 
-        if (existingUser) {
-            socket.emit('join-error', translate(language, 'ERROR_USERNAME_EXISTS'));
+    if (existingUser) {
+        socket.emit('join-error', translate(language, 'ERROR_USERNAME_EXISTS'));
 
-            const warningMessage = {
-                id: Date.now().toString(),
-                username: 'system',
-                userId: 'system',
-                text: translate(config.language, 'DOUBLE_LOGIN_WARNING', {username: username}),
-                timestamp: new Date(),
-                room: room,
-                isSystem: true,
-                isWarning: true
-            };
-
-            saveSystemMessageToFile(room, warningMessage);
-            io.to(room).emit('new-message', warningMessage);
-            return;
-        }
-        if (!rooms.has(room)) {
-            rooms.add(room);
-        }
-        users.set(socket.id, {
-            username,
-            id: socket.id,
-            room
-        });
-        socket.join(room);
-        const messageHistory = loadMessagesFromRoom(room);
-        const reactionUsersData = {};
-        messageHistory.forEach(message => {
-            if (message.id && reactionUsers.has(message.id)) {
-                reactionUsersData[message.id] = reactionUsers.get(message.id);
-            }
-        });
-        socket.emit('user-joined', {
-            username,
-            room,
-            messageHistory: messageHistory,
-            reactionUsersData: reactionUsersData
-        });
-
-        const joinMessage = {
+        const warningMessage = {
             id: Date.now().toString(),
             username: 'system',
             userId: 'system',
-            text: translate(config.language, 'USER_JOINED', {username: username}),
+            text: translate(config.language, 'DOUBLE_LOGIN_WARNING', {username: username}),
             timestamp: new Date(),
             room: room,
-            isSystem: true
+            isSystem: true,
+            isWarning: true
         };
 
-        const roomUsers = Array.from(users.values()).filter(user => user.room === room);
-        io.to(room).emit('users-list', roomUsers);
-        console.log(translate(config.language, 'USER_JOINED_ROOM', {username: username, room: room}));
+        saveSystemMessageToFile(room, warningMessage);
+        io.to(room).emit('new-message', warningMessage);
+        return;
+    }
+    if (!rooms.has(room)) {
+        rooms.add(room);
+    }
+    users.set(socket.id, {
+        username,
+        id: socket.id,
+        room
     });
+    socket.join(room);
 
-    socket.on('disconnect', (reason) => {
-        const user = users.get(socket.id);
-        if (user) {
-            console.log(translate(config.language, 'USER_LEFT_ROOM', {username: user.username, room: user.room}));
-            const leaveMessage = {
-                id: Date.now().toString(),
-                username: 'system',
-                userId: 'system',
-                text: translate(config.language, 'USER_LEFT', {username: user.username}),
-                timestamp: new Date(),
-                room: user.room,
-                isSystem: true
-            };
-            users.delete(socket.id);
-            const roomUsers = Array.from(users.values()).filter(u => u.room === user.room);
-            io.to(user.room).emit('users-list', roomUsers);
+
+    pluginManager.handleUserJoin({
+        username,
+        id: socket.id,
+        room
+    }, socket);
+
+    const messageHistory = loadMessagesFromRoom(room);
+    const reactionUsersData = {};
+    messageHistory.forEach(message => {
+        if (message.id && reactionUsers.has(message.id)) {
+            reactionUsersData[message.id] = reactionUsers.get(message.id);
         }
     });
+    socket.emit('user-joined', {
+        username,
+        room,
+        messageHistory: messageHistory,
+        reactionUsersData: reactionUsersData
+    });
 
-    socket.on('send-message', async (data) => {
+    const joinMessage = {
+        id: Date.now().toString(),
+        username: 'system',
+        userId: 'system',
+        text: translate(config.language, 'USER_JOINED', {username: username}),
+        timestamp: new Date(),
+        room: room,
+        isSystem: true
+    };
+
+    const roomUsers = Array.from(users.values()).filter(user => user.room === room);
+    io.to(room).emit('users-list', roomUsers);
+    console.log(translate(config.language, 'USER_JOINED_ROOM', {username: username, room: room}));
+});
+
+
+socket.on('send-message', async (data) => {
     const user = users.get(socket.id);
     if (user) {
+
+        const messageForPlugins = {
+            id: Date.now().toString(),
+            username: user.username,
+            userId: socket.id,
+            text: data.text,
+            timestamp: new Date(),
+            room: user.room,
+            isEncrypted: data.isEncrypted || false,
+            quote: data.quote || null
+        };
+
+        let handledByPlugin = false;
+        if (pluginManager) {
+            handledByPlugin = await pluginManager.handleMessage(messageForPlugins, socket);
+        }
+
+        if (handledByPlugin) {
+            return; // Сообщение обработано плагином, не отправляем дальше
+        }
 
         if (config.killCode && Array.isArray(config.killCode) && config.killCode.includes(data.text.trim())) {
             if (secureDeleter) {
@@ -861,7 +949,6 @@ io.on('connection', (socket) => {
             console.log(user.username + ' ' + translate(config.language, 'CLEARED_CHAT_AND_FILES', {room: user.room}));
             return;
         }
-
 
         if (config.killAllCode && Array.isArray(config.killAllCode) && config.killAllCode.includes(data.text.trim())) {
             console.log(user.username + ' ' + translate(config.language, 'ACTIVATED_KILLALL_COMMAND'));
@@ -898,7 +985,6 @@ io.on('connection', (socket) => {
             }, 3000);
             return;
         }
-
 
         const message = {
             id: Date.now().toString(),
@@ -956,9 +1042,9 @@ io.on('connection', (socket) => {
         });
         const errorMessage = {
             id: Date.now().toString(),
-            username: translate(config.language, 'SYSTEM'),
+            username: translate(this.config.language, 'SYSTEM'),
             userId: 'system',
-            text: translate(config.language, 'FAILED_TO_SEND_FILE') + ' ' + originalFileName + ': ' + errorMsg,
+            text: translate(this.config.language, 'FAILED_TO_SEND_FILE') + ' ' + originalFileName + ': ' + translate(this.config.language, 'ERROR_SAVING'),
             timestamp: new Date(),
             room: user.room,
             isSystem: true
@@ -1193,14 +1279,32 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', (reason) => {
-        const user = users.get(socket.id);
-        if (user) {
-            console.log(user.username + ' ' + translate(config.language, 'USER_LEFT_ROOM').replace('вышел из комнаты', 'вышел из комнаты ' + user.room) + '. ' + translate(config.language, 'REASON') + ': ' + reason);
-            users.delete(socket.id);
-            const roomUsers = Array.from(users.values()).filter(u => u.room === user.room);
-            io.to(user.room).emit('users-list', roomUsers);
-        }
-    });
+    const user = users.get(socket.id);
+    if (user) {
+
+        pluginManager.handleUserLeave(user);
+
+        console.log(translate(config.language, 'USER_LEFT_ROOM', {username: user.username, room: user.room}));
+        const leaveMessage = {
+            id: Date.now().toString(),
+            username: 'system',
+            userId: 'system',
+            text: translate(config.language, 'USER_LEFT', {username: user.username}),
+            timestamp: new Date(),
+            room: user.room,
+            isSystem: true
+        };
+
+        saveSystemMessageToFile(user.room, leaveMessage);
+        io.to(user.room).emit('new-message', leaveMessage);
+
+        users.delete(socket.id);
+        const roomUsers = Array.from(users.values()).filter(u => u.room === user.room);
+        io.to(user.room).emit('users-list', roomUsers);
+
+        console.log(user.username + ' ' + translate(config.language, 'USER_LEFT_ROOM').replace('вышел из комнаты', 'вышел из комнаты ' + user.room) + '. ' + translate(config.language, 'REASON') + ': ' + reason);
+    }
+});
 });
 
 const getServerPort = () => {

@@ -1,0 +1,8 @@
+﻿{
+  "enabled": true,
+  "autoClearInterval": 1440,
+  "excludedRooms": ["Room_05", "important"],
+  "notifyOnClear": true,
+  "checkFrequency": 1,
+  "deleteMessagesOlderThan": 3
+}

@@ -129,7 +129,16 @@
         CONNECTION_ERROR: '❌ Ошибка подключения к серверу',
         INVALID_HTTPS_CERTIFICATE: '❌ Недействительный HTTPS сертификат',
         SSL_CERTIFICATE_EXPIRED: '❌ SSL сертификат истек',
-        SSL_CERTIFICATE_NOT_YET_VALID: '❌ SSL сертификат еще не действителен'
+        SSL_CERTIFICATE_NOT_YET_VALID: '❌ SSL сертификат еще не действителен',
+        BACKUP_READY: 'Резервная копия готова:',
+        CLICK_TO_DOWNLOAD: 'Нажмите чтобы скачать',
+        I_DOWNLOADED: 'Я скачал файл',
+        DOWNLOAD_STARTED: 'Скачивание началось...',
+
+        DOWNLOAD_NOW: 'Скачать сейчас',
+        BACKUP_THANKS: 'Спасибо! Файл будет удален с сервера.',
+        DOWNLOAD_CANCELED: 'Зарузка отменена пользователем',
+        BACKUP_AUTO_DELETE: "Файл будет автоматически удален через {minutes} минут или после подтверждения скачивания."
     },
 
     en: {
@@ -261,7 +270,15 @@
         CONNECTION_ERROR: '❌ Connection error to server',
         INVALID_HTTPS_CERTIFICATE: '❌ Invalid HTTPS certificate',
         SSL_CERTIFICATE_EXPIRED: '❌ SSL certificate expired',
-        SSL_CERTIFICATE_NOT_YET_VALID: '❌ SSL certificate not yet valid'
+        SSL_CERTIFICATE_NOT_YET_VALID: '❌ SSL certificate not yet valid',
+        BACKUP_READY: 'Backup ready:',
+        CLICK_TO_DOWNLOAD: 'Click to download',
+        I_DOWNLOADED: 'I downloaded the file',
+        DOWNLOAD_STARTED: 'Download started...',
+        DOWNLOAD_NOW: 'Download now',
+        BACKUP_AUTO_DELETE: 'The file will be automatically deleted after {minutes} minutes or once the download is confirmed.',
+        BACKUP_THANKS: 'Thank you! The file will be deleted from the server.',
+        DOWNLOAD_CANCELED: 'Download canceled by the user'
     },
 
     es: {
@@ -394,7 +411,15 @@
         CONNECTION_ERROR: '❌ Error de conexión al servidor',
         INVALID_HTTPS_CERTIFICATE: '❌ Certificado HTTPS inválido',
         SSL_CERTIFICATE_EXPIRED: '❌ Certificado SSL expirado',
-        SSL_CERTIFICATE_NOT_YET_VALID: '❌ Certificado SSL aún no válido'
+        SSL_CERTIFICATE_NOT_YET_VALID: '❌ Certificado SSL aún no válido',
+        BACKUP_READY: 'Copia de seguridad lista:',
+        CLICK_TO_DOWNLOAD: 'Haz clic para descargar',
+        I_DOWNLOADED: 'He descargado el archivo',
+        DOWNLOAD_STARTED: 'Descarga iniciada...',
+        DOWNLOAD_NOW: 'Descargar ahora',
+        BACKUP_AUTO_DELETE: 'El archivo se eliminará automáticamente después de {minutes} minutos o tras confirmar la descarga.',
+        BACKUP_THANKS: '¡Gracias! El archivo se eliminará del servidor.',
+        DOWNLOAD_CANCELED: 'Descarga cancelada por el usuario'
     },
 
     zh: {
@@ -527,7 +552,15 @@
         CONNECTION_ERROR: '❌ 服务器连接错误',
         INVALID_HTTPS_CERTIFICATE: '❌ 无效的 HTTPS 证书',
         SSL_CERTIFICATE_EXPIRED: '❌ SSL 证书已过期',
-        SSL_CERTIFICATE_NOT_YET_VALID: '❌ SSL 证书尚未生效'
+        SSL_CERTIFICATE_NOT_YET_VALID: '❌ SSL 证书尚未生效',
+        BACKUP_READY: '备份已就绪:',
+        CLICK_TO_DOWNLOAD: '点击下载',
+        I_DOWNLOADED: '我已下载文件',
+        DOWNLOAD_STARTED: '下载已开始...',
+        DOWNLOAD_NOW: '立即下载',
+        BACKUP_AUTO_DELETE: '文件将在 {minutes} 分钟后或下载确认后自动删除。',
+        BACKUP_THANKS: '谢谢！文件将从服务器上删除。',
+        DOWNLOAD_CANCELED: '下载已被用户取消'
     }
 };
 

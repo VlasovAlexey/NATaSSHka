@@ -246,7 +246,19 @@
         SSL_CERTIFICATES: '🔐 SSL сертификаты:',
         SSL_KEY: '   Ключ:',
         SSL_CERT: '   Сертификат:',
-        SSL_CA: '   CA:'
+        SSL_CA: '   CA:',
+
+        PLUGINS_DIR_NOT_FOUND: 'Директория плагинов не найдена, создаю...',
+        PLUGIN_LOAD_ERROR: 'Ошибка загрузки плагина {plugin}',
+        PLUGINS_LOAD_ERROR_GENERAL: 'Ошибка загрузки плагинов',
+        PLUGIN_FILES_MISSING: 'Файлы плагина {plugin} отсутствуют',
+        PLUGIN_DISABLED: 'Плагин {plugin} отключен',
+        PLUGIN_LOADED: 'Плагин {plugin} загружен',
+        PLUGIN_UNLOADED: 'Плагин {plugin} выгружен',
+        PLUGIN_HANDLE_ERROR: 'Ошибка обработки плагина {plugin}',
+        PLUGIN_DESTROY_ERROR: 'Ошибка выгрузки плагина {plugin}',
+        PLUGINS_LOADED: 'Плагины загружены ({count})',
+        PLUGINS_INITIALIZED: 'Плагины инициализированы'
     },
 
     en: {
@@ -474,7 +486,20 @@
         SSL_CERTIFICATES: '🔐 SSL certificates:',
         SSL_KEY: '   Key:',
         SSL_CERT: '   Certificate:',
-        SSL_CA: '   CA:'
+        SSL_CA: '   CA:',
+
+
+        PLUGINS_DIR_NOT_FOUND: 'Plugins directory not found, creating...',
+        PLUGIN_LOAD_ERROR: 'Error loading plugin {plugin}',
+        PLUGINS_LOAD_ERROR_GENERAL: 'Error loading plugins',
+        PLUGIN_FILES_MISSING: 'Plugin {plugin} files missing',
+        PLUGIN_DISABLED: 'Plugin {plugin} disabled',
+        PLUGIN_LOADED: 'Plugin {plugin} loaded',
+        PLUGIN_UNLOADED: 'Plugin {plugin} unloaded',
+        PLUGIN_HANDLE_ERROR: 'Plugin {plugin} handle error',
+        PLUGIN_DESTROY_ERROR: 'Plugin {plugin} destroy error',
+        PLUGINS_LOADED: 'Plugins loaded ({count})',
+        PLUGINS_INITIALIZED: 'Plugins initialized'
     },
 
     es: {
@@ -702,7 +727,20 @@
         SSL_CERTIFICATES: '🔐 Certificados SSL:',
         SSL_KEY: '   Clave:',
         SSL_CERT: '   Certificado:',
-        SSL_CA: '   CA:'
+        SSL_CA: '   CA:',
+
+
+        PLUGINS_DIR_NOT_FOUND: 'Directorio de plugins no encontrado, creando...',
+        PLUGIN_LOAD_ERROR: 'Error al cargar plugin {plugin}',
+        PLUGINS_LOAD_ERROR_GENERAL: 'Error al cargar plugins',
+        PLUGIN_FILES_MISSING: 'Archivos de plugin {plugin} faltantes',
+        PLUGIN_DISABLED: 'Plugin {plugin} deshabilitado',
+        PLUGIN_LOADED: 'Plugin {plugin} cargado',
+        PLUGIN_UNLOADED: 'Plugin {plugin} descargado',
+        PLUGIN_HANDLE_ERROR: 'Error de manejo de plugin {plugin}',
+        PLUGIN_DESTROY_ERROR: 'Error al destruir plugin {plugin}',
+        PLUGINS_LOADED: 'Plugins cargados ({count})',
+        PLUGINS_INITIALIZED: 'Plugins inicializados'
     },
 
     zh: {
@@ -930,7 +968,20 @@
         SSL_CERTIFICATES: '🔐 SSL 证书：',
         SSL_KEY: '   密钥：',
         SSL_CERT: '   证书：',
-        SSL_CA: '   CA：'
+        SSL_CA: '   CA：',
+
+
+        PLUGINS_DIR_NOT_FOUND: '插件目录未找到，正在创建...',
+        PLUGIN_LOAD_ERROR: '加载插件 {plugin} 错误',
+        PLUGINS_LOAD_ERROR_GENERAL: '加载插件错误',
+        PLUGIN_FILES_MISSING: '插件 {plugin} 文件缺失',
+        PLUGIN_DISABLED: '插件 {plugin} 已禁用',
+        PLUGIN_LOADED: '插件 {plugin} 已加载',
+        PLUGIN_UNLOADED: '插件 {plugin} 已卸载',
+        PLUGIN_HANDLE_ERROR: '插件 {plugin} 处理错误',
+        PLUGIN_DESTROY_ERROR: '插件 {plugin} 销毁错误',
+        PLUGINS_LOADED: '插件已加载 ({count})',
+        PLUGINS_INITIALIZED: '插件已初始化'
     }
 };
 
