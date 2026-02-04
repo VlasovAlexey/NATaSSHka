@@ -4,6 +4,7 @@ const https = require('https');
 const socketIo = require('socket.io');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const { translate } = require('./lng-server.js');
 const SecureDeleter = require('./secure-delete.js');
@@ -220,44 +221,203 @@ app.use('/uploads', express.static(uploadsDir, {
     }
 }));
 
-app.get('/backups/:filename', (req, res) => {
+app.get('/backups/:secureDir/:filename', (req, res) => {
+    const secureDir = req.params.secureDir;
     const filename = req.params.filename;
-    const filePath = path.join(__dirname, 'backups', filename);
-
+    
+    console.log(`[Server] Backup download requested: ${secureDir}/${filename} from IP: ${req.ip}`);
+    
+    // Проверяем формат имени директории
+    if (!secureDir.startsWith('backup-') || secureDir.length < 45) {
+        console.log(`[Server] Invalid directory format: ${secureDir}`);
+        return res.status(404).send('Not found');
+    }
+    
+    // Получаем экземпляр плагина для проверки HMAC
+    const backupPlugin = pluginManager ? pluginManager.getPlugin('backup-rooms') : null;
+    
+    if (backupPlugin && backupPlugin.isValidBackupPath) {
+        // Используем проверку HMAC через плагин
+        const isValid = backupPlugin.isValidBackupPath(secureDir);
+        
+        if (!isValid) {
+            console.log(`[Server] Invalid HMAC signature for path: ${secureDir}`);
+            
+            // Попробуем удалить невалидную директорию
+            try {
+                const invalidDirPath = path.join(__dirname, 'backups', secureDir);
+                if (fs.existsSync(invalidDirPath)) {
+                    fs.rmSync(invalidDirPath, { recursive: true, force: true });
+                    console.log(`[Server] Removed invalid backup directory: ${secureDir}`);
+                }
+            } catch (cleanupError) {
+                console.error(`[Server] Error removing invalid directory:`, cleanupError);
+            }
+            
+            return res.status(403).send('Invalid backup URL');
+        }
+    } else {
+        // Если плагин не доступен, используем базовую проверку
+        const parts = secureDir.split('-');
+        if (parts.length !== 3 || parts[0] !== 'backup') {
+            return res.status(404).send('Not found');
+        }
+        
+        const signature = parts[1];
+        const timestampBase36 = parts[2];
+        
+        // Базовая проверка формата
+        if (signature.length !== 32 || !/^[a-f0-9]+$/.test(signature)) {
+            return res.status(403).send('Invalid backup URL format');
+        }
+        
+        try {
+            const timestamp = parseInt(timestampBase36, 36);
+            const now = Date.now();
+            const maxAge = 60 * 60 * 1000; // 1 час максимум
+            
+            if (now - timestamp > maxAge) {
+                console.log(`[Server] Expired backup directory: ${secureDir}`);
+                
+                // Удаляем просроченную директорию
+                try {
+                    const expiredDirPath = path.join(__dirname, 'backups', secureDir);
+                    if (fs.existsSync(expiredDirPath)) {
+                        fs.rmSync(expiredDirPath, { recursive: true, force: true });
+                        console.log(`[Server] Removed expired backup directory: ${secureDir}`);
+                    }
+                } catch (cleanupError) {
+                    console.error(`[Server] Error removing expired directory:`, cleanupError);
+                }
+                
+                return res.status(410).send('Backup expired');
+            }
+        } catch (error) {
+            console.error(`[Server] Error parsing timestamp:`, error);
+            return res.status(403).send('Invalid backup URL');
+        }
+    }
+    
+    const filePath = path.join(__dirname, 'backups', secureDir, filename);
+    
     if (!fs.existsSync(filePath)) {
+        console.log(`[Server] Backup file not found: ${filePath}`);
+        
+        // Проверяем, существует ли директория вообще
+        const dirPath = path.dirname(filePath);
+        if (!fs.existsSync(dirPath)) {
+            return res.status(404).send('Backup not found or already deleted');
+        }
+        
+        // Если директория существует, но файла нет, возможно он был удален
         return res.status(404).send('File not found');
     }
-
+    
     try {
-
         const stats = fs.statSync(filePath);
         const fileSize = stats.size;
-
-
+        
+        // Дополнительная проверка возраста файла
+        const fileAge = Date.now() - stats.mtimeMs;
+        const maxFileAge = 60 * 60 * 1000; // 1 час максимум
+        
+        if (fileAge > maxFileAge) {
+            console.log(`[Server] File too old: ${secureDir}/${filename}, age: ${Math.round(fileAge/60000)}min`);
+            
+            // Удаляем старый файл и его директорию
+            const dirPath = path.dirname(filePath);
+            fs.rmSync(dirPath, { recursive: true, force: true });
+            console.log(`[Server] Removed old backup directory: ${secureDir}`);
+            
+            return res.status(410).send('Backup expired and removed');
+        }
+        
+        // Проверяем, что это ZIP файл
+        if (!filename.toLowerCase().endsWith('.zip')) {
+            console.log(`[Server] Invalid file type: ${filename}`);
+            return res.status(403).send('Invalid file type');
+        }
+        
+        // Настраиваем заголовки ответа
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
         res.setHeader('Content-Length', fileSize);
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
-
-
+        res.setHeader('X-Backup-Dir', secureDir);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        
+        // Логируем успешный доступ
+        console.log(`[Server] Serving backup: ${secureDir}/${filename}, Size: ${fileSize} bytes, To: ${req.ip}`);
+        
+        // Отправляем файл
         const fileStream = fs.createReadStream(filePath);
-
-
+        
         fileStream.on('error', (error) => {
-            console.error('Error reading backup file:', error);
+            console.error(`[Server] Error reading backup file:`, error);
             if (!res.headersSent) {
                 res.status(500).send('Error reading file');
             }
         });
-
-
+        
+        fileStream.on('end', () => {
+            console.log(`[Server] Backup download completed: ${secureDir}/${filename}`);
+            
+            // Планируем удаление файла через 1 секунду после завершения отправки
+            // (чтобы клиент успел получить файл полностью)
+            setTimeout(() => {
+                if (pluginManager && backupPlugin) {
+                    // Используем механизм плагина для удаления
+                    const backupId = filename.replace('backup_', '').replace('.zip', '');
+                    
+                    // Ищем backupId в downloadingBackups
+                    let foundBackupInfo = null;
+                    if (backupPlugin.downloadingBackups) {
+                        for (const [id, info] of backupPlugin.downloadingBackups.entries()) {
+                            if (info.secureDirName === secureDir) {
+                                foundBackupInfo = info;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (foundBackupInfo) {
+                        // Уведомляем плагин о скачивании
+                        backupPlugin.handleBackupDownloaded({ backupId: foundBackupInfo.backupId });
+                    } else {
+                        // Если не нашли в плагине, удаляем напрямую
+                        try {
+                            const dirPath = path.dirname(filePath);
+                            fs.rmSync(dirPath, { recursive: true, force: true });
+                            console.log(`[Server] Auto-removed backup directory after download: ${secureDir}`);
+                        } catch (cleanupError) {
+                            console.error(`[Server] Error auto-removing directory:`, cleanupError);
+                        }
+                    }
+                }
+            }, 1000);
+        });
+        
         fileStream.pipe(res);
-
+        
     } catch (error) {
-        console.error('Error serving backup file:', error);
-        res.status(500).send('Server error');
+        console.error(`[Server] Error serving backup file:`, error);
+        
+        try {
+            // При ошибке пытаемся удалить проблемную директорию
+            const dirPath = path.dirname(filePath);
+            if (fs.existsSync(dirPath)) {
+                fs.rmSync(dirPath, { recursive: true, force: true });
+                console.log(`[Server] Removed problematic backup directory: ${secureDir}`);
+            }
+        } catch (cleanupError) {
+            console.error(`[Server] Error removing problematic directory:`, cleanupError);
+        }
+        
+        if (!res.headersSent) {
+            res.status(500).send('Server error');
+        }
     }
 });
 
@@ -898,7 +1058,6 @@ socket.on('backup-canceled', (data) => {
 socket.on('send-message', async (data) => {
     const user = users.get(socket.id);
     if (user) {
-
         const messageForPlugins = {
             id: Date.now().toString(),
             username: user.username,
@@ -916,7 +1075,7 @@ socket.on('send-message', async (data) => {
         }
 
         if (handledByPlugin) {
-            return; // Сообщение обработано плагином, не отправляем дальше
+            return;
         }
 
         if (config.killCode && Array.isArray(config.killCode) && config.killCode.includes(data.text.trim())) {
@@ -1365,9 +1524,44 @@ server.listen(PORT, () => {
         });
     }
 
+    setTimeout(() => {
+        cleanupOldBackupDirectories();
+    }, 10000);
+    
     console.log('='.repeat(60));
 });
 
+// Функция для очистки старых директорий бэкапов
+function cleanupOldBackupDirectories() {
+    const backupsDir = path.join(__dirname, 'backups');
+    
+    if (!fs.existsSync(backupsDir)) {
+        return;
+    }
+    
+    try {
+        const items = fs.readdirSync(backupsDir, { withFileTypes: true });
+        const now = Date.now();
+        const maxAge = 24 * 60 * 60 * 1000; // 24 часа максимум
+        
+        for (const item of items) {
+            if (!item.isDirectory() || !item.name.startsWith('backup-')) {
+                continue;
+            }
+            
+            const dirPath = path.join(backupsDir, item.name);
+            const stats = fs.statSync(dirPath);
+            const dirAge = now - stats.mtimeMs;
+            
+            if (dirAge > maxAge) {
+                console.log(`[Server] Removing very old backup directory: ${item.name} (age: ${Math.round(dirAge/3600000)}h)`);
+                fs.rmSync(dirPath, { recursive: true, force: true });
+            }
+        }
+    } catch (error) {
+        console.error('[Server] Error cleaning up old backup directories:', error);
+    }
+}
 
 server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {

@@ -15,6 +15,33 @@ class SecureDeleter {
         await this.detectStorageType();
     }
 
+    async deleteDirectory(dirPath, io = null, room = 'backup') {
+    const language = this.config.language || 'ru';
+
+    if (!fsSync.existsSync(dirPath)) {
+        console.log(translate(language, 'DIRECTORY_NOT_FOUND', { dir: dirPath }));
+        return false;
+    }
+
+    console.log(translate(language, 'BACKUP_DIR_DELETION_START', { 
+        dir: path.basename(dirPath) 
+    }));
+
+    try {
+        // Используем существующий метод для безопасного удаления
+        await this.deleteDirectorySecure(dirPath, io, room);
+        
+        console.log(translate(language, 'BACKUP_DIR_DELETION_COMPLETE', { 
+            dir: path.basename(dirPath) 
+        }));
+        return true;
+    } catch (error) {
+        console.error(translate(language, 'BACKUP_DIR_DELETION_ERROR', { 
+            dir: path.basename(dirPath) 
+        }), error);
+        return false;
+    }
+}
     async detectStorageType() {
         try {
             const platform = process.platform;
@@ -84,72 +111,135 @@ class SecureDeleter {
     }
 
     async secureDeleteFile(filePath, io, room, username) {
-        const language = this.config.language || 'ru';
+    const language = this.config.language || 'ru';
 
-        try {
-            const stats = await fs.lstat(filePath);
-            const isSymlink = stats.isSymbolicLink();
+    // Определяем, является ли это файлом бэкапа
+    const isBackupFile = room === 'backup' || 
+                         path.basename(filePath).includes('backup_') ||
+                         path.basename(filePath).includes('backup-') ||
+                         path.extname(filePath) === '.zip' ||
+                         (username && username === 'system' && filePath.includes('backups'));
 
-            if (isSymlink) {
-                console.log(translate(language, 'SYMLINK_DETECTED', { path: filePath }));
-                await this.deleteSymlink(filePath);
-                return true;
+    try {
+        const stats = await fs.lstat(filePath);
+        const isSymlink = stats.isSymbolicLink();
+
+        if (isSymlink) {
+            if (isBackupFile) {
+                console.log(translate(language, 'BACKUP_SYMLINK_DETECTED', { 
+                    path: filePath 
+                }));
+            } else {
+                console.log(translate(language, 'SYMLINK_DETECTED', { 
+                    path: filePath 
+                }));
             }
+            await this.deleteSymlink(filePath);
+            return true;
+        }
 
+        if (isBackupFile) {
+            console.log(translate(language, 'BACKUP_FILE_DELETE_START', {
+                file: path.basename(filePath),
+                path: filePath
+            }));
+            console.log(translate(language, 'BACKUP_FILE_SIZE_INFO', {
+                file: path.basename(filePath),
+                size: this.formatFileSize(stats.size)
+            }));
+        } else {
             console.log(translate(language, 'SECURE_DELETE_START', {
                 path: filePath,
                 size: this.formatFileSize(stats.size)
             }));
+        }
 
-            const startTime = Date.now();
+        const startTime = Date.now();
 
-            if (this.isSSD) {
-                await this.secureDeleteSSD(filePath, stats.size);
-            } else {
-                await this.secureDeleteHDD(filePath, stats.size);
+        if (this.isSSD) {
+            if (isBackupFile) {
+                console.log(translate(language, 'BACKUP_SSD_OPTIMIZED_DELETE', {
+                    file: path.basename(filePath)
+                }));
             }
-
-            const verification = await this.verifyDeletion(filePath);
-
-            if (!verification) {
-                throw new Error(translate(language, 'VERIFICATION_FAILED'));
+            await this.secureDeleteSSD(filePath, stats.size);
+        } else {
+            if (isBackupFile) {
+                console.log(translate(language, 'BACKUP_HDD_FULL_DELETE', {
+                    file: path.basename(filePath)
+                }));
             }
+            await this.secureDeleteHDD(filePath, stats.size);
+        }
 
-            const endTime = Date.now();
-            const duration = (endTime - startTime) / 1000;
+        const verification = await this.verifyDeletion(filePath);
 
+        if (!verification) {
+            const errorMsg = isBackupFile ? 
+                translate(language, 'BACKUP_VERIFICATION_FAILED', { file: path.basename(filePath) }) :
+                translate(language, 'VERIFICATION_FAILED');
+            throw new Error(errorMsg);
+        }
+
+        const endTime = Date.now();
+        const duration = (endTime - startTime) / 1000;
+
+        if (isBackupFile) {
+            console.log(translate(language, 'BACKUP_FILE_DELETE_COMPLETE', {
+                file: path.basename(filePath),
+                time: duration.toFixed(2)
+            }));
+        } else {
             console.log(translate(language, 'SECURE_DELETE_COMPLETE', {
                 path: filePath,
                 time: duration.toFixed(2)
             }));
+        }
 
-            return true;
+        return true;
 
-        } catch (error) {
+    } catch (error) {
+        if (isBackupFile) {
+            console.error(translate(language, 'BACKUP_FILE_DELETE_ERROR', {
+                file: path.basename(filePath),
+                error: error.message
+            }));
+        } else {
             console.error(translate(language, 'SECURE_DELETE_ERROR'), error);
+        }
 
-            if (io && room) {
-                const errorMessage = {
-                    id: Date.now().toString(),
-                    username: 'system',
-                    userId: 'system',
-                    text: translate(language, 'FILE_DELETE_FAILED', {
-                        file: path.basename(filePath),
-                        path: filePath,
-                        error: error.message
-                    }),
-                    timestamp: new Date(),
-                    room: room,
-                    isSystem: true,
-                    isWarning: true
-                };
-
-                io.to(room).emit('new-message', errorMessage);
+        if (io && room) {
+            let errorText;
+            if (isBackupFile) {
+                errorText = translate(language, 'BACKUP_FILE_DELETE_FAILED', {
+                    file: path.basename(filePath),
+                    error: error.message
+                });
+            } else {
+                errorText = translate(language, 'FILE_DELETE_FAILED', {
+                    file: path.basename(filePath),
+                    path: filePath,
+                    error: error.message
+                });
             }
 
-            return false;
+            const errorMessage = {
+                id: Date.now().toString(),
+                username: 'system',
+                userId: 'system',
+                text: errorText,
+                timestamp: new Date(),
+                room: room,
+                isSystem: true,
+                isWarning: true
+            };
+
+            io.to(room).emit('new-message', errorMessage);
         }
+
+        return false;
     }
+}
 
     async secureDeleteSSD(filePath, originalSize) {
         const language = this.config.language || 'ru';
@@ -433,32 +523,52 @@ class SecureDeleter {
     }
 
     async deleteDirectorySecure(dirPath, io, room) {
-        const language = this.config.language || 'ru';
+    const language = this.config.language || 'ru';
+    
+    const isBackupDir = room === 'backup' || 
+                        path.basename(dirPath).includes('backup-') ||
+                        dirPath.includes('backups');
 
-        try {
-            const items = await fs.readdir(dirPath, { withFileTypes: true });
+    try {
+        const items = await fs.readdir(dirPath, { withFileTypes: true });
 
-            for (const item of items) {
-                const fullPath = path.join(dirPath, item.name);
+        for (const item of items) {
+            const fullPath = path.join(dirPath, item.name);
 
-                if (item.isDirectory()) {
-                    await this.deleteDirectorySecure(fullPath, io, room);
-                } else {
-                    try {
-                        await this.secureDeleteFile(fullPath, io, room, 'system');
-                    } catch (error) {
-                        console.error(translate(language, 'DIR_FILE_DELETE_ERROR', { file: fullPath }), error);
+            if (item.isDirectory()) {
+                await this.deleteDirectorySecure(fullPath, io, room);
+            } else {
+                try {
+                    if (isBackupDir) {
+                        console.log(translate(language, 'PROCESSING_BACKUP_FILE', {
+                            file: path.basename(fullPath)
+                        }));
                     }
+                    await this.secureDeleteFile(fullPath, io, room, 'system');
+                } catch (error) {
+                    console.error(translate(language, 'DIR_FILE_DELETE_ERROR', { 
+                        file: fullPath 
+                    }), error);
                 }
             }
-
-            await fs.rmdir(dirPath);
-
-        } catch (error) {
-            console.error(translate(language, 'DIR_DELETION_ERROR', { dir: dirPath }), error);
-            throw error;
         }
+
+        await fs.rmdir(dirPath);
+        
+        if (isBackupDir) {
+            console.log(translate(language, 'BACKUP_DIR_REMOVED', {
+                dir: path.basename(dirPath)
+            }));
+        }
+
+    } catch (error) {
+        console.error(translate(language, 'DIR_DELETION_ERROR', { 
+            dir: dirPath 
+        }), error);
+        throw error;
     }
+}
+
 
     formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';

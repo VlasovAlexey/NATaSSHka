@@ -4,8 +4,8 @@
   "excludedRooms": ["temp", "test"],
   "progressNotifyPercent": 10,
   "backupCleanupTimeout": 3,
+  "maxBackupAge": 60,
   "publicUrl": "",
-  "forcePublicUrl": false,
-  "comment1": "// НАСТРОЙКИ URL ДЛЯ СКАЧИВАНИЯ: // publicUrl: Полный URL сервера для скачивания бэкапов Примеры //   Для локальной разработки: (оставить пустым) //   Для локальной сети: http://192.168.1.100:3000    Для VPS с доменом: https://chat.example.com //   Для сервера за NAT: http://your-public-ip:3000",
-  "comment2": "// forcePublicUrl: Всегда использовать publicUrl для ссылок //   false - использовать относительные ссылки (браузер сам добавит протокол/домен) //   true - всегда использовать указанный publicUrl"
+  "forcePublicUrl": true,
+  "hmacSecret": "YOUR_PRIVATE_RANDOM_KEY_asE1KdR0kEas56fd78fs"
 }

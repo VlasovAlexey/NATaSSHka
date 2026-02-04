@@ -258,7 +258,26 @@
         PLUGIN_HANDLE_ERROR: 'Ошибка обработки плагина {plugin}',
         PLUGIN_DESTROY_ERROR: 'Ошибка выгрузки плагина {plugin}',
         PLUGINS_LOADED: 'Плагины загружены ({count})',
-        PLUGINS_INITIALIZED: 'Плагины инициализированы'
+        PLUGINS_INITIALIZED: 'Плагины инициализированы',
+
+        BACKUP_SYMLINK_DETECTED: 'Обнаружена символьная ссылка бэкапа: {path}',
+        BACKUP_FILE_SIZE_INFO: 'Размер файла бэкапа {file}: {size}',
+        BACKUP_SSD_OPTIMIZED_DELETE: 'Оптимизированное удаление бэкапа {file} для SSD',
+        BACKUP_HDD_FULL_DELETE: 'Полное удаление бэкапа {file} для HDD',
+        BACKUP_VERIFICATION_FAILED: 'Верификация удаления бэкапа {file} не удалась',
+        BACKUP_FILE_DELETE_FAILED: 'Не удалось безопасно удалить файл бэкапа {file}: {error}',
+        BACKUP_DIR_DELETION_START: 'Начало безопасного удаления директории бэкапа: {dir}',
+        BACKUP_DIR_DELETION_COMPLETE: 'Директория бэкапа безопасно удалена: {dir}',
+        BACKUP_DIR_DELETION_ERROR: 'Ошибка при удалении директории бэкапа: {dir}',
+        DIRECTORY_NOT_FOUND: 'Директория не найдена: {dir}',
+        BACKUP_FILE_DELETE_START: 'Начинаю безопасное удаление файла бэкапа: {file}',
+        BACKUP_FILE_DELETE_COMPLETE: 'Файл бэкапа {file} безопасно удалён за {time} сек',
+        BACKUP_FILE_DELETE_ERROR: 'Ошибка удаления файла бэкапа {file}: {error}',
+
+        BACKUP_DIR_FORCE_DELETED: 'Директория бэкапа принудительно удалена: {dir}',
+        BACKUP_DIR_FORCE_DELETE_FAILED: 'Не удалось принудительно удалить директорию бэкапа: {dir}',
+        PROCESSING_BACKUP_FILE: 'Обработка файла бэкапа: {file}',
+        BACKUP_DIR_REMOVED: 'Директория бэкапа удалена: {dir}'
     },
 
     en: {
@@ -499,7 +518,26 @@
         PLUGIN_HANDLE_ERROR: 'Plugin {plugin} handle error',
         PLUGIN_DESTROY_ERROR: 'Plugin {plugin} destroy error',
         PLUGINS_LOADED: 'Plugins loaded ({count})',
-        PLUGINS_INITIALIZED: 'Plugins initialized'
+        PLUGINS_INITIALIZED: 'Plugins initialized',
+
+        BACKUP_SYMLINK_DETECTED: 'Backup symlink detected: {path}',
+        BACKUP_FILE_SIZE_INFO: 'Backup file size {file}: {size}',
+        BACKUP_SSD_OPTIMIZED_DELETE: 'Optimized backup deletion {file} for SSD',
+        BACKUP_HDD_FULL_DELETE: 'Full backup deletion {file} for HDD',
+        BACKUP_VERIFICATION_FAILED: 'Backup deletion verification failed for {file}',
+        BACKUP_FILE_DELETE_FAILED: 'Failed to securely delete backup file {file}: {error}',
+        BACKUP_DIR_DELETION_START: 'Starting secure deletion of backup directory: {dir}',
+        BACKUP_DIR_DELETION_COMPLETE: 'Backup directory securely deleted: {dir}',
+        BACKUP_DIR_DELETION_ERROR: 'Error deleting backup directory: {dir}',
+        DIRECTORY_NOT_FOUND: 'Directory not found: {dir}',
+        BACKUP_FILE_DELETE_START: 'Starting secure deletion of backup file: {file}',
+        BACKUP_FILE_DELETE_COMPLETE: 'Backup file {file} securely deleted in {time} sec',
+        BACKUP_FILE_DELETE_ERROR: 'Error deleting backup file {file}: {error}',
+
+        BACKUP_DIR_FORCE_DELETED: 'Backup directory force-deleted: {dir}',
+        BACKUP_DIR_FORCE_DELETE_FAILED: 'Failed to force-delete backup directory: {dir}',
+        PROCESSING_BACKUP_FILE: 'Processing backup file: {file}',
+        BACKUP_DIR_REMOVED: 'Backup directory removed: {dir}'
     },
 
     es: {
@@ -740,7 +778,26 @@
         PLUGIN_HANDLE_ERROR: 'Error de manejo de plugin {plugin}',
         PLUGIN_DESTROY_ERROR: 'Error al destruir plugin {plugin}',
         PLUGINS_LOADED: 'Plugins cargados ({count})',
-        PLUGINS_INITIALIZED: 'Plugins inicializados'
+        PLUGINS_INITIALIZED: 'Plugins inicializados',
+
+        BACKUP_SYMLINK_DETECTED: 'Enlace simbólico de respaldo detectado: {path}',
+        BACKUP_FILE_SIZE_INFO: 'Tamaño del archivo de respaldo {file}: {size}',
+        BACKUP_SSD_OPTIMIZED_DELETE: 'Eliminación optimizada de respaldo {file} para SSD',
+        BACKUP_HDD_FULL_DELETE: 'Eliminación completa de respaldo {file} para HDD',
+        BACKUP_VERIFICATION_FAILED: 'Verificación de eliminación de respaldo falló para {file}',
+        BACKUP_FILE_DELETE_FAILED: 'No se pudo eliminar de forma segura el archivo de respaldo {file}: {error}',
+        BACKUP_DIR_DELETION_START: 'Iniciando eliminación segura del directorio de respaldo: {dir}',
+        BACKUP_DIR_DELETION_COMPLETE: 'Directorio de respaldo eliminado de forma segura: {dir}',
+        BACKUP_DIR_DELETION_ERROR: 'Error eliminando directorio de respaldo: {dir}',
+        DIRECTORY_NOT_FOUND: 'Directorio no encontrado: {dir}',
+        BACKUP_FILE_DELETE_START: 'Iniciando eliminación segura del archivo de respaldo: {file}',
+        BACKUP_FILE_DELETE_COMPLETE: 'Archivo de respaldo {file} eliminado de forma segura en {time} seg',
+        BACKUP_FILE_DELETE_ERROR: 'Error eliminando archivo de respaldo {file}: {error}',
+
+        BACKUP_DIR_FORCE_DELETED: 'Directorio de respaldo forzado-eliminado: {dir}',
+        BACKUP_DIR_FORCE_DELETE_FAILED: 'No se pudo forzar la eliminación del directorio de respaldo: {dir}',
+        PROCESSING_BACKUP_FILE: 'Procesando archivo de respaldo: {file}',
+        BACKUP_DIR_REMOVED: 'Directorio de respaldo eliminado: {dir}'
     },
 
     zh: {
@@ -981,7 +1038,26 @@
         PLUGIN_HANDLE_ERROR: '插件 {plugin} 处理错误',
         PLUGIN_DESTROY_ERROR: '插件 {plugin} 销毁错误',
         PLUGINS_LOADED: '插件已加载 ({count})',
-        PLUGINS_INITIALIZED: '插件已初始化'
+        PLUGINS_INITIALIZED: '插件已初始化',
+
+        BACKUP_SYMLINK_DETECTED: '检测到备份符号链接: {path}',
+        BACKUP_FILE_SIZE_INFO: '备份文件大小 {file}: {size}',
+        BACKUP_SSD_OPTIMIZED_DELETE: 'SSD优化备份删除 {file}',
+        BACKUP_HDD_FULL_DELETE: 'HDD完全备份删除 {file}',
+        BACKUP_VERIFICATION_FAILED: '备份删除验证失败: {file}',
+        BACKUP_FILE_DELETE_FAILED: '无法安全删除备份文件 {file}: {error}',
+        BACKUP_DIR_DELETION_START: '开始安全删除备份目录: {dir}',
+        BACKUP_DIR_DELETION_COMPLETE: '备份目录已安全删除: {dir}',
+        BACKUP_DIR_DELETION_ERROR: '删除备份目录时出错: {dir}',
+        DIRECTORY_NOT_FOUND: '目录未找到: {dir}',
+        BACKUP_FILE_DELETE_START: '开始安全删除备份文件: {file}',
+        BACKUP_FILE_DELETE_COMPLETE: '备份文件 {file} 已在 {time} 秒内安全删除',
+        BACKUP_FILE_DELETE_ERROR: '删除备份文件 {file} 时出错: {error}',
+
+        BACKUP_DIR_FORCE_DELETED: '备份目录已强制删除: {dir}',
+        BACKUP_DIR_FORCE_DELETE_FAILED: '无法强制删除备份目录: {dir}',
+        PROCESSING_BACKUP_FILE: '正在处理备份文件: {file}',
+        BACKUP_DIR_REMOVED: '备份目录已移除: {dir}'
     }
 };
 
