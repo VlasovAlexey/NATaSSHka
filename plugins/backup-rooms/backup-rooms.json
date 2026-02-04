@@ -5,7 +5,7 @@
   "progressNotifyPercent": 10,
   "backupCleanupTimeout": 3,
   "maxBackupAge": 60,
-  "publicUrl": "",
+  "publicUrl": "http://217.25.238.69:3000",
   "forcePublicUrl": true,
   "hmacSecret": "YOUR_PRIVATE_RANDOM_KEY_asE1KdR0kEas56fd78fs"
 }

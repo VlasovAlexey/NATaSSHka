@@ -15,7 +15,6 @@ class WebRTCManager {
 		this.setupSocketListeners();
 		this.setupUI();
 	}
-
 	setupSocketListeners() {
 		this.socket.on('webrtc-offer', async (data) => {
 			if (this.isCallActive) {
@@ -24,21 +23,18 @@ class WebRTCManager {
 			}
 			this.showIncomingCallModal(data);
 		});
-
 		this.socket.on('webrtc-answer', async (data) => {
 			if (!this.peerConnection) return;
 			try {
 				await this.peerConnection.setRemoteDescription(data.answer);
 			} catch (error) {}
 		});
-
 		this.socket.on('webrtc-ice-candidate', async (data) => {
 			if (!this.peerConnection) return;
 			try {
 				await this.peerConnection.addIceCandidate(data.candidate);
 			} catch (error) {}
 		});
-
 		this.socket.on('webrtc-reject', (data) => {
 			this.hideCallModal();
 			if (window.showMessage) {
@@ -47,7 +43,6 @@ class WebRTCManager {
 				alert(window.t('MODAL_CALL_REJECTED', { username: data.fromUsername }));
 			}
 		});
-
 		this.socket.on('webrtc-hangup', (data) => {
 			this.endCall();
 			if (window.showMessage) {
@@ -57,13 +52,11 @@ class WebRTCManager {
 			}
 		});
 	}
-
 	setupUI() {
 		this.createUserSelectionModal();
 		this.createIncomingCallModal();
 		this.createCallInterface();
 	}
-
 	createUserSelectionModal() {
 		const modal = document.createElement('div');
 		modal.id = 'userSelectionModal';
@@ -82,7 +75,6 @@ class WebRTCManager {
 			this.hideUserSelectionModal();
 		});
 	}
-
 	createIncomingCallModal() {
 		const modal = document.createElement('div');
 		modal.id = 'incomingCallModal';
@@ -105,7 +97,6 @@ class WebRTCManager {
 			this.rejectIncomingCall();
 		});
 	}
-
 	createCallInterface() {
 		const callInterface = document.createElement('div');
 		callInterface.id = 'callInterface';
@@ -124,7 +115,6 @@ class WebRTCManager {
 			this.endCall();
 		});
 	}
-
 	showUserSelectionModal(type) {
 		this.callType = type;
 		const modal = document.getElementById('userSelectionModal');
@@ -157,11 +147,9 @@ class WebRTCManager {
 		});
 		modal.classList.remove('hidden');
 	}
-
 	hideUserSelectionModal() {
 		document.getElementById('userSelectionModal').classList.add('hidden');
 	}
-
 	showIncomingCallModal(data) {
 		this.incomingCallData = data;
 		const modal = document.getElementById('incomingCallModal');
@@ -170,19 +158,15 @@ class WebRTCManager {
 		callInfo.textContent = window.t('MODAL_INCOMING_CALL_INFO', { username: data.fromUsername, type: typeText });
 		modal.classList.remove('hidden');
 	}
-
 	hideIncomingCallModal() {
 		document.getElementById('incomingCallModal').classList.add('hidden');
 	}
-
 	showCallInterface() {
 		document.getElementById('callInterface').classList.remove('hidden');
 	}
-
 	hideCallInterface() {
 		document.getElementById('callInterface').classList.add('hidden');
 	}
-
 	async startCall(targetUsername) {
 		this.targetUser = targetUsername;
 		this.room = document.getElementById('roomInfo').textContent.replace('Комната: ', '').replace('Room: ', '').replace('Sala: ', '').replace('房间：', '');
@@ -230,7 +214,6 @@ class WebRTCManager {
 			}
 		}
 	}
-
 	async acceptIncomingCall() {
 		if (!this.incomingCallData) return;
 		this.callType = this.incomingCallData.type;
@@ -268,7 +251,6 @@ class WebRTCManager {
 			}
 		}
 	}
-
 	rejectIncomingCall() {
 		if (!this.incomingCallData) return;
 		this.socket.emit('webrtc-reject', {
@@ -277,14 +259,12 @@ class WebRTCManager {
 		this.hideIncomingCallModal();
 		this.incomingCallData = null;
 	}
-
 	sendCallRejected(targetUsername, reason) {
 		this.socket.emit('webrtc-reject', {
 			targetUsername: targetUsername,
 			reason: reason
 		});
 	}
-
 	createPeerConnection() {
 		const iceServers = window.rtcConfig?.iceServers || [{
 				urls: 'stun:stun.l.google.com:19302'
@@ -321,7 +301,6 @@ class WebRTCManager {
 				this.peerConnection.iceConnectionState === 'failed') {}
 		};
 	}
-
 	endCall() {
 		if (this.callTimeout) {
 			clearTimeout(this.callTimeout);

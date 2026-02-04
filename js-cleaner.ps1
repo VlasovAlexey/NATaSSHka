@@ -1,6 +1,6 @@
-﻿# Script for removing comments and trailing whitespace in JS and CSS files
+﻿# Script for removing comments, trailing whitespace and ALL empty lines in JS and CSS files
 # Works in current directory and all subdirectories
-# Does NOT use regular expressions for comment removal to avoid breaking code
+# Does NOT use regular expressions to avoid breaking code
 
 # Directories to ignore (comma-separated list)
 $ignoreDirectories = @("node_modules","uploads","autolinker.js","backup-rooms.json")
@@ -53,6 +53,25 @@ $modifiedFiles = 0
 Write-Log "Files found for processing: $totalFiles (after filtering)"
 Write-Log "Ignored directories: $($ignoreDirectories -join ', ')"
 
+# Helper function to check if string contains only whitespace
+function Is-StringEmptyOrWhitespace {
+    param([string]$String)
+    
+    if ([string]::IsNullOrEmpty($String)) {
+        return $true
+    }
+    
+    # Check each character
+    foreach ($char in $String.ToCharArray()) {
+        # Check for any non-whitespace character
+        if ($char -ne ' ' -and $char -ne "`t" -and $char -ne "`r" -and $char -ne "`n" -and [int][char]$char -ne 65279) {
+            return $false
+        }
+    }
+    
+    return $true
+}
+
 foreach ($file in $files) {
     $currentFile++
     $percentComplete = [math]::Round(($currentFile / $totalFiles) * 100)
@@ -64,8 +83,14 @@ foreach ($file in $files) {
                    -CurrentOperation "$currentFile of $totalFiles"
     
     try {
-        # Read file content
+        # Read file content with UTF8 encoding and handle BOM
         $originalContent = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
+        
+        # Remove BOM if present
+        if ($originalContent.Length -gt 0 -and [int][char]$originalContent[0] -eq 65279) {
+            $originalContent = $originalContent.Substring(1)
+        }
+        
         $content = $originalContent
         
         # Save original size
@@ -212,7 +237,7 @@ foreach ($file in $files) {
                 $lastNonSpace = -1
                 for ($j = 0; $j -lt $resultLine.Length; $j++) {
                     $testChar = $resultLine[$j]
-                    if ($testChar -ne ' ' -and $testChar -ne "`t") {
+                    if ($testChar -ne ' ' -and $testChar -ne "`t" -and $testChar -ne "`r" -and $testChar -ne "`n" -and [int][char]$testChar -ne 65279) {
                         $lastNonSpace = $j
                     }
                 }
@@ -230,8 +255,7 @@ foreach ($file in $files) {
                     $fileModified = $true
                 }
                 
-                # Don't add empty lines that were created by removing whole-line comments
-                # but keep empty lines that separate code blocks
+                # Add line only if it's not empty and not in a block comment
                 if (-not $inBlockComment) {
                     $newLines += $resultLine
                 } elseif ($resultLine -ne '') {
@@ -240,50 +264,21 @@ foreach ($file in $files) {
                 }
             }
             
-            # Rebuild content
-            $content = $newLines -join "`r`n"
-            
-            # Remove multiple consecutive blank lines (without regex)
+            # REMOVE ALL EMPTY AND WHITESPACE-ONLY LINES
             $cleanedLines = @()
-            $blankLineCount = 0
             
             foreach ($line in $newLines) {
-                if ($line -eq '') {
-                    $blankLineCount++
-                    if ($blankLineCount -le 2) {
-                        $cleanedLines += $line
-                    } else {
-                        $fileModified = $true
-                    }
-                } else {
-                    $blankLineCount = 0
+                # Check if line is empty or contains only whitespace/BOM
+                $isEmpty = Is-StringEmptyOrWhitespace -String $line
+                
+                if (-not $isEmpty) {
                     $cleanedLines += $line
+                } else {
+                    $fileModified = $true
                 }
             }
             
             $content = $cleanedLines -join "`r`n"
-            
-            # Remove leading/trailing blank lines
-            $finalLines = @()
-            if ($content.Contains("`r`n")) {
-                $finalLines = $content -split "`r`n"
-            } else {
-                $finalLines = $content -split "`n"
-            }
-            
-            # Remove leading blank lines
-            while ($finalLines.Count -gt 0 -and $finalLines[0] -eq '') {
-                $finalLines = $finalLines[1..($finalLines.Count-1)]
-                $fileModified = $true
-            }
-            
-            # Remove trailing blank lines
-            while ($finalLines.Count -gt 0 -and $finalLines[$finalLines.Count-1] -eq '') {
-                $finalLines = $finalLines[0..($finalLines.Count-2)]
-                $fileModified = $true
-            }
-            
-            $content = $finalLines -join "`r`n"
             
         } elseif ($file.Extension -eq '.css') {
             # For CSS files - NO REGEX approach
@@ -351,7 +346,7 @@ foreach ($file in $files) {
                 $lastNonSpace = -1
                 for ($j = 0; $j -lt $resultLine.Length; $j++) {
                     $testChar = $resultLine[$j]
-                    if ($testChar -ne ' ' -and $testChar -ne "`t") {
+                    if ($testChar -ne ' ' -and $testChar -ne "`t" -and $testChar -ne "`r" -and $testChar -ne "`n" -and [int][char]$testChar -ne 65279) {
                         $lastNonSpace = $j
                     }
                 }
@@ -369,7 +364,7 @@ foreach ($file in $files) {
                     $fileModified = $true
                 }
                 
-                # Don't add empty lines that were created by removing whole-line comments
+                # Add line only if it's not empty and not in a block comment
                 if (-not $inBlockComment) {
                     $newLines += $resultLine
                 } elseif ($resultLine -ne '') {
@@ -378,51 +373,60 @@ foreach ($file in $files) {
                 }
             }
             
-            # Rebuild content
-            $content = $newLines -join "`r`n"
-            
-            # Remove multiple consecutive blank lines (without regex)
+            # REMOVE ALL EMPTY AND WHITESPACE-ONLY CSS LINES
             $cleanedLines = @()
-            $blankLineCount = 0
             
             foreach ($line in $newLines) {
-                if ($line -eq '') {
-                    $blankLineCount++
-                    if ($blankLineCount -le 2) {
-                        $cleanedLines += $line
-                    } else {
-                        $fileModified = $true
-                    }
-                } else {
-                    $blankLineCount = 0
+                # Check if line is empty or contains only whitespace/BOM
+                $isEmpty = Is-StringEmptyOrWhitespace -String $line
+                
+                if (-not $isEmpty) {
                     $cleanedLines += $line
+                } else {
+                    $fileModified = $true
                 }
             }
             
             $content = $cleanedLines -join "`r`n"
-            
-            # Remove leading/trailing blank lines
-            $finalLines = @()
-            if ($content.Contains("`r`n")) {
-                $finalLines = $content -split "`r`n"
-            } else {
-                $finalLines = $content -split "`n"
-            }
-            
-            # Remove leading blank lines
-            while ($finalLines.Count -gt 0 -and $finalLines[0] -eq '') {
+        }
+        
+        # Remove leading/trailing blank lines one more time
+        $finalLines = @()
+        if ($content.Contains("`r`n")) {
+            $finalLines = $content -split "`r`n"
+        } else {
+            $finalLines = $content -split "`n"
+        }
+        
+        # Remove leading blank lines
+        $leadingRemoved = 0
+        while ($finalLines.Count -gt 0) {
+            $firstLine = $finalLines[0]
+            $isEmpty = Is-StringEmptyOrWhitespace -String $firstLine
+            if ($isEmpty) {
                 $finalLines = $finalLines[1..($finalLines.Count-1)]
                 $fileModified = $true
+                $leadingRemoved++
+            } else {
+                break
             }
-            
-            # Remove trailing blank lines
-            while ($finalLines.Count -gt 0 -and $finalLines[$finalLines.Count-1] -eq '') {
+        }
+        
+        # Remove trailing blank lines
+        $trailingRemoved = 0
+        while ($finalLines.Count -gt 0) {
+            $lastLine = $finalLines[$finalLines.Count-1]
+            $isEmpty = Is-StringEmptyOrWhitespace -String $lastLine
+            if ($isEmpty) {
                 $finalLines = $finalLines[0..($finalLines.Count-2)]
                 $fileModified = $true
+                $trailingRemoved++
+            } else {
+                break
             }
-            
-            $content = $finalLines -join "`r`n"
         }
+        
+        $content = $finalLines -join "`r`n"
         
         # Only write if file was modified
         if ($fileModified -and $content -ne $originalContent) {
@@ -450,7 +454,7 @@ foreach ($file in $files) {
                     # Don't skip, just warn
                 }
                 
-                # Check for obvious syntax issues
+                # Simple check for obvious syntax issues
                 $lines = if ($content.Contains("`r`n")) {
                     $content -split "`r`n"
                 } else {
@@ -466,17 +470,14 @@ foreach ($file in $files) {
                 }
             }
             
-            # Write the file
+            # Write the file (without BOM)
             [System.IO.File]::WriteAllText($file.FullName, $content, [System.Text.Encoding]::UTF8)
             
             $newSize = $content.Length
             $saved = $originalSize - $newSize
             $modifiedFiles++
             
-            Write-Log "Modified: $($file.Name)" -Level "INFO"
-            Write-Log "  Size: $originalSize -> $newSize (saved: $saved chars)" -Level "INFO"
-            
-            # Show line count change
+            # Count removed empty and problematic lines
             $originalLines = if ($originalContent.Contains("`r`n")) {
                 $originalContent -split "`r`n"
             } else {
@@ -489,9 +490,22 @@ foreach ($file in $files) {
                 $content -split "`n"
             }
             
+            # Count removed lines
             if ($originalLines.Count -gt $newLines.Count) {
-                $linesRemoved = $originalLines.Count - $newLines.Count
-                Write-Log "  Lines removed: $linesRemoved" -Level "INFO"
+                $totalLinesRemoved = $originalLines.Count - $newLines.Count
+                
+                Write-Log "Modified: $($file.Name)" -Level "INFO"
+                Write-Log "  Size: $originalSize -> $newSize (saved: $saved chars)" -Level "INFO"
+                Write-Log "  Total lines removed: $totalLinesRemoved" -Level "INFO"
+                if ($leadingRemoved -gt 0) {
+                    Write-Log "  Leading empty lines removed: $leadingRemoved" -Level "INFO"
+                }
+                if ($trailingRemoved -gt 0) {
+                    Write-Log "  Trailing empty lines removed: $trailingRemoved" -Level "INFO"
+                }
+            } else {
+                Write-Log "Modified: $($file.Name)" -Level "INFO"
+                Write-Log "  Size: $originalSize -> $newSize (saved: $saved chars)" -Level "INFO"
             }
         }
         

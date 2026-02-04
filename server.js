@@ -5,18 +5,14 @@ const socketIo = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-
 const { translate } = require('./lng-server.js');
 const SecureDeleter = require('./secure-delete.js');
 const PluginManager = require('./plugins-manager.js');
-
 const users = new Map();
 const rooms = new Set(['Room_01']);
 const messageReactions = new Map();
 const reactionUsers = new Map();
 const configPath = path.join(__dirname, 'config.json');
-
-
 let config = {
     port: 3000,
     language: 'ru',
@@ -88,7 +84,6 @@ let config = {
         reportErrors: true
     }
 };
-
 if (fs.existsSync(configPath)) {
     const configData = fs.readFileSync(configPath, 'utf8');
     config = {
@@ -98,10 +93,7 @@ if (fs.existsSync(configPath)) {
 } else {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
-
 const app = express();
-
-
 if (config.cors && config.cors.enabled) {
     app.use((req, res, next) => {
         const origin = config.cors.origin === "*" ? "*" : config.cors.origin;
@@ -109,39 +101,29 @@ if (config.cors && config.cors.enabled) {
         res.header('Access-Control-Allow-Methods', config.cors.methods.join(', '));
         res.header('Access-Control-Allow-Headers', config.cors.allowedHeaders.join(', '));
         res.header('Access-Control-Allow-Credentials', config.cors.credentials);
-
         if (req.method === 'OPTIONS') {
             return res.status(200).end();
         }
         next();
     });
 }
-
-
 let server;
 let isHttps = false;
-
 if (config.https && config.https.enabled) {
     try {
         const httpsOptions = {
             key: fs.readFileSync(config.https.key),
             cert: fs.readFileSync(config.https.cert)
         };
-
-
         if (config.https.ca && fs.existsSync(config.https.ca)) {
             httpsOptions.ca = fs.readFileSync(config.https.ca);
         }
-
-
         if (config.https.passphrase && config.https.passphrase.trim() !== '') {
             httpsOptions.passphrase = config.https.passphrase;
         }
-
         server = https.createServer(httpsOptions, app);
         isHttps = true;
         console.log(translate(config.language, 'HTTPS_ENABLED', { port: config.https.port }));
-
     } catch (error) {
         console.error(translate(config.language, 'HTTPS_ERROR'), error);
         console.log(translate(config.language, 'FALLBACK_TO_HTTP'));
@@ -151,8 +133,6 @@ if (config.https && config.https.enabled) {
     server = http.createServer(app);
     console.log(translate(config.language, 'SERVER_START') + ' ' + config.port);
 }
-
-
 const io = socketIo(server, {
     cors: config.cors && config.cors.enabled ? {
         origin: config.cors.origin,
@@ -167,15 +147,12 @@ const io = socketIo(server, {
     pingTimeout: 60000,
     pingInterval: 25000
 });
-
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, {
         recursive: true
     });
 }
-
-
 let pluginManager;
 try {
     pluginManager = new PluginManager(config, io, uploadsDir);
@@ -187,14 +164,11 @@ try {
 } catch (error) {
     console.error('Failed to initialize plugin manager:', error);
 }
-
-
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadsDir, {
     index: false,
     redirect: false
 }));
-
 app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
@@ -202,7 +176,6 @@ app.use((req, res, next) => {
     res.setHeader('Surrogate-Control', 'no-store');
     next();
 });
-
 app.use(express.static(path.join(__dirname, 'public'), {
     setHeaders: (res, path) => {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -211,7 +184,6 @@ app.use(express.static(path.join(__dirname, 'public'), {
         res.setHeader('Last-Modified', new Date().toUTCString());
     }
 }));
-
 app.use('/uploads', express.static(uploadsDir, {
     setHeaders: (res, path) => {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -220,30 +192,19 @@ app.use('/uploads', express.static(uploadsDir, {
         res.setHeader('Last-Modified', new Date().toUTCString());
     }
 }));
-
 app.get('/backups/:secureDir/:filename', (req, res) => {
     const secureDir = req.params.secureDir;
     const filename = req.params.filename;
-    
     console.log(`[Server] Backup download requested: ${secureDir}/${filename} from IP: ${req.ip}`);
-    
-    // Проверяем формат имени директории
     if (!secureDir.startsWith('backup-') || secureDir.length < 45) {
         console.log(`[Server] Invalid directory format: ${secureDir}`);
         return res.status(404).send('Not found');
     }
-    
-    // Получаем экземпляр плагина для проверки HMAC
     const backupPlugin = pluginManager ? pluginManager.getPlugin('backup-rooms') : null;
-    
     if (backupPlugin && backupPlugin.isValidBackupPath) {
-        // Используем проверку HMAC через плагин
         const isValid = backupPlugin.isValidBackupPath(secureDir);
-        
         if (!isValid) {
             console.log(`[Server] Invalid HMAC signature for path: ${secureDir}`);
-            
-            // Попробуем удалить невалидную директорию
             try {
                 const invalidDirPath = path.join(__dirname, 'backups', secureDir);
                 if (fs.existsSync(invalidDirPath)) {
@@ -253,33 +214,24 @@ app.get('/backups/:secureDir/:filename', (req, res) => {
             } catch (cleanupError) {
                 console.error(`[Server] Error removing invalid directory:`, cleanupError);
             }
-            
             return res.status(403).send('Invalid backup URL');
         }
     } else {
-        // Если плагин не доступен, используем базовую проверку
         const parts = secureDir.split('-');
         if (parts.length !== 3 || parts[0] !== 'backup') {
             return res.status(404).send('Not found');
         }
-        
         const signature = parts[1];
         const timestampBase36 = parts[2];
-        
-        // Базовая проверка формата
         if (signature.length !== 32 || !/^[a-f0-9]+$/.test(signature)) {
             return res.status(403).send('Invalid backup URL format');
         }
-        
         try {
             const timestamp = parseInt(timestampBase36, 36);
             const now = Date.now();
             const maxAge = 60 * 60 * 1000; // 1 час максимум
-            
             if (now - timestamp > maxAge) {
                 console.log(`[Server] Expired backup directory: ${secureDir}`);
-                
-                // Удаляем просроченную директорию
                 try {
                     const expiredDirPath = path.join(__dirname, 'backups', secureDir);
                     if (fs.existsSync(expiredDirPath)) {
@@ -289,7 +241,6 @@ app.get('/backups/:secureDir/:filename', (req, res) => {
                 } catch (cleanupError) {
                     console.error(`[Server] Error removing expired directory:`, cleanupError);
                 }
-                
                 return res.status(410).send('Backup expired');
             }
         } catch (error) {
@@ -297,48 +248,31 @@ app.get('/backups/:secureDir/:filename', (req, res) => {
             return res.status(403).send('Invalid backup URL');
         }
     }
-    
     const filePath = path.join(__dirname, 'backups', secureDir, filename);
-    
     if (!fs.existsSync(filePath)) {
         console.log(`[Server] Backup file not found: ${filePath}`);
-        
-        // Проверяем, существует ли директория вообще
         const dirPath = path.dirname(filePath);
         if (!fs.existsSync(dirPath)) {
             return res.status(404).send('Backup not found or already deleted');
         }
-        
-        // Если директория существует, но файла нет, возможно он был удален
         return res.status(404).send('File not found');
     }
-    
     try {
         const stats = fs.statSync(filePath);
         const fileSize = stats.size;
-        
-        // Дополнительная проверка возраста файла
         const fileAge = Date.now() - stats.mtimeMs;
         const maxFileAge = 60 * 60 * 1000; // 1 час максимум
-        
         if (fileAge > maxFileAge) {
             console.log(`[Server] File too old: ${secureDir}/${filename}, age: ${Math.round(fileAge/60000)}min`);
-            
-            // Удаляем старый файл и его директорию
             const dirPath = path.dirname(filePath);
             fs.rmSync(dirPath, { recursive: true, force: true });
             console.log(`[Server] Removed old backup directory: ${secureDir}`);
-            
             return res.status(410).send('Backup expired and removed');
         }
-        
-        // Проверяем, что это ZIP файл
         if (!filename.toLowerCase().endsWith('.zip')) {
             console.log(`[Server] Invalid file type: ${filename}`);
             return res.status(403).send('Invalid file type');
         }
-        
-        // Настраиваем заголовки ответа
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
         res.setHeader('Content-Length', fileSize);
@@ -347,31 +281,19 @@ app.get('/backups/:secureDir/:filename', (req, res) => {
         res.setHeader('Expires', '0');
         res.setHeader('X-Backup-Dir', secureDir);
         res.setHeader('X-Content-Type-Options', 'nosniff');
-        
-        // Логируем успешный доступ
         console.log(`[Server] Serving backup: ${secureDir}/${filename}, Size: ${fileSize} bytes, To: ${req.ip}`);
-        
-        // Отправляем файл
         const fileStream = fs.createReadStream(filePath);
-        
         fileStream.on('error', (error) => {
             console.error(`[Server] Error reading backup file:`, error);
             if (!res.headersSent) {
                 res.status(500).send('Error reading file');
             }
         });
-        
         fileStream.on('end', () => {
             console.log(`[Server] Backup download completed: ${secureDir}/${filename}`);
-            
-            // Планируем удаление файла через 1 секунду после завершения отправки
-            // (чтобы клиент успел получить файл полностью)
             setTimeout(() => {
                 if (pluginManager && backupPlugin) {
-                    // Используем механизм плагина для удаления
                     const backupId = filename.replace('backup_', '').replace('.zip', '');
-                    
-                    // Ищем backupId в downloadingBackups
                     let foundBackupInfo = null;
                     if (backupPlugin.downloadingBackups) {
                         for (const [id, info] of backupPlugin.downloadingBackups.entries()) {
@@ -381,12 +303,9 @@ app.get('/backups/:secureDir/:filename', (req, res) => {
                             }
                         }
                     }
-                    
                     if (foundBackupInfo) {
-                        // Уведомляем плагин о скачивании
                         backupPlugin.handleBackupDownloaded({ backupId: foundBackupInfo.backupId });
                     } else {
-                        // Если не нашли в плагине, удаляем напрямую
                         try {
                             const dirPath = path.dirname(filePath);
                             fs.rmSync(dirPath, { recursive: true, force: true });
@@ -398,14 +317,10 @@ app.get('/backups/:secureDir/:filename', (req, res) => {
                 }
             }, 1000);
         });
-        
         fileStream.pipe(res);
-        
     } catch (error) {
         console.error(`[Server] Error serving backup file:`, error);
-        
         try {
-            // При ошибке пытаемся удалить проблемную директорию
             const dirPath = path.dirname(filePath);
             if (fs.existsSync(dirPath)) {
                 fs.rmSync(dirPath, { recursive: true, force: true });
@@ -414,20 +329,17 @@ app.get('/backups/:secureDir/:filename', (req, res) => {
         } catch (cleanupError) {
             console.error(`[Server] Error removing problematic directory:`, cleanupError);
         }
-        
         if (!res.headersSent) {
             res.status(500).send('Server error');
         }
     }
 });
-
 let secureDeleter;
 if (config.secureDelete && config.secureDelete.enabled) {
     secureDeleter = new SecureDeleter(config);
 } else {
     console.log(translate(config.language, 'SECURE_DELETE_DISABLED'));
 }
-
 function ensureDirectoryExistence(dirPath) {
     if (fs.existsSync(dirPath)) {
         return true;
@@ -437,7 +349,6 @@ function ensureDirectoryExistence(dirPath) {
     });
     return true;
 }
-
 function saveMessageToFile(room, username, message) {
     try {
         if (message.isSystem) {
@@ -497,7 +408,6 @@ function saveMessageToFile(room, username, message) {
         return false;
     }
 }
-
 function escapeXml(unsafe) {
     if (!unsafe) return '';
     return unsafe.toString()
@@ -507,7 +417,6 @@ function escapeXml(unsafe) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
 }
-
 function loadMessagesFromRoom(room) {
     const messages = [];
     try {
@@ -626,7 +535,6 @@ function loadMessagesFromRoom(room) {
     }
     return messages;
 }
-
 function unescapeXml(safe) {
     if (!safe) return '';
     return safe.toString()
@@ -636,7 +544,6 @@ function unescapeXml(safe) {
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'");
 }
-
 function saveFileMetadata(room, username, fileName, fileData) {
     try {
         const roomDir = path.join(uploadsDir, room);
@@ -664,7 +571,6 @@ function saveFileMetadata(room, username, fileName, fileData) {
         return false;
     }
 }
-
 function getIceServers() {
     const iceServers = [...config.stunServers];
     if (config.useTurnServers && config.turnServers && config.turnServers.length > 0) {
@@ -719,7 +625,6 @@ function getIceServers() {
     }
     return iceServers;
 }
-
 io.on('connection', (socket) => {
     console.log(translate(config.language, 'NEW_CONNECTION') + ' ' + socket.id);
     const iceServers = getIceServers();
@@ -737,10 +642,8 @@ io.on('connection', (socket) => {
         },
         useTurnServers: config.useTurnServers
     });
-
     socket.on('backup-downloaded', (data) => {
     console.log('Received backup-downloaded:', data);
-
     if (pluginManager) {
         const backupPlugin = pluginManager.getPlugin('backup-rooms');
         if (backupPlugin && backupPlugin.handleBackupDownloaded) {
@@ -748,10 +651,8 @@ io.on('connection', (socket) => {
         }
     }
 });
-
 socket.on('backup-canceled', (data) => {
     console.log('Received backup-canceled:', data);
-
     if (pluginManager) {
         const backupPlugin = pluginManager.getPlugin('backup-rooms');
         if (backupPlugin && backupPlugin.handleBackupCanceled) {
@@ -759,7 +660,6 @@ socket.on('backup-canceled', (data) => {
         }
     }
 });
-
     socket.on('delete-message', async (data, callback) => {
         const user = users.get(socket.id);
         if (user) {
@@ -816,7 +716,6 @@ socket.on('backup-canceled', (data) => {
             });
         }
     });
-
     function deleteMessageFromFiles(room, messageId, username) {
         try {
             const roomDir = path.join(uploadsDir, room);
@@ -892,7 +791,6 @@ socket.on('backup-canceled', (data) => {
             return false;
         }
     }
-
     socket.on('add-reaction', (data) => {
         const user = users.get(socket.id);
         if (user) {
@@ -935,7 +833,6 @@ socket.on('backup-canceled', (data) => {
             }
         }
     });
-
     function updateMessageReactionsInFile(room, messageId, reactions, usersReactions) {
         try {
             const roomDir = path.join(uploadsDir, room);
@@ -977,22 +874,17 @@ socket.on('backup-canceled', (data) => {
         }
         return false;
     }
-
     socket.on('user-join-attempt', (data) => {
     const { username, room, password, language = 'ru' } = data;
-
     if (data.password !== config.password) {
         socket.emit('join-error', translate(language, 'ERROR_WRONG_PASSWORD'));
         return;
     }
-
     const existingUser = Array.from(users.values()).find(user =>
         user.username === username && user.room === room
     );
-
     if (existingUser) {
         socket.emit('join-error', translate(language, 'ERROR_USERNAME_EXISTS'));
-
         const warningMessage = {
             id: Date.now().toString(),
             username: 'system',
@@ -1003,7 +895,6 @@ socket.on('backup-canceled', (data) => {
             isSystem: true,
             isWarning: true
         };
-
         saveSystemMessageToFile(room, warningMessage);
         io.to(room).emit('new-message', warningMessage);
         return;
@@ -1017,14 +908,11 @@ socket.on('backup-canceled', (data) => {
         room
     });
     socket.join(room);
-
-
     pluginManager.handleUserJoin({
         username,
         id: socket.id,
         room
     }, socket);
-
     const messageHistory = loadMessagesFromRoom(room);
     const reactionUsersData = {};
     messageHistory.forEach(message => {
@@ -1038,7 +926,6 @@ socket.on('backup-canceled', (data) => {
         messageHistory: messageHistory,
         reactionUsersData: reactionUsersData
     });
-
     const joinMessage = {
         id: Date.now().toString(),
         username: 'system',
@@ -1048,13 +935,10 @@ socket.on('backup-canceled', (data) => {
         room: room,
         isSystem: true
     };
-
     const roomUsers = Array.from(users.values()).filter(user => user.room === room);
     io.to(room).emit('users-list', roomUsers);
     console.log(translate(config.language, 'USER_JOINED_ROOM', {username: username, room: room}));
 });
-
-
 socket.on('send-message', async (data) => {
     const user = users.get(socket.id);
     if (user) {
@@ -1068,16 +952,13 @@ socket.on('send-message', async (data) => {
             isEncrypted: data.isEncrypted || false,
             quote: data.quote || null
         };
-
         let handledByPlugin = false;
         if (pluginManager) {
             handledByPlugin = await pluginManager.handleMessage(messageForPlugins, socket);
         }
-
         if (handledByPlugin) {
             return;
         }
-
         if (config.killCode && Array.isArray(config.killCode) && config.killCode.includes(data.text.trim())) {
             if (secureDeleter) {
                 await secureDeleter.deleteRoomFolder(user.room, io);
@@ -1091,7 +972,6 @@ socket.on('send-message', async (data) => {
                     console.log(translate(config.language, 'ROOM_FOLDER_DELETED', {room: user.room}));
                 }
             }
-
             const clearMessage = {
                 id: Date.now().toString(),
                 username: 'system',
@@ -1101,14 +981,12 @@ socket.on('send-message', async (data) => {
                 room: user.room,
                 isSystem: true
             };
-
             saveSystemMessageToFile(user.room, clearMessage);
             io.to(user.room).emit('clear-chat');
             io.to(user.room).emit('new-message', clearMessage);
             console.log(user.username + ' ' + translate(config.language, 'CLEARED_CHAT_AND_FILES', {room: user.room}));
             return;
         }
-
         if (config.killAllCode && Array.isArray(config.killAllCode) && config.killAllCode.includes(data.text.trim())) {
             console.log(user.username + ' ' + translate(config.language, 'ACTIVATED_KILLALL_COMMAND'));
             const killAllMessage = {
@@ -1121,7 +999,6 @@ socket.on('send-message', async (data) => {
                 isKillAll: true
             };
             saveSystemMessageToFile(user.room, killAllMessage);
-
             if (secureDeleter) {
                 await secureDeleter.deleteUploadsFolder(io);
             } else {
@@ -1136,7 +1013,6 @@ socket.on('send-message', async (data) => {
                     recursive: true
                 });
             }
-
             io.emit('killall-message', killAllMessage);
             setTimeout(() => {
                 console.log(translate(config.language, 'SERVER_SHUTDOWN'));
@@ -1144,7 +1020,6 @@ socket.on('send-message', async (data) => {
             }, 3000);
             return;
         }
-
         const message = {
             id: Date.now().toString(),
             username: user.username,
@@ -1161,7 +1036,6 @@ socket.on('send-message', async (data) => {
         io.to(user.room).emit('new-message', message);
     }
 });
-
     socket.on('send-file', (data, callback) => {
     const user = users.get(socket.id);
     if (!user) {
@@ -1170,30 +1044,20 @@ socket.on('send-message', async (data) => {
         });
         return;
     }
-
-
     let originalFileName = data.fileName;
     if (originalFileName.includes('file_') && originalFileName.includes('_nocache=')) {
-
         const parts = originalFileName.split('_');
         if (parts.length > 3) {
-
             originalFileName = parts.slice(3).join('_');
-
             originalFileName = originalFileName.split('?')[0];
         }
     }
-
-
     if (originalFileName.includes('_nocache=')) {
         originalFileName = originalFileName.split('_nocache=')[0];
-
         if (originalFileName.endsWith('?')) {
             originalFileName = originalFileName.slice(0, -1);
         }
     }
-
-
     if (data.fileData.length * 0.75 > config.maxFileSize) {
         const errorMsg = translate(config.language, 'FILES_TOO_BIG') + ' ' + (config.maxFileSize / (1024 * 1024)) + ' ' + translate(config.language, 'MB');
         if (callback) callback({
@@ -1211,20 +1075,15 @@ socket.on('send-message', async (data) => {
         socket.emit('new-message', errorMessage);
         return;
     }
-
-
     const fileExt = originalFileName.split('.').pop() || 'bin';
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substr(2, 9);
     const uniqueFileName = `${timestamp}-${randomStr}.${fileExt}`;
-
     const roomDir = path.join(uploadsDir, user.room);
     const userDir = path.join(roomDir, user.username);
     ensureDirectoryExistence(userDir);
-
     const filePath = path.join(userDir, uniqueFileName);
     const fileUrl = `/uploads/${user.room}/${user.username}/${uniqueFileName}`;
-
     fs.writeFile(filePath, data.fileData, 'base64', (err) => {
         if (err) {
             console.error(translate(config.language, 'ERROR_SAVING_FILE') + ':', err);
@@ -1243,13 +1102,10 @@ socket.on('send-message', async (data) => {
             socket.emit('new-message', errorMessage);
             return;
         }
-
         console.log(translate(config.language, 'FILE_SAVED') + ' ' + filePath);
-
         const isAudio = data.fileType.startsWith('audio/');
         const isVideo = data.fileType.startsWith('video/');
         let fileSizeDisplay, duration;
-
         if (isAudio || isVideo) {
             fileSizeDisplay = data.fileSize ? data.fileSize + ' ' + translate(config.language, 'KB') : '0 ' + translate(config.language, 'KB');
             duration = data.duration || 0;
@@ -1258,8 +1114,6 @@ socket.on('send-message', async (data) => {
             fileSizeDisplay = fileSizeMB + ' ' + translate(config.language, 'MB');
             duration = 0;
         }
-
-
         const message = {
             id: Date.now().toString(),
             username: user.username,
@@ -1275,11 +1129,9 @@ socket.on('send-message', async (data) => {
             isEncrypted: data.isEncrypted || false,
             room: user.room
         };
-
         if (saveMessageToFile(user.room, user.username, message)) {
             console.log(translate(config.language, 'FILE_MESSAGE_SAVED', {path: `${user.room}/${user.username}/${message.id}.xml`}));
         }
-
         saveFileMetadata(user.room, user.username, uniqueFileName, {
             fileName: originalFileName,
             fileType: data.fileType,
@@ -1288,15 +1140,12 @@ socket.on('send-message', async (data) => {
             duration: duration,
             isEncrypted: data.isEncrypted || false
         });
-
         io.to(user.room).emit('new-message', message);
-
         if (callback) callback({
             success: true
         });
     });
 });
-
     socket.on('send-audio', (data, callback) => {
         console.log(translate(config.language, 'AUDIO_MESSAGE_RECEIVED_FROM_USER') + ':', socket.id);
         const user = users.get(socket.id);
@@ -1355,7 +1204,6 @@ socket.on('send-message', async (data) => {
             });
         });
     });
-
     socket.on('webrtc-offer', (data) => {
         const user = users.get(socket.id);
         if (user) {
@@ -1373,7 +1221,6 @@ socket.on('send-message', async (data) => {
             }
         }
     });
-
     socket.on('webrtc-answer', (data) => {
         const user = users.get(socket.id);
         if (user) {
@@ -1389,7 +1236,6 @@ socket.on('send-message', async (data) => {
             }
         }
     });
-
     socket.on('webrtc-ice-candidate', (data) => {
         const user = users.get(socket.id);
         if (user) {
@@ -1405,7 +1251,6 @@ socket.on('send-message', async (data) => {
             }
         }
     });
-
     socket.on('webrtc-reject', (data) => {
         const user = users.get(socket.id);
         if (user) {
@@ -1421,7 +1266,6 @@ socket.on('send-message', async (data) => {
             }
         }
     });
-
     socket.on('webrtc-hangup', (data) => {
         const user = users.get(socket.id);
         if (user) {
@@ -1436,13 +1280,10 @@ socket.on('send-message', async (data) => {
             }
         }
     });
-
     socket.on('disconnect', (reason) => {
     const user = users.get(socket.id);
     if (user) {
-
         pluginManager.handleUserLeave(user);
-
         console.log(translate(config.language, 'USER_LEFT_ROOM', {username: user.username, room: user.room}));
         const leaveMessage = {
             id: Date.now().toString(),
@@ -1453,35 +1294,25 @@ socket.on('send-message', async (data) => {
             room: user.room,
             isSystem: true
         };
-
         saveSystemMessageToFile(user.room, leaveMessage);
         io.to(user.room).emit('new-message', leaveMessage);
-
         users.delete(socket.id);
         const roomUsers = Array.from(users.values()).filter(u => u.room === user.room);
         io.to(user.room).emit('users-list', roomUsers);
-
         console.log(user.username + ' ' + translate(config.language, 'USER_LEFT_ROOM').replace('вышел из комнаты', 'вышел из комнаты ' + user.room) + '. ' + translate(config.language, 'REASON') + ': ' + reason);
     }
 });
 });
-
 const getServerPort = () => {
     if (config.https && config.https.enabled) {
         return config.https.port || config.port;
     }
     return config.port;
 };
-
 const PORT = getServerPort();
-
-
 server.listen(PORT, () => {
     console.log('='.repeat(60));
-
     if (config.https && config.https.enabled) {
-
-
         if (config.https.key && config.https.cert) {
             console.log(translate(config.language, 'SSL_CERTIFICATES'));
             console.log(translate(config.language, 'SSL_KEY') + ' ' + config.https.key);
@@ -1493,19 +1324,13 @@ server.listen(PORT, () => {
     } else {
         console.log(translate(config.language, 'SERVER_START') + ' ' + PORT);
     }
-
     console.log(translate(config.language, 'MAX_FILE_SIZE') + ' ' + (config.maxFileSize / (1024 * 1024)) + ' ' + translate(config.language, 'MB'));
     console.log(translate(config.language, 'FILE_STORAGE_PATH') + ' ' + uploadsDir);
     console.log(translate(config.language, 'TURN_STATUS') + ' ' + (config.useTurnServers ? translate(config.language, 'TURN_ENABLED') : translate(config.language, 'TURN_DISABLED')));
-
     const iceServers = getIceServers();
     console.log(translate(config.language, 'ICE_SERVERS_COUNT') + ' ' + iceServers.length);
-
-
     if (config.https && config.https.enabled && config.https.redirectHttp) {
         const redirectPort = config.https.httpPort || 80;
-
-
         const httpServer = http.createServer((req, res) => {
             const host = req.headers.host.split(':')[0];
             const httpsUrl = `https://${host}:${PORT}${req.url}`;
@@ -1515,7 +1340,6 @@ server.listen(PORT, () => {
             });
             res.end();
         });
-
         httpServer.listen(redirectPort, () => {
             console.log(translate(config.language, 'HTTP_REDIRECT_ENABLED', {
                 from: redirectPort,
@@ -1523,36 +1347,27 @@ server.listen(PORT, () => {
             }));
         });
     }
-
     setTimeout(() => {
         cleanupOldBackupDirectories();
     }, 10000);
-    
     console.log('='.repeat(60));
 });
-
-// Функция для очистки старых директорий бэкапов
 function cleanupOldBackupDirectories() {
     const backupsDir = path.join(__dirname, 'backups');
-    
     if (!fs.existsSync(backupsDir)) {
         return;
     }
-    
     try {
         const items = fs.readdirSync(backupsDir, { withFileTypes: true });
         const now = Date.now();
         const maxAge = 24 * 60 * 60 * 1000; // 24 часа максимум
-        
         for (const item of items) {
             if (!item.isDirectory() || !item.name.startsWith('backup-')) {
                 continue;
             }
-            
             const dirPath = path.join(backupsDir, item.name);
             const stats = fs.statSync(dirPath);
             const dirAge = now - stats.mtimeMs;
-            
             if (dirAge > maxAge) {
                 console.log(`[Server] Removing very old backup directory: ${item.name} (age: ${Math.round(dirAge/3600000)}h)`);
                 fs.rmSync(dirPath, { recursive: true, force: true });
@@ -1562,7 +1377,6 @@ function cleanupOldBackupDirectories() {
         console.error('[Server] Error cleaning up old backup directories:', error);
     }
 }
-
 server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
         console.error(translate(config.language, 'PORT_BUSY') + ' ' + PORT + '!');
@@ -1572,7 +1386,6 @@ server.on('error', (error) => {
     }
     process.exit(1);
 });
-
 function saveSystemMessageToFile(room, message) {
     try {
         const roomDir = path.join(uploadsDir, room);

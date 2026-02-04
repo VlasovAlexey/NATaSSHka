@@ -15,7 +15,6 @@
 		this.checkMediaRecorderSupport();
 		this.initEventHandlers();
 	}
-
 	checkMediaRecorderSupport() {
 		if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
 			this.showError(window.t('ERROR_MEDIA_NOT_SUPPORTED'));
@@ -27,7 +26,6 @@
 		}
 		return true;
 	}
-
 	initEventHandlers() {
 		if (!this.recordButton) return;
 		this.recordButton.addEventListener('mousedown', (e) => {
@@ -56,19 +54,16 @@
 			e.preventDefault();
 		});
 	}
-
 	showPreparingModal() {
 		if (this.preparingModal) {
 			this.preparingModal.classList.remove('hidden');
 		}
 	}
-
 	hidePreparingModal() {
 		if (this.preparingModal) {
 			this.preparingModal.classList.add('hidden');
 		}
 	}
-
 	async requestMicrophoneAccess() {
 		try {
 			this.stream = await navigator.mediaDevices.getUserMedia({
@@ -86,7 +81,6 @@
 			return null;
 		}
 	}
-
 	async startRecording() {
 		if (this.isRecording) return;
 		if (!this.checkMediaRecorderSupport()) {
@@ -144,7 +138,6 @@
 			this.hidePreparingModal();
 		}
 	}
-
 	stopRecording() {
 		if (!this.isRecording || !this.mediaRecorder) return;
 		clearTimeout(this.recordingTimeout);
@@ -155,30 +148,24 @@
 		}
 		this.isRecording = false;
 	}
-
 	checkSocketConnection() {
 		return window.socket && window.socket.connected;
 	}
-
 	async sendAudioAsFile() {
     if (!this.audioBlob || this.audioBlob.size === 0) {
         this.showError(window.t('ERROR_AUDIO_RECORD'));
         return;
     }
-
     try {
-
         if (window.noCacheUploader && typeof window.noCacheUploader.uploadAudio === 'function') {
             await window.noCacheUploader.uploadAudio(this.audioBlob, this.recordDuration);
         } else {
-
             throw new Error('Uploader not available');
         }
     } catch (error) {
         this.showError(`${window.t('ERROR_SENDING_AUDIO')}: ${error.message}`);
     }
 	}
-
 	playAudioMessage(audioUrl, buttonElement) {
 		if (!buttonElement) return;
 		if (buttonElement.classList.contains('playing')) {
@@ -214,7 +201,6 @@
 			buttonElement.innerHTML = '';
 		});
 	}
-
 	showError(message) {
 		if (window.addSystemMessage) {
 			window.addSystemMessage(message);
@@ -224,23 +210,19 @@
 			alert(message);
 		}
 	}
-
 	showRecordingIndicator() {
 		if (this.recordingIndicator) {
 			this.recordingIndicator.classList.remove('hidden');
 			this.recordingIndicator.innerHTML = `<div class="recording-dot"></div>${window.t('RECORDING_AUDIO')}`;
 		}
 	}
-
 	hideRecordingIndicator() {
 		if (this.recordingIndicator) {
 			this.recordingIndicator.classList.add('hidden');
 		}
 	}
 }
-
 document.addEventListener('DOMContentLoaded', () => {
-
     setTimeout(() => {
         window.audioRecorder = new AudioRecorder();
         console.log('AudioRecorder initialized, uploader available:',
