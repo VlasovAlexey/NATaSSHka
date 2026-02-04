@@ -3,6 +3,6 @@
   "autoClearInterval": 1440,
   "excludedRooms": ["Room_05", "important", "pic"],
   "notifyOnClear": true,
-  "checkFrequency": 1,
+  "checkFrequency": 16,
   "deleteMessagesOlderThan": 30
 }
