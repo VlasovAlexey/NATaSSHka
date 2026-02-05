@@ -9,43 +9,68 @@
     android:layout_marginHorizontal="8dp"
     app:cardCornerRadius="7.5dp"
     app:cardElevation="1dp"
-    app:strokeWidth="0dp"
-    >
+    app:strokeWidth="0dp">
 
-    <LinearLayout
+    <RelativeLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
         android:padding="10dp"
         android:minWidth="200dp"
         android:maxWidth="300dp">
 
-        <TextView
-            android:id="@+id/messageUsername"
+        <!-- Кнопка удаления (крестик) -->
+        <ImageButton
+            android:id="@+id/deleteButton"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_close"
+            android:scaleType="fitCenter"
+            android:visibility="gone"
+            android:contentDescription="Удалить сообщение"
+            android:padding="2dp" />
+
+        <!-- Контейнер для содержимого сообщения -->
+        <LinearLayout
+            android:id="@+id/contentContainer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/dark_gray"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="4dp" />
+            android:orientation="vertical"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp"
+            android:layout_alignParentStart="true"
+            android:layout_below="@id/deleteButton">
 
-        <TextView
-            android:id="@+id/messageText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/black"
-            android:textSize="16sp"
-            android:lineSpacingExtra="2dp" />
+            <TextView
+                android:id="@+id/messageUsername"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/dark_gray"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
 
-        <TextView
-            android:id="@+id/messageTime"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:textColor="@color/gray"
-            android:textSize="12sp"
-            android:layout_marginTop="4dp" />
+            <TextView
+                android:id="@+id/messageText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/black"
+                android:textSize="16sp"
+                android:lineSpacingExtra="2dp" />
 
-    </LinearLayout>
+            <TextView
+                android:id="@+id/messageTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:textColor="@color/gray"
+                android:textSize="12sp"
+                android:layout_marginTop="4dp" />
+
+        </LinearLayout>
+
+    </RelativeLayout>
 
 </com.google.android.material.card.MaterialCardView>

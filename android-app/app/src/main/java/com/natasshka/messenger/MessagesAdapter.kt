@@ -1,47 +1,64 @@
 package com.natasshka.messenger
-
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.RecyclerView
 import com.natasshka.messenger.databinding.ItemFileMessageBinding
 import com.natasshka.messenger.databinding.ItemMessageBinding
-
 class MessagesAdapter(
     private val onFileClickListener: (FileMessage) -> Unit = {},
     private val onFileRetryClickListener: (FileMessage) -> Unit = {},
+    private val onDeleteMessageClickListener: (String) -> Unit = {},
     private val serverBaseUrl: String = "http://10.0.2.2:3000",
     private var encryptionKey: String = "",
-    private val context: android.content.Context // Добавляем контекст для LinkParser
+    private val context: android.content.Context
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-
     companion object {
         private const val VIEW_TYPE_MESSAGE = 1
         private const val VIEW_TYPE_FILE = 2
         private const val VIEW_TYPE_SYSTEM = 3
     }
-
     private val messages = mutableListOf<ChatMessage>()
-    private val linkParser = LinkParser(context) // Создаем парсер ссылок
-
+    private val linkParser = LinkParser(context)
     fun addMessage(message: ChatMessage) {
         messages.add(message)
         notifyItemInserted(messages.size - 1)
     }
-
+    val messagesList: List<ChatMessage>
+        get() = messages.toList()
+    fun getMessages(): List<ChatMessage> {
+        return messages.toList()
+    }
+    fun removeMessage(messageId: String): Boolean {
+        val position = messages.indexOfFirst { it.id == messageId }
+        if (position != -1) {
+            Log.d("MessagesAdapter", "Найдено сообщение для удаления: ID=$messageId, позиция=$position, текст=${messages[position].text}")
+            messages.removeAt(position)
+            notifyItemRemoved(position)
+            Log.d("MessagesAdapter", "✅ Сообщение удалено. Всего сообщений: ${messages.size}")
+            return true
+        }
+        Log.d("MessagesAdapter", "⚠️ Сообщение с ID $messageId не найдено. Всего сообщений: ${messages.size}")
+        for (i in messages.indices) {
+            val msg = messages[i]
+            if (msg.attachedFile?.id == messageId || msg.attachedFile?.messageId == messageId) {
+                Log.d("MessagesAdapter", "Найдено файловое сообщение для удаления: позиция=$i")
+                messages.removeAt(i)
+                notifyItemRemoved(i)
+                return true
+            }
+        }
+        return false
+    }
     fun clearMessages() {
         messages.clear()
         notifyDataSetChanged()
     }
-
     fun reDecryptMessages(newKey: String) {
         encryptionKey = newKey
-
         for (i in messages.indices) {
             val message = messages[i]
-
-            // Перешифровка текстовых сообщений
             if (message.isEncrypted) {
                 val newText = if (encryptionKey.isNotEmpty() && message.originalEncryptedText != null) {
                     try {
@@ -54,22 +71,17 @@ class MessagesAdapter(
                 } else {
                     message.text
                 }
-
                 val updatedMessage = message.copy(text = newText)
                 messages[i] = updatedMessage
                 notifyItemChanged(i)
             }
-
-            // Для файловых сообщений с изображениями, если изменился ключ, нужно перерисовать
             if (message.attachedFile != null &&
                 message.attachedFile.isEncrypted &&
                 message.attachedFile.fileCategory == FileManager.FileType.IMAGE) {
-
                 notifyItemChanged(i)
             }
         }
     }
-
     override fun getItemViewType(position: Int): Int {
         val message = messages[position]
         return when {
@@ -78,7 +90,6 @@ class MessagesAdapter(
             else -> VIEW_TYPE_MESSAGE
         }
     }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return when (viewType) {
             VIEW_TYPE_FILE -> {
@@ -91,6 +102,7 @@ class MessagesAdapter(
                     binding,
                     onFileClickListener,
                     onFileRetryClickListener,
+                    onDeleteMessageClickListener,
                     serverBaseUrl,
                     encryptionKey
                 )
@@ -109,95 +121,73 @@ class MessagesAdapter(
                     parent,
                     false
                 )
-                MessageViewHolder(binding)
+                MessageViewHolder(binding, onDeleteMessageClickListener)
             }
         }
     }
-
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val message = messages[position]
-
         when (holder) {
-            is MessageViewHolder -> holder.bind(message, linkParser) // Передаем linkParser
+            is MessageViewHolder -> holder.bind(message, linkParser)
             is FileMessageViewHolder -> {
-                // Обновляем ключ шифрования в ViewHolder
                 holder.updateEncryptionKey(encryptionKey)
                 message.attachedFile?.let { fileMessage ->
-                    holder.bind(fileMessage)
+                    holder.bind(fileMessage, message)
                 }
             }
-            is SystemMessageViewHolder -> holder.bind(message, linkParser) // Передаем linkParser
+            is SystemMessageViewHolder -> holder.bind(message, linkParser)
         }
     }
-
     override fun getItemCount(): Int = messages.size
-
     override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
         super.onViewRecycled(holder)
-
-        // Очищаем ресурсы при переиспользовании ViewHolder для изображений
         if (holder is FileMessageViewHolder) {
             holder.clear()
         }
     }
-
-    inner class MessageViewHolder(private val binding: ItemMessageBinding) :
-        RecyclerView.ViewHolder(binding.root) {
-
-        fun bind(message: ChatMessage, linkParser: LinkParser) { // Принимаем linkParser как параметр
+    fun findMessageById(messageId: String): ChatMessage? {
+        return messages.find { it.id == messageId }
+    }
+    fun getMessagePosition(messageId: String): Int {
+        return messages.indexOfFirst { it.id == messageId }
+    }
+    inner class MessageViewHolder(
+        private val binding: ItemMessageBinding,
+        private val onDeleteMessageClickListener: (String) -> Unit
+    ) : RecyclerView.ViewHolder(binding.root) {
+        fun bind(message: ChatMessage, linkParser: LinkParser) {
             with(binding) {
+                val canDelete = message.isMyMessage &&
+                        !message.isSystem &&
+                        message.canDelete &&
+                        !message.hasAttachment
+                deleteButton.visibility = if (canDelete) View.VISIBLE else View.GONE
+                deleteButton.setOnClickListener {
+                    if (canDelete) {
+                        onDeleteMessageClickListener(message.id)
+                    }
+                }
                 if (message.isMyMessage) {
                     messageCard.setCardBackgroundColor(
                         root.context.getColor(R.color.my_message)
                     )
                     messageUsername.text = "Вы"
                     messageUsername.visibility = View.VISIBLE
-
-                    val layoutParams = messageCard.layoutParams as? ViewGroup.MarginLayoutParams
-                    layoutParams?.let {
-                        it.marginStart = 80
-                        it.marginEnd = 8
-                        it.width = ViewGroup.LayoutParams.WRAP_CONTENT
-                    }
-                    val innerLayout = messageCard.getChildAt(0)
-                    if (innerLayout is ConstraintLayout) {
-                        val params = innerLayout.layoutParams as ConstraintLayout.LayoutParams
-                        params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
-                        params.startToStart = ConstraintLayout.LayoutParams.UNSET
-                        innerLayout.layoutParams = params
-                    }
-                    messageCard.requestLayout()
+                    contentContainer.setPadding(0, 0, 20, 0)
                 } else {
                     messageCard.setCardBackgroundColor(
                         root.context.getColor(R.color.other_message)
                     )
                     messageUsername.text = message.username
                     messageUsername.visibility = View.VISIBLE
-
-                    val layoutParams = messageCard.layoutParams as? ViewGroup.MarginLayoutParams
-                    layoutParams?.let {
-                        it.marginStart = 8
-                        it.marginEnd = 80
-                        it.width = ViewGroup.LayoutParams.WRAP_CONTENT
-                    }
-                    val innerLayout = messageCard.getChildAt(0)
-                    if (innerLayout is ConstraintLayout) {
-                        val params = innerLayout.layoutParams as ConstraintLayout.LayoutParams
-                        params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
-                        params.endToEnd = ConstraintLayout.LayoutParams.UNSET
-                        innerLayout.layoutParams = params
-                    }
-                    messageCard.requestLayout()
+                    contentContainer.setPadding(0, 0, 0, 0)
                 }
-
-                // Используем LinkParser для парсинга ссылок в тексте сообщения
                 linkParser.parseAndSetLinks(
                     messageText,
                     message.text,
                     message.isEncrypted
                 )
                 messageTime.text = message.timestamp
-
                 if (message.isEncrypted) {
                     if (message.text.contains("🔒") || message.text.contains("Неверный ключ")) {
                         messageText.setTextColor(
@@ -209,12 +199,10 @@ class MessagesAdapter(
                             root.context.getColor(R.color.dark_gray)
                         )
                         messageText.textSize = 16f
-
-                        // Даже для успешно расшифрованных сообщений применяем парсинг ссылок
                         linkParser.parseAndSetLinks(
                             messageText,
                             message.text,
-                            false // Указываем что текст уже расшифрован
+                            false
                         )
                     }
                 } else {
@@ -223,7 +211,6 @@ class MessagesAdapter(
                     )
                     messageText.textSize = 16f
                 }
-
                 if (message.isMyMessage) {
                     messageTime.gravity = android.view.Gravity.END
                 } else {
@@ -232,27 +219,16 @@ class MessagesAdapter(
             }
         }
     }
-
     inner class SystemMessageViewHolder(private val binding: ItemMessageBinding) :
         RecyclerView.ViewHolder(binding.root) {
-
-        fun bind(message: ChatMessage, linkParser: LinkParser) { // Принимаем linkParser как параметр
+        fun bind(message: ChatMessage, linkParser: LinkParser) {
             with(binding) {
+                deleteButton.visibility = View.GONE
                 messageCard.setCardBackgroundColor(
                     root.context.getColor(R.color.system_message)
                 )
                 messageUsername.text = "Система"
                 messageUsername.visibility = View.VISIBLE
-
-                val layoutParams = messageCard.layoutParams as? ViewGroup.MarginLayoutParams
-                layoutParams?.let {
-                    it.marginStart = 0
-                    it.marginEnd = 0
-                    it.width = ViewGroup.LayoutParams.MATCH_PARENT
-                }
-                messageCard.requestLayout()
-
-                // Для системных сообщений тоже парсим ссылки
                 linkParser.parseAndSetLinks(
                     messageText,
                     message.text,
@@ -265,12 +241,127 @@ class MessagesAdapter(
             }
         }
     }
-
-    // Метод для получения текста файлового сообщения (используется в MainActivity)
+    inner class FileMessageViewHolder(
+        private val binding: ItemFileMessageBinding,
+        private val onFileClickListener: (FileMessage) -> Unit,
+        private val onFileRetryClickListener: (FileMessage) -> Unit,
+        private val onDeleteMessageClickListener: (String) -> Unit,
+        private val serverBaseUrl: String,
+        private var encryptionKey: String
+    ) : RecyclerView.ViewHolder(binding.root) {
+        private var currentFileMessage: FileMessage? = null
+        private var currentMessageId: String? = null
+        fun bind(fileMessage: FileMessage, message: ChatMessage) {
+            currentFileMessage = fileMessage
+            currentMessageId = message.id
+            with(binding) {
+                val canDelete = message.isMyMessage &&
+                        !message.isSystem &&
+                        message.canDelete
+                deleteFileButton.visibility = if (canDelete) View.VISIBLE else View.GONE
+                deleteFileButton.setOnClickListener {
+                    if (canDelete && currentMessageId != null) {
+                        onDeleteMessageClickListener(currentMessageId!!)
+                    }
+                }
+                when (fileMessage.fileCategory) {
+                    FileManager.FileType.IMAGE -> {
+                        thumbnailImage.visibility = View.VISIBLE
+                        videoThumbnailContainer.visibility = View.GONE
+                    }
+                    FileManager.FileType.VIDEO -> {
+                        thumbnailImage.visibility = View.GONE
+                        videoThumbnailContainer.visibility = View.VISIBLE
+                    }
+                    else -> {
+                        thumbnailImage.visibility = View.GONE
+                        videoThumbnailContainer.visibility = View.GONE
+                    }
+                }
+                fileName.text = fileMessage.fileName
+                val fileSizeText = when {
+                    fileMessage.fileSize >= 1024 * 1024 -> {
+                        String.format("%.1f МБ", fileMessage.fileSize / (1024.0 * 1024.0))
+                    }
+                    fileMessage.fileSize >= 1024 -> {
+                        String.format("%.1f КБ", fileMessage.fileSize / 1024.0)
+                    }
+                    else -> {
+                        "${fileMessage.fileSize} Б"
+                    }
+                }
+                fileSize.text = fileSizeText
+                val fileManager = FileManager(root.context)
+                fileIcon.setImageResource(fileManager.getFileIcon(fileMessage.fileCategory))
+                rootLayout.setBackgroundColor(
+                    root.context.getColor(fileManager.getFileBackgroundColor(fileMessage.fileCategory))
+                )
+                if (fileMessage.duration > 0 &&
+                    (fileMessage.fileCategory == FileManager.FileType.AUDIO ||
+                            fileMessage.fileCategory == FileManager.FileType.VIDEO)) {
+                    val minutes = fileMessage.duration / 1000 / 60
+                    val seconds = (fileMessage.duration / 1000) % 60
+                    durationText.text = String.format("%02d:%02d", minutes, seconds)
+                    durationText.visibility = View.VISIBLE
+                } else {
+                    durationText.visibility = View.GONE
+                }
+                encryptionIndicator.visibility = if (fileMessage.isEncrypted) {
+                    View.VISIBLE
+                } else {
+                    View.GONE
+                }
+                statusText.text = when {
+                    fileMessage.localPath != null -> "✓ Сохранено"
+                    fileMessage.isDownloading -> "⏬ Скачивается..."
+                    fileMessage.isUploading -> "⏫ Загружается..."
+                    else -> "Нажмите для скачивания"
+                }
+                if (fileMessage.isUploading || fileMessage.isDownloading) {
+                    uploadProgress.visibility = View.VISIBLE
+                    uploadProgress.progress = fileMessage.uploadProgress
+                } else {
+                    uploadProgress.visibility = View.GONE
+                }
+                retryButton.visibility = if (fileMessage.localPath == null &&
+                    !fileMessage.isDownloading &&
+                    !fileMessage.isUploading) {
+                    View.VISIBLE
+                } else {
+                    View.GONE
+                }
+                rootLayout.setOnClickListener {
+                    currentFileMessage?.let { msg ->
+                        onFileClickListener(msg)
+                    }
+                }
+                retryButton.setOnClickListener {
+                    currentFileMessage?.let { msg ->
+                        onFileRetryClickListener(msg)
+                    }
+                }
+                videoPlayOverlay?.setOnClickListener {
+                    currentFileMessage?.let { msg ->
+                        onFileClickListener(msg)
+                    }
+                }
+            }
+        }
+        fun updateEncryptionKey(newKey: String) {
+            encryptionKey = newKey
+            currentFileMessage?.let {
+                binding.encryptionIndicator.visibility = if (it.isEncrypted) View.VISIBLE else View.GONE
+            }
+        }
+        fun clear() {
+            binding.thumbnailImage.setImageDrawable(null)
+            binding.videoThumbnail.setImageDrawable(null)
+            currentFileMessage = null
+            currentMessageId = null
+        }
+    }
     fun getFileMessageText(fileMessage: FileMessage): String {
-        // Форматируем имя файла
         val formattedName = formatFileName(fileMessage.fileName)
-
         return when (fileMessage.fileCategory) {
             FileManager.FileType.IMAGE -> "📷 Изображение: $formattedName"
             FileManager.FileType.VIDEO -> {
@@ -294,33 +385,21 @@ class MessagesAdapter(
             FileManager.FileType.DOCUMENT -> "📄 Файл: $formattedName"
         }
     }
-
-    // Метод для форматирования имени файла
     private fun formatFileName(fileName: String): String {
         val maxLength = 16
-
-        // Если имя файла с расширением короче 16 символов, показываем все
         if (fileName.length <= maxLength) {
             return fileName
         }
-
-        // Разделяем имя и расширение
         val lastDotIndex = fileName.lastIndexOf('.')
-
         return if (lastDotIndex != -1 && lastDotIndex > 0) {
-            // Есть расширение
             val name = fileName.substring(0, lastDotIndex)
             val extension = fileName.substring(lastDotIndex + 1)
-
-            // Если имя слишком длинное: первые 6 символов + ... + последние 2 символа + . + расширение
             if (name.length > 6) {
                 "${name.take(6)}...${name.takeLast(2)}.$extension"
             } else {
-                // Имя короткое, но с длинным расширением или общая длина больше 16
                 fileName
             }
         } else {
-            // Нет расширения
             if (fileName.length > maxLength) {
                 "${fileName.take(6)}...${fileName.takeLast(2)}"
             } else {
@@ -328,12 +407,10 @@ class MessagesAdapter(
             }
         }
     }
-
     fun updateFileLocalPath(fileId: String, localPath: String) {
         for (i in messages.indices) {
             val message = messages[i]
             if (message.attachedFile?.id == fileId) {
-                // Создаем обновленное сообщение с новым путем
                 val updatedFileMessage = message.attachedFile.copy(localPath = localPath)
                 val updatedMessage = message.copy(attachedFile = updatedFileMessage)
                 messages[i] = updatedMessage
@@ -342,8 +419,6 @@ class MessagesAdapter(
             }
         }
     }
-
-    // Метод для получения сообщения по индексу (опционально)
     fun getMessage(position: Int): ChatMessage {
         return messages[position]
     }

@@ -18,4 +18,4 @@ data class FileMessage(
     val uploadProgress: Int = 0,
     val isDownloading: Boolean = false,
     val isUploading: Boolean = false
-) : Serializable // Добавьте это
+) : Serializable

@@ -5,7 +5,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
@@ -18,7 +17,6 @@ import java.io.File
 import java.net.URL
 
 class FullscreenVideoActivity : AppCompatActivity() {
-
     private lateinit var binding: ActivityFullscreenVideoBinding
     private lateinit var fileManager: FileManager
     private lateinit var currentVideoUri: Uri
@@ -27,7 +25,6 @@ class FullscreenVideoActivity : AppCompatActivity() {
     private var fileName = ""
     private var fileData: String? = null
     private var tempVideoFile: File? = null
-
     companion object {
         const val EXTRA_VIDEO_PATH = "video_path"
         const val EXTRA_VIDEO_URL = "video_url"
@@ -37,37 +34,24 @@ class FullscreenVideoActivity : AppCompatActivity() {
         const val EXTRA_ENCRYPTION_KEY = "encryption_key"
         const val EXTRA_FILE_DATA = "file_data"
     }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Полноэкранный режим
         window.setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
             WindowManager.LayoutParams.FLAG_FULLSCREEN
         )
-
-        // Яркий интерфейс
         window.decorView.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
                         View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
                         View.SYSTEM_UI_FLAG_FULLSCREEN
                 )
-
         binding = ActivityFullscreenVideoBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
         fileManager = FileManager(this)
-
-        // Настраиваем UI
         setupUI()
-
-        // Получаем данные из интента и загружаем видео
         parseIntentDataAndLoad()
     }
-
     private fun setupUI() {
-        // Настраиваем обработчик ошибок видео
         binding.zoomableVideoView.onErrorCallback = { errorMessage ->
             runOnUiThread {
                 showToast("❌ $errorMessage")
@@ -77,28 +61,20 @@ class FullscreenVideoActivity : AppCompatActivity() {
                 }, 2000)
             }
         }
-
-        // Кнопка закрытия
         binding.closeButton.setOnClickListener {
             cleanupTempFiles()
             finish()
         }
-
-        // Кнопка сохранения
         binding.saveButton.setOnClickListener {
             saveVideoToStorage()
         }
-
-        // Показываем прогресс бар
         showLoading()
     }
-
     private fun parseIntentDataAndLoad() {
         fileName = intent.getStringExtra(EXTRA_FILE_NAME) ?: "video.webm"
         isEncrypted = intent.getBooleanExtra(EXTRA_IS_ENCRYPTED, false)
         encryptionKey = intent.getStringExtra(EXTRA_ENCRYPTION_KEY) ?: ""
         fileData = intent.getStringExtra(EXTRA_FILE_DATA)
-
         when {
             intent.hasExtra(EXTRA_VIDEO_PATH) -> {
                 val path = intent.getStringExtra(EXTRA_VIDEO_PATH)!!
@@ -123,10 +99,8 @@ class FullscreenVideoActivity : AppCompatActivity() {
             }
         }
     }
-
     private fun createTempVideoFile() {
         showLoading()
-
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val base64Data = fileData ?: intent.getStringExtra(EXTRA_VIDEO_BASE64) ?: ""
@@ -137,8 +111,6 @@ class FullscreenVideoActivity : AppCompatActivity() {
                     }
                     return@launch
                 }
-
-                // Дешифруем если нужно
                 val videoBytes = if (isEncrypted && encryptionKey.isNotEmpty()) {
                     try {
                         CryptoJSCompat.decryptFileCompatibleJS(base64Data, encryptionKey)
@@ -163,13 +135,9 @@ class FullscreenVideoActivity : AppCompatActivity() {
                         return@launch
                     }
                 }
-
-                // Создаем временный файл
                 tempVideoFile = File(cacheDir, "temp_video_${System.currentTimeMillis()}.webm")
                 tempVideoFile!!.outputStream().use { it.write(videoBytes) }
-
                 currentVideoUri = Uri.fromFile(tempVideoFile!!)
-
                 runOnUiThread {
                     hideLoading()
                     loadVideo()
@@ -184,26 +152,16 @@ class FullscreenVideoActivity : AppCompatActivity() {
             }
         }
     }
-
     private fun loadAndDecryptVideoFromUrl(url: String) {
         showLoading()
-
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                Log.d("FullscreenVideo", "Скачивание видео: $url")
-
-                // Скачиваем файл
                 val urlConnection = URL(url).openConnection()
                 urlConnection.connectTimeout = 10000
                 urlConnection.readTimeout = 10000
-
                 val inputStream = urlConnection.getInputStream()
                 val encryptedBytes = inputStream.readBytes()
                 val encryptedBase64 = android.util.Base64.encodeToString(encryptedBytes, android.util.Base64.NO_WRAP)
-
-                Log.d("FullscreenVideo", "Скачано: ${encryptedBytes.size} байт")
-
-                // Дешифруем если нужно
                 val decryptedBytes = if (isEncrypted && encryptionKey.isNotEmpty()) {
                     try {
                         CryptoJSCompat.decryptFileCompatibleJS(encryptedBase64, encryptionKey)
@@ -220,10 +178,6 @@ class FullscreenVideoActivity : AppCompatActivity() {
                 } else {
                     encryptedBytes
                 }
-
-                Log.d("FullscreenVideo", "Обработано: ${decryptedBytes.size} байт")
-
-                // Создаем временный файл
                 val extension = if (fileName.contains(".")) {
                     fileName.substringAfterLast(".")
                 } else {
@@ -231,9 +185,7 @@ class FullscreenVideoActivity : AppCompatActivity() {
                 }
                 tempVideoFile = File(cacheDir, "temp_video_${System.currentTimeMillis()}.$extension")
                 tempVideoFile!!.outputStream().use { it.write(decryptedBytes) }
-
                 currentVideoUri = Uri.fromFile(tempVideoFile!!)
-
                 runOnUiThread {
                     hideLoading()
                     loadVideo()
@@ -248,7 +200,6 @@ class FullscreenVideoActivity : AppCompatActivity() {
             }
         }
     }
-
     private fun loadVideo() {
         if (::currentVideoUri.isInitialized) {
             setupVideoPlayer()
@@ -257,28 +208,21 @@ class FullscreenVideoActivity : AppCompatActivity() {
             finish()
         }
     }
-
     private fun setupVideoPlayer() {
         binding.zoomableVideoView.isVisible = true
-
-        // Устанавливаем видео
         binding.zoomableVideoView.setVideoUri(currentVideoUri, isEncrypted, encryptionKey)
         binding.zoomableVideoView.setLooping(true)
-
-        // Автоматически начинаем воспроизведение после задержки
         Handler(Looper.getMainLooper()).postDelayed({
             binding.zoomableVideoView.play()
             hideLoading()
         }, 500)
     }
-
     private fun saveVideoToStorage() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 runOnUiThread {
                     showLoading()
                 }
-
                 val savedFile = if (fileData != null && fileData!!.isNotEmpty()) {
                     fileManager.saveToDownloads(
                         fileData!!,
@@ -304,13 +248,10 @@ class FullscreenVideoActivity : AppCompatActivity() {
                             contentResolver.openInputStream(currentVideoUri)?.readBytes() ?: byteArrayOf()
                         }
                     }
-
                     if (videoBytes.isEmpty()) {
                         throw Exception("Не удалось прочитать данные видео")
                     }
-
                     val base64Data = android.util.Base64.encodeToString(videoBytes, android.util.Base64.NO_WRAP)
-
                     fileManager.saveToDownloads(
                         base64Data,
                         fileName,
@@ -318,7 +259,6 @@ class FullscreenVideoActivity : AppCompatActivity() {
                         encryptionKey
                     )
                 }
-
                 runOnUiThread {
                     hideLoading()
                     showToast("✅ Видео сохранено: ${savedFile.name}")
@@ -332,58 +272,45 @@ class FullscreenVideoActivity : AppCompatActivity() {
             }
         }
     }
-
     private fun cleanupTempFiles() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 tempVideoFile?.let { file ->
                     if (file.exists()) {
-                        val deleted = file.delete()
-                        Log.d("FullscreenVideo", "Удален временный файл ${file.name}: $deleted")
+                        file.delete()
                     }
                 }
             } catch (e: Exception) {
-                Log.e("FullscreenVideo", "Ошибка очистки временных файлов: ${e.message}")
             }
         }
     }
-
     override fun onBackPressed() {
         cleanupTempFiles()
         super.onBackPressed()
     }
-
     override fun onPause() {
         super.onPause()
         binding.zoomableVideoView.pause()
     }
-
     override fun onResume() {
         super.onResume()
         binding.zoomableVideoView.play()
     }
-
     override fun onDestroy() {
         super.onDestroy()
-
         binding.zoomableVideoView.releaseMediaPlayer()
         cleanupTempFiles()
-
-        Log.d("FullscreenVideo", "Активность уничтожена, временные файлы очищены")
     }
-
     private fun showLoading() {
         runOnUiThread {
             binding.progressBar.isVisible = true
         }
     }
-
     private fun hideLoading() {
         runOnUiThread {
             binding.progressBar.isVisible = false
         }
     }
-
     private fun showToast(message: String) {
         runOnUiThread {
             android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
