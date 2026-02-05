@@ -12,7 +12,8 @@ class MessagesAdapter(
     private val onFileClickListener: (FileMessage) -> Unit = {},
     private val onFileRetryClickListener: (FileMessage) -> Unit = {},
     private val serverBaseUrl: String = "http://10.0.2.2:3000",
-    private var encryptionKey: String = "" // Добавляем поле для ключа шифрования
+    private var encryptionKey: String = "",
+    private val context: android.content.Context // Добавляем контекст для LinkParser
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -22,6 +23,7 @@ class MessagesAdapter(
     }
 
     private val messages = mutableListOf<ChatMessage>()
+    private val linkParser = LinkParser(context) // Создаем парсер ссылок
 
     fun addMessage(message: ChatMessage) {
         messages.add(message)
@@ -89,7 +91,7 @@ class MessagesAdapter(
                     binding,
                     onFileClickListener,
                     onFileRetryClickListener,
-                    serverBaseUrl, // Передаем serverBaseUrl
+                    serverBaseUrl,
                     encryptionKey
                 )
             }
@@ -116,7 +118,7 @@ class MessagesAdapter(
         val message = messages[position]
 
         when (holder) {
-            is MessageViewHolder -> holder.bind(message)
+            is MessageViewHolder -> holder.bind(message, linkParser) // Передаем linkParser
             is FileMessageViewHolder -> {
                 // Обновляем ключ шифрования в ViewHolder
                 holder.updateEncryptionKey(encryptionKey)
@@ -124,7 +126,7 @@ class MessagesAdapter(
                     holder.bind(fileMessage)
                 }
             }
-            is SystemMessageViewHolder -> holder.bind(message)
+            is SystemMessageViewHolder -> holder.bind(message, linkParser) // Передаем linkParser
         }
     }
 
@@ -142,7 +144,7 @@ class MessagesAdapter(
     inner class MessageViewHolder(private val binding: ItemMessageBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(message: ChatMessage) {
+        fun bind(message: ChatMessage, linkParser: LinkParser) { // Принимаем linkParser как параметр
             with(binding) {
                 if (message.isMyMessage) {
                     messageCard.setCardBackgroundColor(
@@ -188,11 +190,16 @@ class MessagesAdapter(
                     messageCard.requestLayout()
                 }
 
-                messageText.text = message.text
+                // Используем LinkParser для парсинга ссылок в тексте сообщения
+                linkParser.parseAndSetLinks(
+                    messageText,
+                    message.text,
+                    message.isEncrypted
+                )
                 messageTime.text = message.timestamp
 
                 if (message.isEncrypted) {
-                    if (message.text.contains("🔒")) {
+                    if (message.text.contains("🔒") || message.text.contains("Неверный ключ")) {
                         messageText.setTextColor(
                             root.context.getColor(android.R.color.holo_red_dark)
                         )
@@ -202,6 +209,13 @@ class MessagesAdapter(
                             root.context.getColor(R.color.dark_gray)
                         )
                         messageText.textSize = 16f
+
+                        // Даже для успешно расшифрованных сообщений применяем парсинг ссылок
+                        linkParser.parseAndSetLinks(
+                            messageText,
+                            message.text,
+                            false // Указываем что текст уже расшифрован
+                        )
                     }
                 } else {
                     messageText.setTextColor(
@@ -222,7 +236,7 @@ class MessagesAdapter(
     inner class SystemMessageViewHolder(private val binding: ItemMessageBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(message: ChatMessage) {
+        fun bind(message: ChatMessage, linkParser: LinkParser) { // Принимаем linkParser как параметр
             with(binding) {
                 messageCard.setCardBackgroundColor(
                     root.context.getColor(R.color.system_message)
@@ -238,7 +252,12 @@ class MessagesAdapter(
                 }
                 messageCard.requestLayout()
 
-                messageText.text = message.text
+                // Для системных сообщений тоже парсим ссылки
+                linkParser.parseAndSetLinks(
+                    messageText,
+                    message.text,
+                    false
+                )
                 messageTime.text = message.timestamp
                 messageText.setTextColor(root.context.getColor(R.color.black))
                 messageText.textSize = 14f

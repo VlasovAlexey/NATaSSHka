@@ -10,5 +10,6 @@ data class ChatMessage(
     val isEncrypted: Boolean = false,
     val originalEncryptedText: String? = null, // Для перешифровки
     val attachedFile: FileMessage? = null, // Прикрепленный файл
-    val hasAttachment: Boolean = false // Флаг наличия вложения
+    val hasAttachment: Boolean = false, // Флаг наличия вложения
+    val containsLinks: Boolean = false // Новое поле: содержит ли сообщение ссылки
 )

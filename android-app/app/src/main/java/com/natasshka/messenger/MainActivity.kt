@@ -41,6 +41,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Timer
 import java.util.TimerTask
+import android.content.ClipData
+import android.content.ClipboardManager
 
 import com.natasshka.messenger.FullscreenVideoActivity
 import android.content.ActivityNotFoundException
@@ -149,6 +151,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private lateinit var clipboardManager: ClipboardManager
+    private lateinit var linkParser: LinkParser
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -177,6 +182,9 @@ class MainActivity : AppCompatActivity() {
         currentRoom = room
         pendingLoginData = Triple(username, room, password)
 
+        clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        linkParser = LinkParser(this)
+
         setupUI()
         setupFileHandling()
         setupEncryptionKeyHandler()
@@ -187,6 +195,27 @@ class MainActivity : AppCompatActivity() {
         requestPermissions()
     }
 
+    private fun checkClipboardForLinks(text: String): String {
+        // Проверяем, есть ли текст в буфере обмена
+        if (clipboardManager.hasPrimaryClip()) {
+            val clipData: ClipData? = clipboardManager.primaryClip
+            if (clipData != null && clipData.itemCount > 0) {
+                val clipboardText = clipData.getItemAt(0).text?.toString() ?: ""
+
+                // Проверяем, содержит ли текст из буфера обмена ссылки
+                if (linkParser.containsLinks(clipboardText)) {
+                    // Можно добавить логику обработки здесь
+                    Log.d("MainActivity", "Буфер обмена содержит ссылки: $clipboardText")
+
+                    // Пример: если отправляемое сообщение пустое, можно предложить вставить из буфера
+                    if (text.isEmpty()) {
+                        return clipboardText
+                    }
+                }
+            }
+        }
+        return text
+    }
     private fun setupFileHandling() {
         binding.attachFileBtn.setOnClickListener {
             openFilePicker()
@@ -1279,7 +1308,8 @@ class MainActivity : AppCompatActivity() {
             onFileRetryClickListener = { fileMessage ->
                 downloadFile(fileMessage)
             },
-            serverBaseUrl = serverUrl // Передаем реальный URL сервера
+            serverBaseUrl = serverUrl,
+            context = this // Добавляем контекст
         )
         binding.messagesRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -2163,7 +2193,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sendMessage() {
-        val text = binding.messageInput.text.toString().trim()
+        var text = binding.messageInput.text.toString().trim()
+
+        // Проверяем буфер обмена на наличие ссылок
+        text = checkClipboardForLinks(text)
+
         if (text.isEmpty()) {
             Toast.makeText(this, "Введите сообщение", Toast.LENGTH_SHORT).show()
             return
@@ -2192,6 +2226,12 @@ class MainActivity : AppCompatActivity() {
         hideKeyboard()
 
         scrollToBottom()
+    }
+
+    private fun parseReceivedMessage(text: String, isEncrypted: Boolean): String {
+        // Текст уже будет обработан LinkParser'ом в адаптере
+        // Этот метод можно использовать для предварительной обработки
+        return text
     }
 
     private fun handleBackgroundMessage(message: JSONObject) {
@@ -2472,6 +2512,13 @@ class MainActivity : AppCompatActivity() {
                 text
             }
 
+            // Проверяем, содержит ли текст ссылки (только если он успешно расшифрован)
+            val containsLinks = if (!displayText.contains("🔒") && !displayText.contains("Неверный ключ")) {
+                linkParser.containsLinks(displayText)
+            } else {
+                false
+            }
+
             val chatMessage = ChatMessage(
                 id = message.optString("id", System.currentTimeMillis().toString()),
                 username = username,
@@ -2482,7 +2529,8 @@ class MainActivity : AppCompatActivity() {
                 isEncrypted = isEncrypted,
                 originalEncryptedText = if (isEncrypted) text else null,
                 attachedFile = null,
-                hasAttachment = false
+                hasAttachment = false,
+                containsLinks = containsLinks // Сохраняем информацию о ссылках
             )
 
             messagesAdapter.addMessage(chatMessage)
@@ -2490,9 +2538,6 @@ class MainActivity : AppCompatActivity() {
 
         } catch (e: Exception) {
             Log.e("MainActivity", "Error parsing message: ${e.message}")
-            Log.e("MainActivity", "Error parsing message: ${e.message}")
-            Log.e("MainActivity", "Message JSON: ${message.toString()}")
-            e.printStackTrace()
         }
     }
 
