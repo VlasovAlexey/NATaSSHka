@@ -49,7 +49,6 @@ dependencies {
     // Для работы с изображениями
     implementation("com.github.bumptech.glide:glide:4.16.0")
 
-
     // Для работы с видео
     implementation("com.google.android.exoplayer:exoplayer:2.18.7")
 
@@ -99,4 +98,9 @@ dependencies {
     implementation("com.github.chrisbanes.photoview:library:1.2.4")
 
     implementation("androidx.core:core-animation:1.0.0")
+
+    // Lifecycle для отслеживания состояния приложения
+    implementation("androidx.lifecycle:lifecycle-process:2.6.2")
+    implementation("androidx.lifecycle:lifecycle-common-java8:2.6.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
 }

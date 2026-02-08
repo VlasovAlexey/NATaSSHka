@@ -1,10 +1,12 @@
 package com.natasshka.messenger
 
 import android.content.Intent
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
@@ -223,42 +225,25 @@ class FullscreenVideoActivity : AppCompatActivity() {
                 runOnUiThread {
                     showLoading()
                 }
-                val savedFile = if (fileData != null && fileData!!.isNotEmpty()) {
-                    fileManager.saveToDownloads(
-                        fileData!!,
-                        fileName,
-                        isEncrypted,
-                        encryptionKey
-                    )
+
+                // Получаем видео данные из tempVideoFile (который уже был создан при проигрывании)
+                val videoBytes = if (tempVideoFile != null && tempVideoFile!!.exists()) {
+                    // Используем уже созданный и расшифрованный временный файл
+                    tempVideoFile!!.readBytes()
+                } else if (currentVideoUri.scheme == "file") {
+                    File(currentVideoUri.path).readBytes()
                 } else {
-                    val videoBytes = when {
-                        currentVideoUri.scheme == "http" || currentVideoUri.scheme == "https" -> {
-                            val url = URL(currentVideoUri.toString())
-                            val connection = url.openConnection()
-                            connection.connect()
-                            connection.getInputStream().readBytes()
-                        }
-                        currentVideoUri.scheme == "content" -> {
-                            contentResolver.openInputStream(currentVideoUri)?.readBytes() ?: byteArrayOf()
-                        }
-                        currentVideoUri.scheme == "file" -> {
-                            File(currentVideoUri.path).readBytes()
-                        }
-                        else -> {
-                            contentResolver.openInputStream(currentVideoUri)?.readBytes() ?: byteArrayOf()
-                        }
-                    }
-                    if (videoBytes.isEmpty()) {
-                        throw Exception("Не удалось прочитать данные видео")
-                    }
-                    val base64Data = android.util.Base64.encodeToString(videoBytes, android.util.Base64.NO_WRAP)
-                    fileManager.saveToDownloads(
-                        base64Data,
-                        fileName,
-                        isEncrypted,
-                        encryptionKey
-                    )
+                    // Скачиваем заново
+                    contentResolver.openInputStream(currentVideoUri)?.readBytes() ?: byteArrayOf()
                 }
+
+                if (videoBytes.isEmpty()) {
+                    throw Exception("Не удалось прочитать данные видео")
+                }
+
+                // Сохраняем файл (уже расшифрованный)
+                val savedFile = saveVideoBytesToFile(videoBytes, fileName)
+
                 runOnUiThread {
                     hideLoading()
                     showToast("✅ Видео сохранено: ${savedFile.name}")
@@ -272,6 +257,52 @@ class FullscreenVideoActivity : AppCompatActivity() {
             }
         }
     }
+
+    /**
+     * Сохраняет байты видео в файл (уже расшифрованные)
+     */
+    private fun saveVideoBytesToFile(videoBytes: ByteArray, fileName: String): File {
+        val fileManager = FileManager(this)
+        val downloadsDir = fileManager.getDownloadsPath()
+
+        val extension = if (fileName.contains(".")) {
+            fileName.substringAfterLast(".")
+        } else {
+            "mp4"
+        }
+
+        val cleanFileName = if (fileName.contains(".")) {
+            fileName
+        } else {
+            "$fileName.$extension"
+        }
+
+        var outputFile = File(downloadsDir, cleanFileName)
+        var counter = 1
+        while (outputFile.exists()) {
+            val nameWithoutExt = cleanFileName.substringBeforeLast(".")
+            val ext = cleanFileName.substringAfterLast(".", "mp4")
+            outputFile = File(downloadsDir, "${nameWithoutExt}_$counter.$ext")
+            counter++
+        }
+
+        outputFile.outputStream().use { output ->
+            output.write(videoBytes)
+            output.flush()
+        }
+
+        // Сканируем файл для отображения в галерее
+        MediaScannerConnection.scanFile(
+            this,
+            arrayOf(outputFile.absolutePath),
+            null,
+            null
+        )
+
+        return outputFile
+    }
+
+
     private fun cleanupTempFiles() {
         CoroutineScope(Dispatchers.IO).launch {
             try {

@@ -48,6 +48,10 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.core.app.ActivityCompat
 import java.net.URL
+
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleObserver
+import androidx.lifecycle.OnLifecycleEvent
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var messagesAdapter: MessagesAdapter
@@ -138,6 +142,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var linkParser: LinkParser
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setupSocketListeners()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -169,7 +174,110 @@ class MainActivity : AppCompatActivity() {
         setupBackgroundMonitoring()
         checkBatteryOptimization()
         requestPermissions()
+        setupDataCleanup()
     }
+
+    private fun setupDataCleanup() {
+        // Очистка при запуске
+        cleanupOldTempData()
+
+        // Мониторинг жизненного цикла через простой LifecycleObserver
+        lifecycle.addObserver(object : LifecycleObserver {
+            @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+            fun onDestroy() {
+                cleanupTempData()
+            }
+
+            @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
+            fun onStop() {
+                // Частичная очистка при уходе в фон
+                cleanupPartialTempData()
+            }
+        })
+    }
+
+    private fun cleanupOldTempData() {
+        // Удаление старых временных файлов (старше 24 часов)
+        Thread {
+            try {
+                val cacheDir = cacheDir
+                cacheDir.listFiles()?.forEach { file ->
+                    if (System.currentTimeMillis() - file.lastModified() > 24 * 3600000) {
+                        file.deleteRecursively()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error cleaning old temp data", e)
+            }
+        }.start()
+    }
+
+    // В onDestroy:
+    override fun onDestroy() {
+        super.onDestroy()
+        // Гарантированная очистка
+        cleanupTempData()
+
+        // Остановить мониторинг кэша
+        CacheMonitor.stopMonitoring()
+        // Форсированная очистка кэша
+        CacheMonitor.forceCleanup()
+
+        // Очистка временных файлов записей
+        audioRecorder.cleanup()
+        videoRecorder.cleanup()
+        fileManager.cleanupTempFiles()
+
+        Log.d("MainActivity", "Temporary data cleaned up")
+    }
+
+    private fun cleanupTempData() {
+        Thread {
+            // Очистка временных файлов
+            try {
+                val cacheDir = cacheDir
+                cacheDir.listFiles()?.forEach { file ->
+                    if (file.name.startsWith("temp_") ||
+                        file.name.startsWith("VID_") ||
+                        file.name.startsWith("audio_message_")) {
+                        file.deleteRecursively()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error cleaning temp data", e)
+            }
+
+            // Очистка кэша Glide (в главном потоке)
+            Handler(Looper.getMainLooper()).post {
+                try {
+                    // Используем рефлексию для доступа к Glide если нет прямой зависимости
+                    val glideClass = Class.forName("com.bumptech.glide.Glide")
+                    val getMethod = glideClass.getMethod("get", Context::class.java)
+                    val glideInstance = getMethod.invoke(null, this@MainActivity)
+                    val clearMemoryMethod = glideClass.getMethod("clearMemory")
+                    clearMemoryMethod.invoke(glideInstance)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error clearing Glide cache", e)
+                }
+            }
+        }.start()
+    }
+
+    private fun cleanupPartialTempData() {
+        // Быстрая очистка только памяти
+        Handler(Looper.getMainLooper()).post {
+            try {
+                val glideClass = Class.forName("com.bumptech.glide.Glide")
+                val getMethod = glideClass.getMethod("get", Context::class.java)
+                val glideInstance = getMethod.invoke(null, this@MainActivity)
+                val clearMemoryMethod = glideClass.getMethod("clearMemory")
+                clearMemoryMethod.invoke(glideInstance)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error clearing Glide memory cache", e)
+            }
+        }
+    }
+
     private fun checkClipboardForLinks(text: String): String {
         if (clipboardManager.hasPrimaryClip()) {
             val clipData: ClipData? = clipboardManager.primaryClip
@@ -1576,6 +1684,10 @@ class MainActivity : AppCompatActivity() {
             if (hasFile || hasFileData || hasFileName) {
                 Log.d("MainActivity", "Это файловое сообщение")
                 val fileMessage = parseFileMessageFromServer(message)
+                // Убедитесь, что fileCategory определяется правильно
+                Log.d("MainActivity", "File category: ${fileMessage.fileCategory}")
+                Log.d("MainActivity", "File type: ${fileMessage.fileType}")
+                Log.d("MainActivity", "File name: ${fileMessage.fileName}")
                 val chatMessage = ChatMessage(
                     id = message.optString("id", System.currentTimeMillis().toString()),
                     username = username,
@@ -2253,21 +2365,5 @@ class MainActivity : AppCompatActivity() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(binding.messageInput.windowToken, 0)
         binding.messageInput.clearFocus()
-    }
-    override fun onDestroy() {
-        super.onDestroy()
-        debounceTimer?.cancel()
-        try {
-            unregisterReceiver(serviceStatusReceiver)
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error unregistering receiver: ${e.message}")
-        }
-        socket?.disconnect()
-        socket?.off()
-        fileManager.cleanupTempFiles()
-        audioRecorder.stopNativeRecording()
-        if (isFinishing) {
-            ChatForegroundService.stopService(this)
-        }
     }
 }

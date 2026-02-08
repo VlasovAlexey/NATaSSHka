@@ -79,4 +79,14 @@ class VideoRecorder(private val activity: Activity) {
         }
         return null
     }
+
+    fun cleanup() {
+        currentVideoUri?.path?.let { path ->
+            val file = File(path)
+            if (file.exists()) {
+                file.delete()
+            }
+        }
+        currentVideoUri = null
+    }
 }

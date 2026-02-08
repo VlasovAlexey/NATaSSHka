@@ -1,11 +1,18 @@
 package com.natasshka.messenger
+import android.media.MediaMetadataRetriever
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.natasshka.messenger.databinding.ItemFileMessageBinding
 import com.natasshka.messenger.databinding.ItemMessageBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+
 class MessagesAdapter(
     private val onFileClickListener: (FileMessage) -> Unit = {},
     private val onFileRetryClickListener: (FileMessage) -> Unit = {},
@@ -130,7 +137,6 @@ class MessagesAdapter(
         when (holder) {
             is MessageViewHolder -> holder.bind(message, linkParser)
             is FileMessageViewHolder -> {
-                holder.updateEncryptionKey(encryptionKey)
                 message.attachedFile?.let { fileMessage ->
                     holder.bind(fileMessage, message)
                 }
@@ -249,22 +255,54 @@ class MessagesAdapter(
         private val serverBaseUrl: String,
         private var encryptionKey: String
     ) : RecyclerView.ViewHolder(binding.root) {
+
         private var currentFileMessage: FileMessage? = null
         private var currentMessageId: String? = null
+
+        init {
+            binding.rootLayout.setOnClickListener {
+                currentFileMessage?.let { fileMessage ->
+                    onFileClickListener(fileMessage)
+                }
+            }
+
+            binding.videoPlayOverlay?.setOnClickListener {
+                currentFileMessage?.let { fileMessage ->
+                    onFileClickListener(fileMessage)
+                }
+            }
+
+            // УДАЛЕНО: обработчик кнопки Повторить
+            // binding.retryButton.setOnClickListener {
+            //     currentFileMessage?.let { fileMessage ->
+            //         onFileRetryClickListener(fileMessage)
+            //     }
+            // }
+
+            binding.deleteFileButton.setOnClickListener {
+                currentMessageId?.let { messageId ->
+                    onDeleteMessageClickListener(messageId)
+                }
+            }
+        }
+
         fun bind(fileMessage: FileMessage, message: ChatMessage) {
             currentFileMessage = fileMessage
             currentMessageId = message.id
+
             with(binding) {
                 val canDelete = message.isMyMessage &&
                         !message.isSystem &&
                         message.canDelete
+
                 deleteFileButton.visibility = if (canDelete) View.VISIBLE else View.GONE
-                deleteFileButton.setOnClickListener {
-                    if (canDelete && currentMessageId != null) {
-                        onDeleteMessageClickListener(currentMessageId!!)
-                    }
-                }
-                when (fileMessage.fileCategory) {
+
+                // Определяем тип файла
+                val fileManager = FileManager(root.context)
+                val fileType = fileMessage.fileCategory
+
+                // Настраиваем отображение в зависимости от типа файла
+                when (fileType) {
                     FileManager.FileType.IMAGE -> {
                         thumbnailImage.visibility = View.VISIBLE
                         videoThumbnailContainer.visibility = View.GONE
@@ -272,33 +310,30 @@ class MessagesAdapter(
                     FileManager.FileType.VIDEO -> {
                         thumbnailImage.visibility = View.GONE
                         videoThumbnailContainer.visibility = View.VISIBLE
+                        videoPlayOverlay?.visibility = View.VISIBLE
                     }
                     else -> {
                         thumbnailImage.visibility = View.GONE
                         videoThumbnailContainer.visibility = View.GONE
                     }
                 }
-                fileName.text = fileMessage.fileName
-                val fileSizeText = when {
-                    fileMessage.fileSize >= 1024 * 1024 -> {
-                        String.format("%.1f МБ", fileMessage.fileSize / (1024.0 * 1024.0))
-                    }
-                    fileMessage.fileSize >= 1024 -> {
-                        String.format("%.1f КБ", fileMessage.fileSize / 1024.0)
-                    }
-                    else -> {
-                        "${fileMessage.fileSize} Б"
-                    }
-                }
-                fileSize.text = fileSizeText
-                val fileManager = FileManager(root.context)
-                fileIcon.setImageResource(fileManager.getFileIcon(fileMessage.fileCategory))
-                rootLayout.setBackgroundColor(
-                    root.context.getColor(fileManager.getFileBackgroundColor(fileMessage.fileCategory))
-                )
+
+                // Форматируем имя файла
+                fileName.text = formatFileName(fileMessage.fileName)
+
+                // Форматируем размер файла
+                fileSize.text = formatFileSize(fileMessage.fileSize)
+
+                // Устанавливаем иконку типа файла
+                fileIcon.setImageResource(fileManager.getFileIcon(fileType))
+
+                // Устанавливаем цвет фона
+                val backgroundColor = fileManager.getFileBackgroundColor(fileType)
+                rootLayout.setBackgroundColor(root.context.getColor(backgroundColor))
+
+                // Отображаем длительность для видео и аудио
                 if (fileMessage.duration > 0 &&
-                    (fileMessage.fileCategory == FileManager.FileType.AUDIO ||
-                            fileMessage.fileCategory == FileManager.FileType.VIDEO)) {
+                    (fileType == FileManager.FileType.VIDEO || fileType == FileManager.FileType.AUDIO)) {
                     val minutes = fileMessage.duration / 1000 / 60
                     val seconds = (fileMessage.duration / 1000) % 60
                     durationText.text = String.format("%02d:%02d", minutes, seconds)
@@ -306,58 +341,262 @@ class MessagesAdapter(
                 } else {
                     durationText.visibility = View.GONE
                 }
-                encryptionIndicator.visibility = if (fileMessage.isEncrypted) {
-                    View.VISIBLE
-                } else {
-                    View.GONE
-                }
+
+                // Показываем индикатор шифрования
+                encryptionIndicator.visibility = if (fileMessage.isEncrypted) View.VISIBLE else View.GONE
+
+                // ОБНОВЛЕНО: Упрощенный статус файла без "Нажмите для скачивания"
                 statusText.text = when {
-                    fileMessage.localPath != null -> "✓ Сохранено"
                     fileMessage.isDownloading -> "⏬ Скачивается..."
-                    fileMessage.isUploading -> "⏫ Загружается..."
-                    else -> "Нажмите для скачивания"
+                    fileMessage.isUploading -> "⏫ Отправляется..."
+                    fileMessage.localPath != null -> "✓ Сохранено"
+                    fileMessage.fileData != null -> "✓ Доступно"
+                    fileMessage.fileUrl != null -> "" // УДАЛЕНО: "Нажмите для скачивания"
+                    else -> "" // УДАЛЕНО: "Недоступно"
                 }
-                if (fileMessage.isUploading || fileMessage.isDownloading) {
+
+                // Скрываем статус, если он пустой
+                statusText.visibility = if (statusText.text.isNotEmpty()) View.VISIBLE else View.GONE
+
+                // Показываем прогресс загрузки/скачивания
+                if (fileMessage.isDownloading || fileMessage.isUploading) {
                     uploadProgress.visibility = View.VISIBLE
                     uploadProgress.progress = fileMessage.uploadProgress
                 } else {
                     uploadProgress.visibility = View.GONE
                 }
-                retryButton.visibility = if (fileMessage.localPath == null &&
-                    !fileMessage.isDownloading &&
-                    !fileMessage.isUploading) {
-                    View.VISIBLE
-                } else {
-                    View.GONE
-                }
-                rootLayout.setOnClickListener {
-                    currentFileMessage?.let { msg ->
-                        onFileClickListener(msg)
+
+                // УДАЛЕНО: Показываем кнопку повтора если файл не скачан
+                // retryButton.visibility = if (fileMessage.localPath == null &&
+                //     !fileMessage.isDownloading &&
+                //     !fileMessage.isUploading &&
+                //     (fileMessage.fileData != null || fileMessage.fileUrl != null)) {
+                //     View.VISIBLE
+                // } else {
+                //     View.GONE
+                // }
+
+                // Скрываем кнопку Повторить полностью
+                retryButton.visibility = View.GONE
+
+                // Загружаем миниатюру в зависимости от типа файла
+                when (fileType) {
+                    FileManager.FileType.IMAGE -> {
+                        loadImageThumbnail(fileMessage)
                     }
-                }
-                retryButton.setOnClickListener {
-                    currentFileMessage?.let { msg ->
-                        onFileRetryClickListener(msg)
+                    FileManager.FileType.VIDEO -> {
+                        loadVideoThumbnail(fileMessage)
                     }
-                }
-                videoPlayOverlay?.setOnClickListener {
-                    currentFileMessage?.let { msg ->
-                        onFileClickListener(msg)
+                    else -> {
+                        // Для аудио и документов не показываем миниатюру
                     }
                 }
             }
         }
+
+        private fun loadImageThumbnail(fileMessage: FileMessage) {
+            try {
+                // 1. Пробуем загрузить из локального пути
+                fileMessage.localPath?.let { localPath ->
+                    val file = File(localPath)
+                    if (file.exists()) {
+                        Glide.with(binding.root.context)
+                            .load(file)
+                            .apply(GlideCacheManager.getNoCacheOptions())
+                            .override(150, 150)
+                            .centerCrop()
+                            .into(binding.thumbnailImage)
+                        return
+                    }
+                }
+
+                // 2. Пробуем загрузить из fileData (Base64)
+                fileMessage.fileData?.let { fileData ->
+                    if (fileData.isNotEmpty()) {
+                        try {
+                            val imageBytes = if (fileMessage.isEncrypted && encryptionKey.isNotEmpty()) {
+                                CryptoJSCompat.decryptFileCompatibleJS(fileData, encryptionKey)
+                            } else {
+                                android.util.Base64.decode(fileData, android.util.Base64.DEFAULT)
+                            }
+
+                            Glide.with(binding.root.context)
+                                .load(imageBytes)
+                                .apply(GlideCacheManager.getNoCacheOptions())
+                                .override(150, 150)
+                                .centerCrop()
+                                .into(binding.thumbnailImage)
+                            return
+                        } catch (e: Exception) {
+                            // Если не удалось декодировать как Base64
+                        }
+                    }
+                }
+
+                // 3. Пробуем загрузить по URL
+                fileMessage.fileUrl?.let { fileUrl ->
+                    val fullUrl = if (fileUrl.startsWith("http")) {
+                        fileUrl
+                    } else {
+                        if (fileUrl.startsWith("/")) {
+                            "$serverBaseUrl$fileUrl"
+                        } else {
+                            "$serverBaseUrl/$fileUrl"
+                        }
+                    }
+
+                    Glide.with(binding.root.context)
+                        .load(fullUrl)
+                        .apply(GlideCacheManager.getNoCacheOptions())
+                        .override(150, 150)
+                        .centerCrop()
+                        .into(binding.thumbnailImage)
+                    return
+                }
+
+                // 4. Если ничего не сработало, показываем иконку
+                binding.thumbnailImage.setImageResource(R.drawable.ic_image)
+
+            } catch (e: Exception) {
+                binding.thumbnailImage.setImageResource(R.drawable.ic_image)
+            }
+        }
+
+        private fun loadVideoThumbnail(fileMessage: FileMessage) {
+            try {
+                // Сначала показываем placeholder
+                binding.videoThumbnail.setImageResource(R.drawable.ic_video)
+
+                // Загружаем миниатюру в фоне с использованием Thread вместо CoroutineScope
+                Thread {
+                    try {
+                        val thumbnail = extractVideoThumbnail(fileMessage)
+
+                        // Используем Handler для обновления UI из фонового потока
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            if (thumbnail != null) {
+                                binding.videoThumbnail.setImageBitmap(thumbnail)
+                            } else {
+                                binding.videoThumbnail.setImageResource(R.drawable.ic_video)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            binding.videoThumbnail.setImageResource(R.drawable.ic_video)
+                        }
+                    }
+                }.start()
+            } catch (e: Exception) {
+                binding.videoThumbnail.setImageResource(R.drawable.ic_video)
+            }
+        }
+
+        private fun extractVideoThumbnail(fileMessage: FileMessage): android.graphics.Bitmap? {
+            return try {
+                val retriever = MediaMetadataRetriever()
+
+                when {
+                    fileMessage.localPath != null -> {
+                        val file = File(fileMessage.localPath!!)
+                        if (file.exists()) {
+                            retriever.setDataSource(file.absolutePath)
+                        } else {
+                            return null
+                        }
+                    }
+
+                    fileMessage.fileData != null -> {
+                        val videoBytes = if (fileMessage.isEncrypted && encryptionKey.isNotEmpty()) {
+                            CryptoJSCompat.decryptFileCompatibleJS(fileMessage.fileData!!, encryptionKey)
+                        } else {
+                            android.util.Base64.decode(fileMessage.fileData!!, android.util.Base64.DEFAULT)
+                        }
+
+                        val tempFile = File(binding.root.context.cacheDir,
+                            "temp_thumb_${System.currentTimeMillis()}.webm")
+                        tempFile.outputStream().use { it.write(videoBytes) }
+                        retriever.setDataSource(tempFile.absolutePath)
+                        tempFile.delete()
+                    }
+
+                    fileMessage.fileUrl != null -> {
+                        val fullUrl = if (fileMessage.fileUrl!!.startsWith("http")) {
+                            fileMessage.fileUrl
+                        } else {
+                            if (fileMessage.fileUrl!!.startsWith("/")) {
+                                "$serverBaseUrl${fileMessage.fileUrl}"
+                            } else {
+                                "$serverBaseUrl/${fileMessage.fileUrl}"
+                            }
+                        }
+                        retriever.setDataSource(fullUrl, emptyMap())
+                    }
+
+                    else -> return null
+                }
+
+                val thumbnail = retriever.getFrameAtTime(1000000,
+                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                retriever.release()
+                thumbnail
+            } catch (e: Exception) {
+                null
+            }
+        }
+
         fun updateEncryptionKey(newKey: String) {
             encryptionKey = newKey
-            currentFileMessage?.let {
-                binding.encryptionIndicator.visibility = if (it.isEncrypted) View.VISIBLE else View.GONE
+            currentFileMessage?.let { fileMessage ->
+                if (fileMessage.isEncrypted) {
+                    when (fileMessage.fileCategory) {
+                        FileManager.FileType.IMAGE -> {
+                            loadImageThumbnail(fileMessage)
+                        }
+                        FileManager.FileType.VIDEO -> {
+                            loadVideoThumbnail(fileMessage)
+                        }
+                        else -> {}
+                    }
+                }
             }
         }
+
         fun clear() {
-            binding.thumbnailImage.setImageDrawable(null)
-            binding.videoThumbnail.setImageDrawable(null)
+            Glide.with(binding.root.context).clear(binding.thumbnailImage)
+            Glide.with(binding.root.context).clear(binding.videoThumbnail)
             currentFileMessage = null
             currentMessageId = null
+        }
+
+        private fun formatFileName(fileName: String): String {
+            val maxLength = 16
+            if (fileName.length <= maxLength) {
+                return fileName
+            }
+            val lastDotIndex = fileName.lastIndexOf('.')
+            return if (lastDotIndex != -1 && lastDotIndex > 0) {
+                val name = fileName.substring(0, lastDotIndex)
+                val extension = fileName.substring(lastDotIndex + 1)
+                if (name.length > 6) {
+                    "${name.take(6)}...${name.takeLast(2)}.$extension"
+                } else {
+                    fileName
+                }
+            } else {
+                if (fileName.length > maxLength) {
+                    "${fileName.take(6)}...${fileName.takeLast(2)}"
+                } else {
+                    fileName
+                }
+            }
+        }
+
+        private fun formatFileSize(size: Long): String {
+            return when {
+                size >= 1024 * 1024 -> String.format("%.1f МБ", size.toFloat() / (1024 * 1024))
+                size >= 1024 -> String.format("%.1f КБ", size.toFloat() / 1024)
+                else -> "$size Б"
+            }
         }
     }
     fun getFileMessageText(fileMessage: FileMessage): String {

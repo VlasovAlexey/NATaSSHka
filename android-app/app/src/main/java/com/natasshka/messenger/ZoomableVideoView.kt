@@ -46,6 +46,22 @@ class ZoomableVideoView @JvmOverloads constructor(
         setupView()
         setupGestureDetectors()
     }
+
+    private fun clearSurfaceTexture() {
+        try {
+            // Просто сбрасываем listener и очищаем ресурсы
+            textureView.surfaceTextureListener = null
+
+            // Очищаем трансформацию
+            matrix.reset()
+            textureView.setTransform(matrix)
+
+            Log.d(TAG, "Surface texture resources cleared")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing surface texture", e)
+        }
+    }
+
     private fun setupView() {
         textureView = TextureView(context).apply {
             layoutParams = LayoutParams(
@@ -112,24 +128,48 @@ class ZoomableVideoView @JvmOverloads constructor(
     private fun prepareMediaPlayer(uri: Uri) {
         try {
             mediaPlayer = MediaPlayer().apply {
+                // ОТКЛЮЧЕНИЕ КЭШИРОВАНИЯ:
+                // 1. Сначала устанавливаем источник данных
+                Log.d(TAG, "Setting data source from URI: $uri")
+                setDataSource(context, uri)
+
+                // 2. Теперь настраиваем параметры (ПОСЛЕ setDataSource!)
+                setAudioStreamType(android.media.AudioManager.STREAM_MUSIC)
+                setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT)
+
+                // 3. Отключение кэширования буферов - минимальный буфер
+                setOnBufferingUpdateListener { mp, percent ->
+                    // Только логирование, без кэширования
+                    Log.d(TAG, "Buffering: $percent% (no caching)")
+                }
+
+                // 4. Слушатели остаются без изменений
                 setOnPreparedListener { mp ->
                     Log.d(TAG, "✅ Media prepared successfully, duration: ${mp.duration}ms")
                     this@ZoomableVideoView.isPrepared = true
                     hasError = false
                     this@ZoomableVideoView.hasVideo = mp.videoWidth > 0 && mp.videoHeight > 0
+
                     if (this@ZoomableVideoView.hasVideo) {
                         this@ZoomableVideoView.videoWidth = mp.videoWidth
                         this@ZoomableVideoView.videoHeight = mp.videoHeight
                         Log.d(TAG, "Video dimensions: ${mp.videoWidth}x${mp.videoHeight}")
+
                         textureView.visibility = View.VISIBLE
                         audioPlaceholder.visibility = View.GONE
+
                         textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                             override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
                                 Log.d(TAG, "✅ Surface texture available: ${width}x${height}")
                                 this@ZoomableVideoView.surfaceWidth = width
                                 this@ZoomableVideoView.surfaceHeight = height
+
+                                // Устанавливаем поверхность
                                 mp.setSurface(android.view.Surface(surface))
+
+                                // Обновляем трансформацию
                                 this@ZoomableVideoView.updateVideoTransform()
+
                                 try {
                                     if (this@ZoomableVideoView.isPrepared) {
                                         mp.start()
@@ -140,40 +180,56 @@ class ZoomableVideoView @JvmOverloads constructor(
                                     Log.e(TAG, "❌ Error starting video: ${e.message}", e)
                                 }
                             }
+
                             override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
                                 Log.d(TAG, "Surface texture size changed: $width x $height")
                                 this@ZoomableVideoView.surfaceWidth = width
                                 this@ZoomableVideoView.surfaceHeight = height
                                 this@ZoomableVideoView.updateVideoTransform()
                             }
+
                             override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean {
                                 Log.d(TAG, "Surface texture destroyed")
                                 return true
                             }
+
                             override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) {
+                                // Без действий
                             }
                         }
+
+                        // Если TextureView уже доступен
                         if (textureView.isAvailable) {
                             Log.d(TAG, "TextureView already available, setting surface...")
                             this@ZoomableVideoView.surfaceWidth = textureView.width
                             this@ZoomableVideoView.surfaceHeight = textureView.height
-                            mp.setSurface(android.view.Surface(textureView.surfaceTexture))
-                            this@ZoomableVideoView.updateVideoTransform()
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                try {
-                                    mp.start()
-                                    this@ZoomableVideoView.isPlaying = true
-                                    Log.d(TAG, "✅ Video started playing (delayed)")
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "❌ Error starting delayed video: ${e.message}", e)
-                                }
-                            }, 100)
+
+                            // ИСПРАВЛЕНО: Проверяем что surfaceTexture не null
+                            val surfaceTexture = textureView.surfaceTexture
+                            if (surfaceTexture != null) {
+                                mp.setSurface(android.view.Surface(surfaceTexture))
+                                this@ZoomableVideoView.updateVideoTransform()
+
+                                Handler(Looper.getMainLooper()).postDelayed({
+                                    try {
+                                        mp.start()
+                                        this@ZoomableVideoView.isPlaying = true
+                                        Log.d(TAG, "✅ Video started playing (delayed)")
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "❌ Error starting delayed video: ${e.message}", e)
+                                    }
+                                }, 100)
+                            } else {
+                                Log.w(TAG, "⚠️ Surface texture is null, waiting for onSurfaceTextureAvailable")
+                            }
                         }
                     } else {
+                        // Аудио без видео
                         Log.d(TAG, "⚠️ No video track, showing audio placeholder")
                         textureView.visibility = View.GONE
                         audioPlaceholder.visibility = View.VISIBLE
                         updateAudioPlaceholderSize()
+
                         Handler(Looper.getMainLooper()).postDelayed({
                             try {
                                 mp.start()
@@ -185,6 +241,7 @@ class ZoomableVideoView @JvmOverloads constructor(
                         }, 100)
                     }
                 }
+
                 setOnCompletionListener {
                     Log.d(TAG, "Media completed")
                     if (this@ZoomableVideoView.isLooping && this@ZoomableVideoView.isPrepared) {
@@ -200,37 +257,57 @@ class ZoomableVideoView @JvmOverloads constructor(
                         Log.d(TAG, "Media stopped (not looping)")
                     }
                 }
+
                 setOnErrorListener { mp, what, extra ->
                     Log.e(TAG, "❌ MediaPlayer error: what=$what, extra=$extra")
                     this@ZoomableVideoView.isPrepared = false
                     this@ZoomableVideoView.hasError = true
                     this@ZoomableVideoView.onErrorCallback?.invoke("Ошибка воспроизведения видео")
+
+                    // Освобождение ресурсов при ошибке
+                    try {
+                        mp.reset()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error resetting media player on error", e)
+                    }
+
                     true
                 }
+
                 setOnInfoListener { mp, what, extra ->
                     when (what) {
                         MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START -> {
                             Log.d(TAG, "✅ Video rendering started")
                         }
                         MediaPlayer.MEDIA_INFO_BUFFERING_START -> {
-                            Log.d(TAG, "Buffering started")
+                            Log.d(TAG, "Buffering started (no cache)")
                         }
                         MediaPlayer.MEDIA_INFO_BUFFERING_END -> {
                             Log.d(TAG, "Buffering ended")
                         }
+                        MediaPlayer.MEDIA_INFO_NOT_SEEKABLE -> {
+                            Log.w(TAG, "⚠️ Video is not seekable")
+                        }
                     }
                     true
                 }
+
+                // Подготовка без кэширования
                 try {
-                    Log.d(TAG, "Setting data source...")
-                    setDataSource(context, uri)
-                    Log.d(TAG, "Preparing media player async...")
+                    Log.d(TAG, "Preparing media player async (no caching)...")
                     prepareAsync()
                 } catch (e: Exception) {
                     Log.e(TAG, "❌ Error setting data source: ${e.message}", e)
                     this@ZoomableVideoView.isPrepared = false
                     this@ZoomableVideoView.hasError = true
                     this@ZoomableVideoView.onErrorCallback?.invoke("Не удалось загрузить видео: ${e.message}")
+
+                    // Очистка при ошибке
+                    try {
+                        reset()
+                    } catch (e2: Exception) {
+                        Log.e(TAG, "Error resetting media player", e2)
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -350,6 +427,13 @@ class ZoomableVideoView @JvmOverloads constructor(
                 if (isPrepared && isPlaying) {
                     mp.stop()
                 }
+
+                // Сброс данных источника перед release
+                mp.reset()
+
+                // Очистка Surface
+                mp.setSurface(null)
+
                 mp.release()
                 Log.d(TAG, "Media player released")
             } catch (e: Exception) {
@@ -357,6 +441,10 @@ class ZoomableVideoView @JvmOverloads constructor(
             }
         }
         mediaPlayer = null
+
+        // Очистка TextureView
+        clearSurfaceTexture()
+
         isPlaying = false
         isPrepared = false
         videoWidth = 0
@@ -366,8 +454,14 @@ class ZoomableVideoView @JvmOverloads constructor(
         scaleFactor = 1.0f
         hasVideo = true
         hasError = false
+
+        // Сброс матрицы трансформации
+        matrix.reset()
+        textureView.setTransform(matrix)
+
         Log.d(TAG, "Media player state reset")
     }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!hasVideo || hasError) {
             gestureDetector.onTouchEvent(event)

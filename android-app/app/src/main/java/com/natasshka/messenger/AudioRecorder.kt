@@ -212,5 +212,14 @@ class AudioRecorder(private val activity: Activity) {
             stopNativeRecording()
         }
         resetRecorder()
+
+        // Удаление временного файла если он существует
+        currentAudioUri?.path?.let { path ->
+            val file = File(path)
+            if (file.exists()) {
+                file.delete()
+            }
+        }
+        currentAudioUri = null
     }
 }
