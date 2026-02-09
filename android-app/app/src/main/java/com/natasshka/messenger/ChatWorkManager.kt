@@ -21,7 +21,7 @@ class ChatWorkManager(context: Context, params: WorkerParameters) :
         }
     }
     private suspend fun checkChatConnection() {
-        delay(5000)
+        delay(1000)
     }
     companion object {
         private const val WORK_NAME = "chat_background_work"

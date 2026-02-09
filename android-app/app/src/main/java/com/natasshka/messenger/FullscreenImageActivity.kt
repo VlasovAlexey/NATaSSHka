@@ -99,22 +99,6 @@ class FullscreenImageActivity : AppCompatActivity() {
             }
         }
     }
-    private fun loadImageFromPath(imagePath: String?) {
-        if (imagePath.isNullOrEmpty()) {
-            showError("Путь к изображению не указан")
-            return
-        }
-        val imageFile = File(imagePath)
-        if (!imageFile.exists()) {
-            showError("Файл не найден: $imagePath")
-            return
-        }
-        Glide.with(this)
-            .load(imageFile)
-            .transition(DrawableTransitionOptions.withCrossFade(300))
-            .into(binding.fullscreenImageView)
-        hideProgress()
-    }
     private fun loadImageFromBase64(imageBase64: String?) {
         if (imageBase64.isNullOrEmpty()) {
             showError("Данные изображения отсутствуют")

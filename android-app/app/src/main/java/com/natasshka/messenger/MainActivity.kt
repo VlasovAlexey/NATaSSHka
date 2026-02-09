@@ -1,4 +1,5 @@
 package com.natasshka.messenger
+
 import android.Manifest
 import android.app.Activity
 import android.app.Application
@@ -52,7 +53,9 @@ import java.net.URL
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.OnLifecycleEvent
+
 class MainActivity : AppCompatActivity() {
+
     private lateinit var binding: ActivityMainBinding
     private lateinit var messagesAdapter: MessagesAdapter
     private var socket: Socket? = null
@@ -78,6 +81,8 @@ class MainActivity : AppCompatActivity() {
     private val recordingUpdateInterval = 100L
     private var recordedAudioUri: Uri? = null
     private val temporarilyRemovedMessages = mutableMapOf<String, ChatMessage>()
+
+
     private val directoryPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -791,7 +796,7 @@ class MainActivity : AppCompatActivity() {
     }
     private fun openImageFullscreen(fileMessage: FileMessage) {
         val intent = Intent(this, FullscreenImageActivity::class.java).apply {
-            val server = getIntent().getStringExtra("server") ?: "http://10.0.2.2:3000"
+            val server = getIntent().getStringExtra("server") ?: ServerConfig.getDefaultServer()
             when {
                 fileMessage.localPath != null -> {
                     putExtra(FullscreenImageActivity.EXTRA_IMAGE_PATH, fileMessage.localPath)
@@ -823,7 +828,7 @@ class MainActivity : AppCompatActivity() {
     }
     private fun openVideoFullscreen(fileMessage: FileMessage) {
         val intent = Intent(this, FullscreenVideoActivity::class.java).apply {
-            val server = getIntent().getStringExtra("server") ?: "http://10.0.2.2:3000"
+            val server = getIntent().getStringExtra("server") ?: ServerConfig.getDefaultServer()
             when {
                 fileMessage.localPath != null -> {
                     putExtra(FullscreenVideoActivity.EXTRA_VIDEO_PATH, fileMessage.localPath)
@@ -922,25 +927,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    private fun showStoragePermissionDialog(fileMessage: FileMessage) {
-        AlertDialog.Builder(this)
-            .setTitle("Разрешение на запись")
-            .setMessage("Для сохранения файлов в папку Download необходимо разрешение на запись в хранилище")
-            .setPositiveButton("Предоставить") { dialog, _ ->
-                dialog.dismiss()
-                ActivityCompat.requestPermissions(
-                    this@MainActivity,
-                    arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                    PERMISSION_REQUEST_STORAGE
-                )
-                pendingFileDownload = fileMessage
-            }
-            .setNegativeButton("Отмена") { dialog, _ ->
-                dialog.dismiss()
-                Toast.makeText(this, "Файл не будет сохранен", Toast.LENGTH_SHORT).show()
-            }
-            .show()
-    }
     private var pendingFileDownload: FileMessage? = null
     private fun startFileDownload(fileMessage: FileMessage) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -1010,7 +996,7 @@ class MainActivity : AppCompatActivity() {
             var fileUrl = fileMessage.fileUrl
             Log.d("MainActivity", "Скачивание файла: ${fileMessage.fileName}, зашифрован: ${fileMessage.isEncrypted}")
             if (fileUrl != null && !fileUrl.startsWith("http://") && !fileUrl.startsWith("https://")) {
-                val server = intent.getStringExtra("server") ?: "http://10.0.2.2:3000"
+                val server = intent.getStringExtra("server") ?: ServerConfig.getDefaultServer()
                 if (fileUrl.startsWith("/")) {
                     fileUrl = server + fileUrl
                 } else {
@@ -1044,51 +1030,7 @@ class MainActivity : AppCompatActivity() {
             throw e
         }
     }
-    private fun fixFileUrl(fileUrl: String?): String? {
-        if (fileUrl == null) return null
-        if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
-            return fileUrl
-        }
-        val server = intent.getStringExtra("server") ?: "http://10.0.2.2:3000"
-        val cleanUrl = if (fileUrl.startsWith("/")) fileUrl.substring(1) else fileUrl
-        return "$server/$cleanUrl"
-    }
-    private fun requestFileFromServer(fileMessage: FileMessage) {
-        val requestData = JSONObject().apply {
-            put("fileId", fileMessage.id)
-            put("messageId", fileMessage.messageId)
-        }
-        socket?.emit("request-file", requestData, io.socket.client.Ack { args ->
-            runOnUiThread {
-                if (args.isNotEmpty() && args[0] is JSONObject) {
-                    val response = args[0] as JSONObject
-                    if (response.has("fileData")) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                val savedFile = fileManager.saveReceivedFile(
-                                    response.getString("fileData"),
-                                    fileMessage.fileName,
-                                    fileMessage.isEncrypted,
-                                    encryptionKey
-                                )
-                                runOnUiThread {
-                                    updateFileMessagePath(fileMessage.id, savedFile.absolutePath)
-                                }
-                            } catch (e: Exception) {
-                                Log.e("MainActivity", "Ошибка сохранения файла: ${e.message}")
-                            }
-                        }
-                    }
-                }
-            }
-        })
-    }
-    private fun updateFileMessagePath(fileId: String, localPath: String) {
-        runOnUiThread {
-            messagesAdapter.notifyDataSetChanged()
-            Log.d("MainActivity", "Файл сохранен по пути: $localPath для fileId: $fileId")
-        }
-    }
+
     private fun setupEncryptionKeyField() {
         binding.encryptionKeyInput.setOnTouchListener { v, event ->
             val drawableEnd = 2
@@ -1159,7 +1101,7 @@ class MainActivity : AppCompatActivity() {
         scrollToBottom()
     }
     private fun setupUI() {
-        val serverUrl = intent.getStringExtra("server") ?: "http://10.0.2.2:3000"
+        val serverUrl = intent.getStringExtra("server") ?: ServerConfig.getDefaultServer()
         messagesAdapter = MessagesAdapter(
             onFileClickListener = { fileMessage ->
                 onFileClicked(fileMessage)
@@ -1725,7 +1667,7 @@ class MainActivity : AppCompatActivity() {
     private fun connectToServer(username: String, room: String, password: String) {
         try {
             Log.d("MainActivity", "Connecting to server...")
-            val server = intent.getStringExtra("server") ?: "http://10.0.2.2:3000"
+            val server = intent.getStringExtra("server") ?: ServerConfig.getDefaultServer()
             Log.d("MainActivity", "Server URL: $server")
             val options = IO.Options().apply {
                 transports = arrayOf("websocket", "polling")

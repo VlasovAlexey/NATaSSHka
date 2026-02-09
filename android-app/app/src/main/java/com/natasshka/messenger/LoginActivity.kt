@@ -62,6 +62,7 @@ class LoginActivity : AppCompatActivity() {
         checkSavedServer()
         requestPermissions()
     }
+
     private fun findViews() {
         serverLayout = findViewById(R.id.serverLayout)
         serverInput = findViewById(R.id.serverInput)
