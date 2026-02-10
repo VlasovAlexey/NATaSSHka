@@ -47,6 +47,8 @@ import com.natasshka.messenger.FullscreenVideoActivity
 import android.content.ActivityNotFoundException
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import androidx.core.app.ActivityCompat
 import java.net.URL
 
@@ -82,6 +84,7 @@ class MainActivity : AppCompatActivity() {
     private var recordedAudioUri: Uri? = null
     private val temporarilyRemovedMessages = mutableMapOf<String, ChatMessage>()
 
+    private lateinit var usersAdapter: UsersAdapter
 
     private val directoryPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -1114,7 +1117,28 @@ class MainActivity : AppCompatActivity() {
             },
             serverBaseUrl = serverUrl,
             context = this
+
         )
+
+        usersAdapter = UsersAdapter()
+        binding.usersRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = usersAdapter
+        }
+
+        binding.messagesRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = messagesAdapter
+        }
+
+        setupMessageInput()
+        // Инициализация адаптера пользователей
+        usersAdapter = UsersAdapter()
+        binding.usersRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = usersAdapter
+        }
+
         binding.messagesRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = messagesAdapter
@@ -1123,6 +1147,20 @@ class MainActivity : AppCompatActivity() {
         setupEncryptionKeyField()
         binding.sidebarToggleBtn.setOnClickListener {
             toggleSidebar()
+        }
+        binding.root.setOnClickListener {
+            if (binding.sidebar.visibility == View.VISIBLE) {
+                toggleSidebar()
+            }
+        }
+        binding.sidebar.setOnClickListener {
+            // Ничего не делаем - предотвращаем всплытие клика
+        }
+        // Также добавьте обработку для messagesRecyclerView
+        binding.messagesRecyclerView.setOnClickListener {
+            if (binding.sidebar.visibility == View.VISIBLE) {
+                toggleSidebar()
+            }
         }
         binding.sendMessageBtn.setOnClickListener {
             sendMessage()
@@ -1767,6 +1805,11 @@ class MainActivity : AppCompatActivity() {
                         Log.d("MainActivity", "User $joinedUser joined room $joinedRoom")
                         binding.sidebarHeader.text = "Комната: $joinedRoom"
                         binding.userInfo.text = "✪ $username"
+
+                        if (data.has("users")) {
+                            updateUsersList(data.getJSONArray("users"))
+                        }
+
                         if (data.has("messageHistory")) {
                             val messageHistory = data.getJSONArray("messageHistory")
                             Log.d("MainActivity", "Загружаем историю сообщений: ${messageHistory.length()} сообщений")
@@ -2264,9 +2307,15 @@ class MainActivity : AppCompatActivity() {
             val user = users.getJSONObject(i)
             usersList.add(user.getString("username"))
         }
+
         val usersCount = usersList.size
         binding.userInfo.text = "✪ $currentUser (всего: $usersCount)"
+
+        // Обновляем список пользователей в адаптере
+        usersAdapter.updateUsers(usersList)
     }
+
+
     private fun parseTimestamp(timestamp: String): String {
         return try {
             val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
@@ -2290,10 +2339,33 @@ class MainActivity : AppCompatActivity() {
     }
     private fun toggleSidebar() {
         val sidebar = binding.sidebar
+        val toggleBtn = binding.sidebarToggleBtn
+
         if (sidebar.visibility == View.VISIBLE) {
-            sidebar.visibility = View.GONE
+            // Закрываем боковую панель (движение влево за пределы экрана)
+            sidebar.animate()
+                .translationX(-sidebar.width.toFloat())
+                .setDuration(300)
+                .setInterpolator(AccelerateInterpolator())
+                .withEndAction {
+                    sidebar.visibility = View.GONE
+                }
+                .start()
+
+            // Возвращаем стрелку вправо
+            toggleBtn.rotationY = 0f
         } else {
+            // Открываем боковую панель (движение справа налево)
+            sidebar.translationX = -sidebar.width.toFloat()
             sidebar.visibility = View.VISIBLE
+            sidebar.animate()
+                .translationX(0f)
+                .setDuration(300)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+
+            // Отражаем стрелку влево (зеркально)
+            toggleBtn.rotationY = 180f
         }
     }
     private fun showKeyboard() {

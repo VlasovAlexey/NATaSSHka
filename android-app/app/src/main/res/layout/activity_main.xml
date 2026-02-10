@@ -116,16 +116,6 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <!-- Кнопка прикрепления файла -->
-        <ImageButton
-            android:id="@+id/attachFileBtn"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_attach"
-            android:scaleType="center"
-            android:contentDescription="Прикрепить файл" />
-
         <!-- Поле ввода сообщения -->
         <EditText
             android:id="@+id/messageInput"
@@ -147,7 +137,7 @@
             android:textColorHint="@color/input_text_light"
             android:textCursorDrawable="@drawable/cursor_color" />
 
-        <!-- Контейнер для кнопок записи -->
+        <!-- Контейнер для кнопок записи и прикрепления файла -->
         <LinearLayout
             android:id="@+id/recordButtonsContainer"
             android:layout_width="wrap_content"
@@ -175,6 +165,16 @@
                 android:scaleType="center"
                 android:contentDescription="Запись видео" />
 
+            <!-- Кнопка прикрепления файла (теперь в этом контейнере) -->
+            <ImageButton
+                android:id="@+id/attachFileBtn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_attach"
+                android:scaleType="center"
+                android:contentDescription="Прикрепить файл" />
+
         </LinearLayout>
 
         <!-- Кнопка отправки сообщения -->
@@ -189,19 +189,19 @@
             android:visibility="gone" />
 
     </LinearLayout>
-
-    <!-- Боковая панель (теперь появляется поверх) -->
+    <!-- Боковая панель (теперь появляется слева) -->
     <LinearLayout
         android:id="@+id/sidebar"
         android:layout_width="280dp"
         android:layout_height="0dp"
         android:orientation="vertical"
         android:background="@color/white"
-        android:elevation="16dp"
+
         android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        android:translationX="-280dp"
+        app:layout_constraintBottom_toTopOf="@id/messageInputContainer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topBar">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -243,13 +243,16 @@
             android:paddingEnd="16dp"
             android:paddingBottom="8dp" />
 
+        <!-- RecyclerView для списка пользователей -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/usersRecyclerView"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:padding="16dp"
-            tools:listitem="@android:layout/simple_list_item_1" />
+            android:paddingHorizontal="16dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="16dp"
+            tools:listitem="@layout/item_user" />
 
     </LinearLayout>
     <LinearLayout
